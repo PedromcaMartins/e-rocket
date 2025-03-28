@@ -1,0 +1,21 @@
+# mprocs.yaml
+procs:
+  MicroXRCEAgent: 
+    shell: "sudo MicroXRCEAgent serial --dev /dev/ttyACM0 -b 921600"
+    autostart: true
+    stop: SIGINT
+
+  Colcon_Build:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build"
+    autostart: true
+    stop: SIGINT
+
+  Sensor_Combined:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_com sensor_combined.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  ROS_Setup:
+    shell: /bin/bash --rcfile "source /opt/ros/humble/setup.bash && source install/local_setup.bash"
+    autostart: true
+    stop: SIGINT

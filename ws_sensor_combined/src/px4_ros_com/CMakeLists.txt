@@ -55,55 +55,10 @@ add_executable(offboard_control src/demos/offboard_control.cpp)
 ament_target_dependencies(offboard_control rclcpp px4_msgs)
 install(TARGETS offboard_control DESTINATION lib/${PROJECT_NAME})
 
-# demos/sensor_accel
-add_executable(sensor_accel src/demos/sensor_accel.cpp)
-ament_target_dependencies(sensor_accel rclcpp px4_msgs)
-install(TARGETS sensor_accel DESTINATION lib/${PROJECT_NAME})
-
-# demos/sensor_baro
-add_executable(sensor_baro src/demos/sensor_baro.cpp)
-ament_target_dependencies(sensor_baro rclcpp px4_msgs)
-install(TARGETS sensor_baro DESTINATION lib/${PROJECT_NAME})
-
 # demos/sensor_combined
 add_executable(sensor_combined src/demos/sensor_combined.cpp)
 ament_target_dependencies(sensor_combined rclcpp px4_msgs)
 install(TARGETS sensor_combined DESTINATION lib/${PROJECT_NAME})
-
-# demos/sensor_gps
-add_executable(sensor_gps src/demos/sensor_gps.cpp)
-ament_target_dependencies(sensor_gps rclcpp px4_msgs)
-install(TARGETS sensor_gps DESTINATION lib/${PROJECT_NAME})
-
-# demos/sensor_gyro
-add_executable(sensor_gyro src/demos/sensor_gyro.cpp)
-ament_target_dependencies(sensor_gyro rclcpp px4_msgs)
-install(TARGETS sensor_gyro DESTINATION lib/${PROJECT_NAME})
-
-# demos/sensor_mag
-add_executable(sensor_mag src/demos/sensor_mag.cpp)
-ament_target_dependencies(sensor_mag rclcpp px4_msgs)
-install(TARGETS sensor_mag DESTINATION lib/${PROJECT_NAME})
-
-# demos/vehicle_angular_velocity
-add_executable(vehicle_angular_velocity src/demos/vehicle_angular_velocity.cpp)
-ament_target_dependencies(vehicle_angular_velocity rclcpp px4_msgs)
-install(TARGETS vehicle_angular_velocity DESTINATION lib/${PROJECT_NAME})
-
-# demos/vehicle_attitude
-add_executable(vehicle_attitude src/demos/vehicle_attitude.cpp)
-ament_target_dependencies(vehicle_attitude rclcpp px4_msgs)
-install(TARGETS vehicle_attitude DESTINATION lib/${PROJECT_NAME})
-
-# demos/vehicle_global_position
-add_executable(vehicle_global_position src/demos/vehicle_global_position.cpp)
-ament_target_dependencies(vehicle_global_position rclcpp px4_msgs)
-install(TARGETS vehicle_global_position DESTINATION lib/${PROJECT_NAME})
-
-# demos/vehicle_local_position
-add_executable(vehicle_local_position src/demos/vehicle_local_position.cpp)
-ament_target_dependencies(vehicle_local_position rclcpp px4_msgs)
-install(TARGETS vehicle_local_position DESTINATION lib/${PROJECT_NAME})
 
 ############
 # Install ##

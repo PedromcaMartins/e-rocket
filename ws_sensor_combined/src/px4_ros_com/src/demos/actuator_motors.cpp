@@ -110,17 +110,20 @@ void DemoActuatorMotors::publish_actuator_motors()
 	ActuatorMotors msg{};
 
 	// Generate sinusoidal values for actuator positions
-	for (int i = 0; i < 8; ++i) {
-		msg.control[i] = 0.5 * (1.0 + sin(time + i * M_PI / 4)); // Sinusoidal wave between 0 and 1
+	for (int i = 0; i < 12; ++i) {
+		msg.control[i] = 0.25 * (1.0 + sin(time + i * M_PI / 4)); // Sinusoidal wave between 0 and 0.5
 	}
 
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
 	actuator_motors_publisher_->publish(msg);
-	RCLCPP_DEBUG(this->get_logger(), "Actuator Motors: %f", msg.control[0]);
 
 	time += 0.1; // Increment time for the next wave
 }
 
+/**
+ * @brief Publish the vehicle control mode.
+ *        For this example, we are setting the vehicle to offboard mode.
+ */
 void DemoActuatorMotors::publish_vehicle_control_mode()
 {
 	VehicleControlMode msg{};

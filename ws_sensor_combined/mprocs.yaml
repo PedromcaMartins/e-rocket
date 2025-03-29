@@ -10,9 +10,19 @@ procs:
     autostart: true
     stop: SIGINT
 
+  Actuator_Motors:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_com actuator_motors.launch.py"
+    autostart: false
+    stop: SIGINT
+
   Sensor_Combined:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_com sensor_combined.launch.py"
     autostart: false
+    stop: SIGINT
+
+  Plot_Juggler:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 run plotjuggler plotjuggler"
+    autostart: true
     stop: SIGINT
 
   ROS_Setup:

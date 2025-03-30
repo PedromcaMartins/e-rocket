@@ -30,8 +30,6 @@ class DemoActuatorMotors : public rclcpp::Node
 				// PX4 will switch out of offboard mode if the stream rate of 
 				// OffboardControlMode messages drops below approximately 2Hz
 				publish_offboard_control_mode();
-				// Always has to be paired with actuator_motors
-				publish_actuator_motors();
 
 				// PX4 requires that the vehicle is already receiving OffboardControlMode messages 
 				// before it will arm in offboard mode, 
@@ -41,6 +39,10 @@ class DemoActuatorMotors : public rclcpp::Node
 					this->publish_vehicle_command(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
 					RCLCPP_INFO(this->get_logger(), "Offboard mode command send");
 
+					// Confirm that we are in offboard mode
+					is_offboard_mode_ = true;
+					RCLCPP_INFO(this->get_logger(), "Offboard mode confirmed");
+
 					// Arm the vehicle
 					this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 1.0);
 					RCLCPP_INFO(this->get_logger(), "Arm command send");
@@ -48,6 +50,10 @@ class DemoActuatorMotors : public rclcpp::Node
 					// change the vehicle control mode
 					this->publish_vehicle_control_mode();
 					RCLCPP_INFO(this->get_logger(), "Vehicle control mode command send");
+				}
+
+				if (is_offboard_mode_) {
+					publish_actuator_motors();
 				}
 
 				// disarm the vehicle
@@ -59,6 +65,9 @@ class DemoActuatorMotors : public rclcpp::Node
 					// change to Manual mode
 					this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 1);
 					RCLCPP_INFO(this->get_logger(), "Manual mode command send");
+
+					is_offboard_mode_ = false;
+					RCLCPP_INFO(this->get_logger(), "Offboard mode disabled");
 				}
 				offboard_setpoint_counter_++;
 			};
@@ -75,6 +84,8 @@ class DemoActuatorMotors : public rclcpp::Node
 		rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
 
 		uint64_t offboard_setpoint_counter_;   //!< counter for the number of setpoints sent
+
+		bool is_offboard_mode_ = false;
 
 		void publish_offboard_control_mode();
 		void publish_actuator_motors();
@@ -111,7 +122,7 @@ void DemoActuatorMotors::publish_actuator_motors()
 
 	// Generate sinusoidal values for actuator positions
 	for (int i = 0; i < 12; ++i) {
-		msg.control[i] = 0.25 * (1.0 + sin(time + i * M_PI / 4)); // Sinusoidal wave between 0 and 0.5
+		msg.control[i] = 0.075 * (1.0 + sin(time)); // Sinusoidal wave between 0 and 0.15
 	}
 
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;

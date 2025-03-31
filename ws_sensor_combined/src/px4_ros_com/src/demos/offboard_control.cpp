@@ -1,4 +1,5 @@
 #include <rclcpp/rclcpp.hpp>
+#include <px4_msgs/msg/actuator_motors.hpp>
 #include <px4_msgs/msg/actuator_servos.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
 #include <px4_msgs/msg/offboard_control_mode.hpp>
@@ -19,111 +20,113 @@ struct Quaternion {
  */
 class OffboardControl : public rclcpp::Node
 {
-	public:
-		explicit OffboardControl() : Node("offboard_control")
-		{
-			RCLCPP_INFO(this->get_logger(), "actuator_servos!");
+public:
+	explicit OffboardControl() : Node("offboard_control")
+	{
+		actuator_motors_publisher_ = this->create_publisher<ActuatorMotors>("/fmu/in/actuator_motors", 10);
+		actuator_servos_publisher_ = this->create_publisher<ActuatorServos>("/fmu/in/actuator_servos", 10);
+		vehicle_command_publisher_ = this->create_publisher<VehicleCommand>("/fmu/in/vehicle_command", 10);
+		offboard_control_mode_publisher_ = this->create_publisher<OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
+		vehicle_control_mode_publisher_ = this->create_publisher<VehicleControlMode>("/fmu/in/vehicle_control_mode", 10);
 
-			actuator_servos_publisher_ = this->create_publisher<ActuatorServos>("/fmu/in/actuator_servos", 10);
-			vehicle_command_publisher_ = this->create_publisher<VehicleCommand>("/fmu/in/vehicle_command", 10);
-			offboard_control_mode_publisher_ = this->create_publisher<OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
-			vehicle_control_mode_publisher_ = this->create_publisher<VehicleControlMode>("/fmu/in/vehicle_control_mode", 10);
+		roll_.store(0.0, std::memory_order_relaxed);
+		pitch_.store(0.0, std::memory_order_relaxed);
 
-			roll_.store(0.0, std::memory_order_relaxed);
-			pitch_.store(0.0, std::memory_order_relaxed);
-	
-			rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
-			auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
-	
-			vehicle_attitude_subscription_ = this->create_subscription<VehicleAttitude>("/fmu/out/vehicle_attitude", qos,
-				[this](const VehicleAttitude::SharedPtr msg) {
-					// Process the vehicle attitude message
-					Quaternion q;
-					q.w = msg->q[0];
-					q.x = msg->q[1];
-					q.y = msg->q[2];
-					q.z = msg->q[3];
-	
-					float roll, pitch, yaw;
-					quaternionToEuler(q, roll, pitch, yaw);
-	
-					// Map roll and pitch from [-90, 90] to [-1, 1] but constrained to [-0.75, 0.75]
-					roll_.store(std::max(-0.75f, std::min(0.75f, roll / 90.0f)), std::memory_order_relaxed);
-					pitch_.store(std::max(-0.75f, std::min(0.75f, pitch / 90.0f)), std::memory_order_relaxed);
+		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
+		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
-					if (is_offboard_mode_) {
-						publish_actuator_servos();
-					}
+		vehicle_attitude_subscription_ = this->create_subscription<VehicleAttitude>("/fmu/out/vehicle_attitude", qos,
+			[this](const VehicleAttitude::SharedPtr msg) {
+				// Process the vehicle attitude message
+				Quaternion q;
+				q.w = msg->q[0];
+				q.x = msg->q[1];
+				q.y = msg->q[2];
+				q.z = msg->q[3];
+
+				float roll, pitch, yaw;
+				quaternionToEuler(q, roll, pitch, yaw);
+
+				// Map roll and pitch from [-90, 90] to [-1, 1] but constrained to [-0.75, 0.75]
+				roll_.store(std::max(-0.75f, std::min(0.75f, roll / 90.0f)), std::memory_order_relaxed);
+				pitch_.store(std::max(-0.75f, std::min(0.75f, pitch / 90.0f)), std::memory_order_relaxed);
+
+				if (is_offboard_mode_) {
+					publish_actuator_servos();
+					publish_actuator_motors();
 				}
-			);
+			}
+		);
 
-			auto timer_callback = [this]() -> void {
-				// PX4 will switch out of offboard mode if the stream rate of 
-				// OffboardControlMode messages drops below approximately 2Hz
-				publish_offboard_control_mode();
+		auto timer_callback = [this]() -> void {
+			// PX4 will switch out of offboard mode if the stream rate of 
+			// OffboardControlMode messages drops below approximately 2Hz
+			publish_offboard_control_mode();
 
-				// PX4 requires that the vehicle is already receiving OffboardControlMode messages 
-				// before it will arm in offboard mode, 
-				// or before it will switch to offboard mode when flying
-				if (offboard_setpoint_counter_ == 15) {
-					// Change to Offboard mode
-					this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
-					RCLCPP_INFO(this->get_logger(), "Offboard mode command send");
+			// PX4 requires that the vehicle is already receiving OffboardControlMode messages 
+			// before it will arm in offboard mode, 
+			// or before it will switch to offboard mode when flying
+			if (offboard_setpoint_counter_ == 15) {
+				// Change to Offboard mode
+				this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
+				RCLCPP_INFO(this->get_logger(), "Offboard mode command send");
 
-					// Confirm that we are in offboard mode
-					is_offboard_mode_ = true;
-					RCLCPP_INFO(this->get_logger(), "Offboard mode confirmed");
+				// Confirm that we are in offboard mode
+				is_offboard_mode_ = true;
+				RCLCPP_INFO(this->get_logger(), "Offboard mode confirmed");
 
-					// Arm the vehicle
-					this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 1.0);
-					RCLCPP_INFO(this->get_logger(), "Arm command send");
+				// Arm the vehicle
+				this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 1.0);
+				RCLCPP_INFO(this->get_logger(), "Arm command send");
 
-					// change the vehicle control mode
-					this->publish_vehicle_control_mode();
-					RCLCPP_INFO(this->get_logger(), "Vehicle control mode command send");
-				}
+				// change the vehicle control mode
+				this->publish_vehicle_control_mode();
+				RCLCPP_INFO(this->get_logger(), "Vehicle control mode command send");
+			}
 
-				// disarm the vehicle
-				if (offboard_setpoint_counter_ == 300) {
-					// Disarm the vehicle
-					this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0);
-					RCLCPP_INFO(this->get_logger(), "Disarm command send");
+			// disarm the vehicle
+			if (offboard_setpoint_counter_ == 300) {
+				// Disarm the vehicle
+				this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0);
+				RCLCPP_INFO(this->get_logger(), "Disarm command send");
 
-					// change to Manual mode
-					this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 1);
-					RCLCPP_INFO(this->get_logger(), "Manual mode command send");
+				// change to Manual mode
+				this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 1);
+				RCLCPP_INFO(this->get_logger(), "Manual mode command send");
 
-					is_offboard_mode_ = false;
-					RCLCPP_INFO(this->get_logger(), "Offboard mode disabled");
-				}
-				offboard_setpoint_counter_++;
-			};
+				is_offboard_mode_ = false;
+				RCLCPP_INFO(this->get_logger(), "Offboard mode disabled");
+			}
+			offboard_setpoint_counter_++;
+		};
 
-			timer_ = this->create_wall_timer(100ms, timer_callback);
-		}
+		timer_ = this->create_wall_timer(100ms, timer_callback);
+	}
 
-	private:
-		rclcpp::TimerBase::SharedPtr timer_;
+private:
+	rclcpp::TimerBase::SharedPtr timer_;
 
-		rclcpp::Publisher<ActuatorServos>::SharedPtr actuator_servos_publisher_;
-		rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
-		rclcpp::Publisher<OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
-		rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
-		rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscription_;
+	rclcpp::Publisher<ActuatorMotors>::SharedPtr actuator_motors_publisher_;
+	rclcpp::Publisher<ActuatorServos>::SharedPtr actuator_servos_publisher_;
+	rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
+	rclcpp::Publisher<OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
+	rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
+	rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscription_;
 
-		uint64_t offboard_setpoint_counter_ = 0;   //!< counter for the number of setpoints sent
+	uint64_t offboard_setpoint_counter_ = 0;   //!< counter for the number of setpoints sent
 
-		bool is_offboard_mode_ = false;
+	bool is_offboard_mode_ = false;
 
-		std::atomic<float> roll_;   //!< common synced roll position for servos
-		std::atomic<float> pitch_;   //!< common synced pitch position for servos
-	
-		void quaternionToEuler(const Quaternion& q, float& roll, float& pitch, float& yaw);
-		void publish_actuator_servos();
+	std::atomic<float> roll_;   //!< common synced roll position for servos
+	std::atomic<float> pitch_;   //!< common synced pitch position for servos
 
-		void publish_offboard_control_mode();
-		void publish_vehicle_control_mode();
-		void publish_vehicle_command(uint16_t command, float param1 = 0.0, float param2 = 0.0);
+	void quaternionToEuler(const Quaternion& q, float& roll, float& pitch, float& yaw);
+	void publish_actuator_servos();
+	void publish_actuator_motors();
+
+	void publish_offboard_control_mode();
+	void publish_vehicle_control_mode();
+	void publish_vehicle_command(uint16_t command, float param1 = 0.0, float param2 = 0.0);
 };
 
 void OffboardControl::quaternionToEuler(const Quaternion& q, float& roll, float& pitch, float& yaw) {
@@ -159,6 +162,35 @@ void OffboardControl::publish_actuator_servos()
 
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
 	actuator_servos_publisher_->publish(msg);
+
+	time += 0.1; // Increment time for the next wave
+}
+
+/**
+ * @brief Publish the actuator motors.
+ *        For this example, we are generating sinusoidal values for the actuator positions.
+ */
+void OffboardControl::publish_actuator_motors()
+{
+	static double time = 0.0;
+	ActuatorMotors msg{};
+
+	// Generate sinusoidal values for actuator positions
+	float value_1 = 0.05f * (sin(time / 10.0f)); // Sinusoidal wave between 0 and 0.10
+	float value_2 = -value_1;
+
+	if (value_1 < 0.0f) {
+		value_1 = NAN;
+	}
+	if (value_2 < 0.0f) {
+		value_2 = NAN;
+	}
+
+	msg.control[0] = value_1;
+	msg.control[1] = value_2;
+
+	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+	actuator_motors_publisher_->publish(msg);
 
 	time += 0.1; // Increment time for the next wave
 }

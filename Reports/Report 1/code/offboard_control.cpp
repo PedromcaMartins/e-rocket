@@ -74,9 +74,9 @@ public:
 				float roll, pitch, yaw;
 				quaternionToEuler(q, roll, pitch, yaw);
 
-				// Map roll and pitch from [-90, 90] to [-1, 1] but constrained to [-0.75, 0.75]
-				roll_.store(std::max(-0.75f, std::min(0.75f, roll / 90.0f)), std::memory_order_relaxed);
-				pitch_.store(std::max(-0.75f, std::min(0.75f, pitch / 90.0f)), std::memory_order_relaxed);
+				// Map roll and pitch from [-45, 45] to [-1, 1] constrained to [-1, 1]
+				roll_.store(std::max(-1.0f, std::min(1.0f, roll / 45.0f)), std::memory_order_relaxed);
+				pitch_.store(std::max(-1.0f, std::min(1.0f, pitch / 45.0f)), std::memory_order_relaxed);
 
 				if (is_offboard_mode_) {
 					publish_actuator_servos();

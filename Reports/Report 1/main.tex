@@ -299,7 +299,7 @@ In the code, the function is implemented as an anonymous function, but for conve
 Atomic variables are used for they are shared between threads, and need to be accessed in a thread-safe manner. 
 
 The servo control message accepts values in the range [-1, 1], -1 being the maximum negative position, and 1 the maximum positive\footnote{\url{https://docs.px4.io/main/en/msg_docs/ActuatorServos.html}}. 
-The roll and pitch values are mapped from the range [-90, 90] to [-1, 1], but constrained to [-0.75, 0.75]. 
+The roll and pitch values are mapped from the range [-45, 45] to [-1, 1], but constrained to [-1, 1]. 
 This is done to ensure that the values are within the range of the servos. \\
 
 If the vehicle is in offboard mode, the servo and motor messages are published. 
@@ -370,8 +370,35 @@ This architecture demonstrates that an offboard computer can successfully read P
 \clearpage
 \section{Results}
 
+The demo was successfully executed. It was recorded and is available in .
+% TODO! add link to video
+The following figures show the results of the demo. 
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{imgs/demo_quaternion.png}
+    \caption{Quaternion Components Over Time}
+    \label{fig:demo_quaternion}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{imgs/demo_servo_pwm.png}
+    \caption{Servos PWM Over Time}
+    \label{fig:demo_servo}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{imgs/demo_motor_pwm.png}
+    \caption{Motors PWM Over Time}
+    \label{fig:demo_motor}
+\end{figure}
+
+
 % mention that the message frequency might be adjustable... 
 % useful for this: https://docs.px4.io/main/en/concept/architecture.html#update-rates
+
 
 
 \clearpage
@@ -379,11 +406,14 @@ This architecture demonstrates that an offboard computer can successfully read P
 
 
 
+
+
 \clearpage
 \section{Appendix}
-\label{code::offboard_control.cpp}
 
+\label{code::offboard_control.cpp}
 \lstinputlisting[language=C++, caption=OffboardControl.cpp]{code/offboard_control.cpp}
+
 
 
 %%%%%%%%%%%%%

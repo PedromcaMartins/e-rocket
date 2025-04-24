@@ -66,11 +66,11 @@ public:
 			// PX4 requires that the vehicle is already receiving OffboardControlMode messages 
 			// before it will arm in offboard mode, 
 			// or before it will switch to offboard mode when flying
-			if (offboard_setpoint_counter_ == 15) {
+			if (timer_callback_iteration_ == 15) {
 				// Change to Offboard mode
 				this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
 				RCLCPP_INFO(this->get_logger(), "Offboard mode command send");
-
+				
 				// Confirm that we are in offboard mode
 				is_offboard_mode_ = true;
 				RCLCPP_INFO(this->get_logger(), "Offboard mode confirmed");
@@ -85,7 +85,7 @@ public:
 			}
 
 			// disarm the vehicle
-			if (offboard_setpoint_counter_ == 300) {
+			if (timer_callback_iteration_ == 300) {
 				// Disarm the vehicle
 				this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0);
 				RCLCPP_INFO(this->get_logger(), "Disarm command send");
@@ -97,7 +97,7 @@ public:
 				is_offboard_mode_ = false;
 				RCLCPP_INFO(this->get_logger(), "Offboard mode disabled");
 			}
-			offboard_setpoint_counter_++;
+			timer_callback_iteration_++;
 		};
 
 		timer_ = this->create_wall_timer(100ms, timer_callback);
@@ -113,7 +113,7 @@ private:
 	rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
 	rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscription_;
 
-	uint64_t offboard_setpoint_counter_ = 0;   //!< counter for the number of setpoints sent
+	uint64_t timer_callback_iteration_ = 0;   //!< counter for the number of setpoints sent
 
 	bool is_offboard_mode_ = false;
 

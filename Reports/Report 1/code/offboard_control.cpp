@@ -20,6 +20,33 @@ struct Quaternion {
  */
 class OffboardControl : public rclcpp::Node
 {
+private:
+	rclcpp::TimerBase::SharedPtr timer_;
+
+	//!< Publishers and Subscribers
+	rclcpp::Publisher<ActuatorMotors>::SharedPtr actuator_motors_publisher_;
+	rclcpp::Publisher<ActuatorServos>::SharedPtr actuator_servos_publisher_;
+	rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
+	rclcpp::Publisher<OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
+	rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
+	rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscription_;
+
+	uint64_t timer_callback_iteration_ = 0;   //!< counter for the number of setpoints sent
+
+	bool is_offboard_mode_ = false; //!< flag to check if the vehicle is in offboard mode
+
+	std::atomic<float> roll_;   //!< roll position for servos
+	std::atomic<float> pitch_;   //!< pitch position for servos
+
+	//!< Auxiliary functions
+	void quaternionToEuler(const Quaternion& q, float& roll, float& pitch, float& yaw);
+	void publish_actuator_servos();
+	void publish_actuator_motors();
+
+	void publish_offboard_control_mode();
+	void publish_vehicle_control_mode();
+	void publish_vehicle_command(uint16_t command, float param1 = 0.0, float param2 = 0.0);
+
 public:
 	explicit OffboardControl() : Node("offboard_control")
 	{
@@ -102,31 +129,6 @@ public:
 
 		timer_ = this->create_wall_timer(100ms, timer_callback);
 	}
-
-private:
-	rclcpp::TimerBase::SharedPtr timer_;
-
-	rclcpp::Publisher<ActuatorMotors>::SharedPtr actuator_motors_publisher_;
-	rclcpp::Publisher<ActuatorServos>::SharedPtr actuator_servos_publisher_;
-	rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
-	rclcpp::Publisher<OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
-	rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
-	rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscription_;
-
-	uint64_t timer_callback_iteration_ = 0;   //!< counter for the number of setpoints sent
-
-	bool is_offboard_mode_ = false;
-
-	std::atomic<float> roll_;   //!< common synced roll position for servos
-	std::atomic<float> pitch_;   //!< common synced pitch position for servos
-
-	void quaternionToEuler(const Quaternion& q, float& roll, float& pitch, float& yaw);
-	void publish_actuator_servos();
-	void publish_actuator_motors();
-
-	void publish_offboard_control_mode();
-	void publish_vehicle_control_mode();
-	void publish_vehicle_command(uint16_t command, float param1 = 0.0, float param2 = 0.0);
 };
 
 void OffboardControl::quaternionToEuler(const Quaternion& q, float& roll, float& pitch, float& yaw) {

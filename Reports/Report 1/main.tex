@@ -47,8 +47,8 @@ The drone is based on a Pixhawk running PX4 flight controller, which are hardwar
 It is equipped with a set of sensors\footnote{\url{https://docs.px4.io/main/en/getting_started/px4_basic_concepts.html\#sensors}}, including an inertial measurement unit (IMU) and a GPS. 
 The drone is also equipped with a set of actuators, including servos and motors, which are used to control the drone's attitude and thrust.
 
-In other to evaluate if the drone can be used to validate the control algorithms, the team needs to evaluate if we can access sensor data and directly control the servos and motors. 
-The team is considering the use of differential thrust, which is a technique used to control the attitude of a drone by varying the thrust of the motors. Meaning that the team needs to be able to control the motors independently of one another.
+In other to evaluate if the drone can be used to validate the control algorithms, the team needs to access sensor data and directly control the servos and motors. 
+The team is considering the use of differential thrust, which is a technique used to control the attitude of a drone by varying the thrust of the motors. Meaning that we would need to be able to control the motors independently of one another.
 
 The system has the following requirements: 
 \begin{itemize}
@@ -59,7 +59,8 @@ The system has the following requirements:
 \end{itemize}
 
 In the context of this report, we will tackle the first requirement. 
-To test if this is possible given the current setup, the team decided to start with a demonstration that read sensor data and used it to control the servos and motors. 
+
+
 
 \clearpage
 \label{sec::background}
@@ -82,38 +83,54 @@ The team decided to use an offboard computer, as it seemed simpler, faster and m
 
 PX4 uses uORB\footnote{\url{https://docs.px4.io/main/en/middleware/uorb.html}}, which is an asynchronous \verb|publish()| / \verb|subscribe()| messaging API used for inter-thread/inter-process communication. 
 This protocol allows communication between the modules in PX4, and is a key part of the PX4 architecture, allowing it to be modular and extensible. 
-
 The offboard computers send and receive messages from PX4 through a middleware connected to the uORB bus. 
 This allows the offboard computer to act as an internal module of PX4, and to use the same messages as the rest of the system. 
-In order to send and receive uORB messages from the offboard computer, PX4 supports the MAVLink and ROS2 interfaces\footnote{\url{https://docs.px4.io/main/en/robotics/}} (which uses Micro-XRCE-DDS as a middleware). 
+
+In order to send and receive uORB messages from the offboard computer, PX4 supports the MAVLink and ROS2 interfaces\footnote{\url{https://docs.px4.io/main/en/robotics/}} (which uses uXRCE-DDS as a middleware). 
 By default, some messages are not mapped through the MAVLink interface or ROS2, but this can be changed by modifying the PX4 firmware\footnote{\url{https://docs.px4.io/main/en/middleware/uorb.html\#adding-a-new-topic}}. 
-The PX4 firmware uses a mapping file to convert the uORB messages to Micro-XRCE-DDS, which is converted to ROS2 messages on the offboard computer\footnote{\url{https://docs.px4.io/main/en/middleware/uxrce_dds.html\#supported-uorb-messages}}. 
-The team chose to use ROS2 interface for its very powerful framework, and large ecosystem of packages and libraries. 
+The PX4 firmware uses a mapping file to convert the uORB messages to uXRCE-DDS, which is converted to ROS2 messages on the offboard computer\footnote{\url{https://docs.px4.io/main/en/middleware/uxrce_dds.html\#supported-uorb-messages}}. 
+The team chose to use ROS2 interface for its powerful framework and large ecosystem of packages and libraries. 
 % add paper to prove the power of ROS2
+
+The offboard computer can send messages to PX4 at any chosen rate. But the rate of receiving messages depends on the rate of messages sent by PX4. 
+It is possible to change some of the message rates in the PX4 firmware. 
+More on this in \url{https://docs.px4.io/main/en/concept/architecture.html\#update-rates}. 
 
 To validate if the demo works, the two options were to use a simulation (as it is used in PX4 offboard controller example\footnote{\url{https://docs.px4.io/main/en/ros2/offboard_control.html}}), or the actual hardware. 
 The team decided to validate the demo in the actual hardware, as we already had the vehicle hardware in hand, and as mentioned in section \ref{sec::background}, there's no native support for our drone in the simulation. 
 
-In the final product, the offboard computer should be aboard the drone but, for convenience, a laptop was used. 
-This should not affect the conclusions taken from this report, as both the laptop and the Raspberry Pi (used on the final product) use the same Operating Systems and packages. \\
+In the final product, the offboard computer should be aboard the drone but for convenience a laptop was used. 
+This should not affect the conclusions taken from this report, as both the laptop and the Raspberry Pi (used on the final product) use the same Operating Systems and packages. \\ 
 
-In summary, the objectives of this demonstration is to: 
+In summary, the objectives of this demonstration are to: 
 
 \begin{itemize}
     \item Use real hardware 
-    \item Control servo and motor PWM signals. 
-    \item Read sensor data, and be able to use it. 
+    \item Use ROS2 to control PX4
+    \item Read sensor data 
+    \item Send servo and motor PWM signals 
 \end{itemize}
 
-This demo was accomplished by using the assembled TVC mechanism, with 2 counter-rotating motors and 2 servos controlling pitch and roll, the PX4 software running on PixHawk 6c mini, and an offboard computer which in this case was a Laptop running Linux. 
+This demo was accomplished by using the assembled TVC mechanism, with 2 counter-rotating motors and 2 servos controlling the outer ring and inner beam, the PX4 software running on PixHawk 6c mini, and an offboard computer which in this case was a Laptop running Linux. 
 
 
 
 \clearpage
 \section{Architecture}
 
-%% insert software architecture image
-%% insert hardware architecture image
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{imgs/Software Diagram.jpg}
+    \caption{Software Architecture}
+    \label{fig:software_architecture}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{imgs/Hardware Diagram.png}
+    \caption{Hardware Block Diagram}
+    \label{fig:hardware_block_diagram}
+\end{figure}
 
 The system is composed of two main components: the PX4 flight controller and the offboard computer. 
 The PX4 flight controller is responsible for the hardware drivers, sensors readings, and position and attitude estimation. 
@@ -121,7 +138,7 @@ The offboard computer is responsible for using the sensor data to actuate the se
 
 \subsection{PX4}
 
-In order to control PX4, PX4's internal state machine mode has to change to offboard (\verb|VehicleCommand|).
+To enable offboard mode, PX4's internal state machine mode has to be changed to offboard (using \verb|VehicleCommand| Message).
 
 In addition, the offboard computer has to send a heartbeat message (\verb|OffboardControlMode|) to PX4 with a frequency of, at least, 2 Hz, so that it knows that the offboard computer is connected. Additionally, it enables offboard control only after receiving the signal for more than a second, and will regain control if the signal stops, which will switch to failsafe mode, currently configured to disarm the vehicle. This behaviour is part of PX4's safety features. 
 This is explain in greater detail in \url{https://docs.px4.io/main/en/flight_modes/offboard.html}. \\
@@ -132,7 +149,7 @@ Another message (\verb|VehicleControlMode|) has to be sent to disable (i.e. bypa
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{imgs/OffboardControlMode authority table.png}
-    \caption{OffboardControlMode Message Table}
+    \caption{OffboardControlMode Message Description}
     \label{fig:offboard_control_mode}
 \end{figure}
 
@@ -178,6 +195,7 @@ The demo workspace uses 3 packages:
 \end{itemize}
 
 
+
 \clearpage
 \section{Setup}
 
@@ -189,7 +207,7 @@ Most of these steps follow the official PX4 documentation, and are not specific 
 \subsubsection{Firmware}
 
 The first step when using hardware like PixHawk, which runs the PX4 software, is to flash the PX4 firmware. 
-The team chose the latest stable version, version %TODO: add version info! 
+The team chose the latest stable version, version v1.15.2\footnote{\url{https://github.com/PX4/PX4-Autopilot/releases/tag/v1.15.2}}. 
 
 \subsubsection{Airframe}
 
@@ -204,14 +222,12 @@ Instead, the team used the generic quadcopter frame\footnote{\url{https://docs.p
 The team always intends to control this system using the offboard computer. This means that the relative motor positions configured in the geometry, which are used for PX4 controller allocation don't need to be configured. Additionally, as mentioned in Section \ref{sec::background}, the PX4 existing controllers don't support the TVC mechanism, and by extension, our system. 
 
 \subsubsection{Actuator setup}
+Using a generic geometry, the 2 motors were configured to the outputs PWM AUX (FMU Board output) 3 and 4, and the 2 servos were configured to the outputs PWM MAIN (I/O Board output) 5 and 6. 
 
-Using a generic geometry, 2 motors were configured to the outputs FMU Aux 3 and 4, and 2 servos were configured to the outputs ... % TODO: add outputs (FMU aux, ...)
+Note that for controlling motors, PWM AUX outputs are preferred over the PWM MAIN outputs (as they have lower latency)\footnote{\url{https://docs.px4.io/main/en/config/actuators.html\#actuator-outputs}}. 
 
-Note that PWM AUX outputs are preferred over the PWM MAIN outputs for controlling motors (as they have lower latency)\footnote{\url{https://docs.px4.io/main/en/config/actuators.html\#actuator-outputs}}. 
-
-\subsubsection{Safety checks}
-
-...
+% \subsubsection{Safety checks}
+% TODO! Add stuff in this section :skull:
 % add link https://docs.px4.io/main/en/ros/offboard_control.html#enable-rc-override
 
 \subsubsection{uXRCE-DDS client setup}
@@ -230,9 +246,6 @@ The team followed the official tutorial, and configured the agent to connect to 
 
 The team followed the official tutorial, installing ROS2 humble edition on Ubuntu 20.04\footnote{\url{https://docs.px4.io/main/en/ros2/user_guide.html\#installation-setup}}. 
 
-\subsubsection{PX4 ROS2 messages}
-
-
 
 
 \clearpage
@@ -240,7 +253,7 @@ The team followed the official tutorial, installing ROS2 humble edition on Ubunt
 \label{sec::demo}
 
 This demo aligns the TVC mount with the vehicle's attitude, using the servos, and actuates the motors using a sinusoidal waveform out of sync (with the two motors). 
-This demo is heavily inspired by the PX4 ROS2 examples\footnote{\url{https://github.com/PX4/px4_ros_com}}. 
+This demo is heavily inspired by the official PX4 ROS2 examples\footnote{\url{https://github.com/PX4/px4_ros_com}}. 
 
 The following uORB messages are used in the demo: 
 
@@ -295,16 +308,16 @@ In the code, the function is implemented as an anonymous function, but for conve
   caption=Attitude subscriber callback
 ]{code/offboard_control.cpp}
 
-\verb|roll_| and \verb|pitch_| are atomic variables that store the roll and pitch values, respectively. 
+The \verb|outer_ring_pwm_| and \verb|inner_beam_pwm_| are atomic variables that store the pwm values for the servos connected to the outer ring and inner beam, respectively. 
 Atomic variables are used for they are shared between threads, and need to be accessed in a thread-safe manner. 
 
 The servo control message accepts values in the range [-1, 1], -1 being the maximum negative position, and 1 the maximum positive\footnote{\url{https://docs.px4.io/main/en/msg_docs/ActuatorServos.html}}. 
-The roll and pitch values are mapped from the range [-45, 45] to [-1, 1], but constrained to [-1, 1]. 
+The PWM values come from the roll and pitch angles and are mapped with a range [-45, 45] to [-1, 1], but constrained to [-1, 1]. 
 This is done to ensure that the values are within the range of the servos. \\
 
 If the vehicle is in offboard mode, the servo and motor messages are published. 
 
-The \verb|publish_actuator_servos()| function uses the mapped roll and pitch values, and publishes them to the servo topic. 
+The \verb|publish_actuator_servos()| function uses the pwm values, and publishes them to the servo topic. 
 
 The \verb|publish_actuator_motors()| function uses a sinusoidal wave to send two sinusoidal curves out of phase to the motors. 
 
@@ -327,7 +340,7 @@ It also controls the duration of the demo.
 
 The function \verb|RCLCPP_INFO| is used to log messages to the console.
 
-\subsubsection{Publishers}
+\subsubsection{OffboardControlMode Message}
 
 The message \verb|OffboardControlMode|\footnote{\url{https://docs.px4.io/main/en/msg_docs/OffboardControlMode.html}} is used to set the control mode of the vehicle. 
 It is sent with the following values: 
@@ -340,6 +353,10 @@ It is sent with the following values:
     caption=OffboardControlMode message
 ]{code/offboard_control.cpp}
 
+The values were chosen according to the table in \url{https://docs.px4.io/main/en/flight_modes/offboard.html\#ros-2-messages}.
+
+\subsubsection{VehicleCommand Message}
+
 The message \verb|VehicleControlMode|\footnote{\url{https://docs.px4.io/main/en/msg_docs/VehicleControlMode.html}} is used to set the control mode of the vehicle.
 It is sent with the following values:
 
@@ -350,6 +367,8 @@ It is sent with the following values:
     lastline=245,
     caption=VehicleControlMode message
 ]{code/offboard_control.cpp}
+
+Since all control is done by the offboard computer, all control modes are disabled, except for the offboard control. 
 
 \subsubsection{Summary}
 
@@ -365,48 +384,96 @@ The main components work together in the following sequence:
     \item After 300 iterations (30 seconds), the vehicle is disarmed and returned to manual mode. 
 \end{enumerate}
 
-This architecture demonstrates that an offboard computer can successfully read PX4 sensor data and control actuators, fulfilling the demo's objectives.
+This architecture is capable of demonstrating that an offboard computer can successfully read PX4 sensor data and control actuators, fulfilling the demo's objectives.
+
+
 
 \clearpage
 \section{Results}
 
-The demo was successfully executed. It was recorded and is available in .
-% TODO! add link to video
-The following figures show the results of the demo. 
+The demo was successfully executed. One execution of the demo was recorded and is available in \url{https://www.youtube.com/shorts/j01qkGAldi8}. 
+
+\subsection{Attitude}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{imgs/demo_quaternion.png}
+    \includegraphics[width=0.8\textwidth]{imgs/demo_data/quaternion.png}
     \caption{Quaternion Components Over Time}
     \label{fig:demo_quaternion}
 \end{figure}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{imgs/demo_servo_pwm.png}
-    \caption{Servos PWM Over Time}
-    \label{fig:demo_servo}
-\end{figure}
+As we can see, the quaternion values show the change in attitude of the vehicle. 
+
+The following figures show plots from the same demo. 
+
+\subsection{Motors}
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.8\textwidth]{imgs/demo_motor_pwm.png}
-    \caption{Motors PWM Over Time}
-    \label{fig:demo_motor}
+    \label{fig:demo_motor_pwm}
+    \includegraphics[width=0.8\textwidth]{imgs/demo_data/motor_pwm.png}
+    \\
+    \subfigure[][]{%
+        \label{fig:upper_motor}%
+        \includegraphics[width=0.23\textwidth]{imgs/demo_tvc/upper motor.jpg}
+    }%
+    \hspace{3pt}%
+    \subfigure[][]{%
+        \label{fig:bottom_motor}%
+        \includegraphics[width=0.23\textwidth]{imgs/demo_tvc/bottom motor.jpg}
+    }
+    \caption{Upper and Bottom motors spinning independently, following the sinusoidal waveform}
 \end{figure}
 
+This validates that the motors are spinning independently, and following the sinusoidal waveform.
 
-% mention that the message frequency might be adjustable... 
-% useful for this: https://docs.px4.io/main/en/concept/architecture.html#update-rates
+\subsection{Servos}
 
+\begin{figure}[H]
+    \centering
+    \label{fig:demo_servo_pwm}
+    \includegraphics[width=0.8\textwidth]{imgs/demo_data/servo_pwm.png}
+    \\
+    \subfigure[][]{%
+        \label{fig:outer_ring_left}%
+        \includegraphics[width=0.23\textwidth]{imgs/demo_tvc/outer_ring_left.jpg}
+    }%
+    \hspace{3pt}%
+    \subfigure[][]{%
+        \label{fig:outer_ring_right}%
+        \includegraphics[width=0.23\textwidth]{imgs/demo_tvc/outer_ring_right.jpg}
+    }
+    \subfigure[][]{%
+        \label{fig:inner_beam_left}%
+        \includegraphics[width=0.23\textwidth]{imgs/demo_tvc/inner_beam_left.jpg}
+    }%
+    \hspace{3pt}%
+    \subfigure[][]{%
+        \label{fig:inner_beam_right}%
+        \includegraphics[width=0.23\textwidth]{imgs/demo_tvc/inner_beam_right.jpg}
+    }
+    \caption{Outer Ring and Inner Beam corresponding to the PX4 attitude}%
+\end{figure}
 
+The servos are following the attitude of the vehicle, and are able to control the TVC mechanism.
 
 \clearpage
 \section{Conclusion}
 
+In this report we have demonstrated that an offboard computer running ROS 2 can reliably interface with a PX4 flight controller over uXRCE‑DDS to read real‑time attitude estimates and command both servos and motors. 
+By implementing a simple state machine and heartbeat protocol, the offboard node successfully:
 
+\begin{itemize}
+    \item Switched the flight controller into Offboard mode and armed/disarmed it. 
+    \item Subscribed to the VehicleAttitude uORB topic and converted quaternion measurements into servo setpoints. 
+    \item Published ActuatorServos and ActuatorMotors messages to drive a thrust‑vectoring mechanism. 
+\end{itemize}
 
+Experimental results—including live video, PWM logs, and attitude plots—confirm that the servos tracked the vehicle’s roll/pitch angles within the expected range and the two counter‑rotating motors followed out‑of‑phase commands as intended. This validates the feasibility of using PX4 + ROS 2 offboard control for custom actuation schemes such as TVC.
 
+Future work will extend this framework to closed‑loop control by feeding sensor feedback directly into guidance algorithms and creating a state machine that's syncronized with PX4. Moreover, further safety features (pre‑arm checks, failsafe transitions) and higher‑frequency control loops may be added to meet more demanding control objectives.  
+
+Overall, this demonstration fulfills the primary objective of proving end‑to‑end offboard control of PX4 hardware. 
 
 \clearpage
 \section{Appendix}

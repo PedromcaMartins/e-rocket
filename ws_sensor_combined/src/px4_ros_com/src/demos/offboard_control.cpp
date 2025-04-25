@@ -20,6 +20,33 @@ struct Quaternion {
  */
 class OffboardControl : public rclcpp::Node
 {
+private:
+	rclcpp::TimerBase::SharedPtr timer_;
+
+	//!< Publishers and Subscribers
+	rclcpp::Publisher<ActuatorMotors>::SharedPtr actuator_motors_publisher_;
+	rclcpp::Publisher<ActuatorServos>::SharedPtr actuator_servos_publisher_;
+	rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
+	rclcpp::Publisher<OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
+	rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
+	rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscription_;
+
+	uint64_t timer_callback_iteration_ = 0;   //!< counter for the number of setpoints sent
+
+	bool is_offboard_mode_ = false; //!< flag to check if the vehicle is in offboard mode
+
+	std::atomic<float> inner_beam_pwm_;   //!< inner beam servo position
+	std::atomic<float> outer_ring_pwm_;   //!< outer ring servo position
+
+	//!< Auxiliary functions
+	void quaternionToEuler(const Quaternion& q, float& roll, float& pitch, float& yaw);
+	void publish_actuator_servos();
+	void publish_actuator_motors();
+
+	void publish_offboard_control_mode();
+	void publish_vehicle_control_mode();
+	void publish_vehicle_command(uint16_t command, float param1 = 0.0, float param2 = 0.0);
+
 public:
 	explicit OffboardControl() : Node("offboard_control")
 	{
@@ -29,8 +56,8 @@ public:
 		offboard_control_mode_publisher_ = this->create_publisher<OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
 		vehicle_control_mode_publisher_ = this->create_publisher<VehicleControlMode>("/fmu/in/vehicle_control_mode", 10);
 
-		roll_.store(0.0, std::memory_order_relaxed);
-		pitch_.store(0.0, std::memory_order_relaxed);
+		inner_beam_pwm_.store(0.0, std::memory_order_relaxed);
+		outer_ring_pwm_.store(0.0, std::memory_order_relaxed);
 
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
@@ -47,9 +74,9 @@ public:
 				float roll, pitch, yaw;
 				quaternionToEuler(q, roll, pitch, yaw);
 
-				// Map roll and pitch from [-90, 90] to [-1, 1] constrained to [-1, 1]
-				roll_.store(std::max(-1.0f, std::min(1.0f, roll / 45.0f)), std::memory_order_relaxed);
-				pitch_.store(std::max(-1.0f, std::min(1.0f, pitch / 45.0f)), std::memory_order_relaxed);
+				// Map roll and pitch from [-45, 45] to [-1, 1] constrained to [-1, 1]
+				inner_beam_pwm_.store(std::max(-1.0f, std::min(1.0f, roll / 45.0f)), std::memory_order_relaxed);
+				outer_ring_pwm_.store(std::max(-1.0f, std::min(1.0f, pitch / 45.0f)), std::memory_order_relaxed);
 
 				if (is_offboard_mode_) {
 					publish_actuator_servos();
@@ -58,7 +85,7 @@ public:
 			}
 		);
 
-		auto timer_callback = [this]() -> void {
+		auto timer_callback = [this]() {
 			// PX4 will switch out of offboard mode if the stream rate of 
 			// OffboardControlMode messages drops below approximately 2Hz
 			publish_offboard_control_mode();
@@ -70,7 +97,7 @@ public:
 				// Change to Offboard mode
 				this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
 				RCLCPP_INFO(this->get_logger(), "Offboard mode command send");
-				
+
 				// Confirm that we are in offboard mode
 				is_offboard_mode_ = true;
 				RCLCPP_INFO(this->get_logger(), "Offboard mode confirmed");
@@ -102,31 +129,6 @@ public:
 
 		timer_ = this->create_wall_timer(100ms, timer_callback);
 	}
-
-private:
-	rclcpp::TimerBase::SharedPtr timer_;
-
-	rclcpp::Publisher<ActuatorMotors>::SharedPtr actuator_motors_publisher_;
-	rclcpp::Publisher<ActuatorServos>::SharedPtr actuator_servos_publisher_;
-	rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
-	rclcpp::Publisher<OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
-	rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
-	rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscription_;
-
-	uint64_t timer_callback_iteration_ = 0;   //!< counter for the number of setpoints sent
-
-	bool is_offboard_mode_ = false;
-
-	std::atomic<float> roll_;   //!< common synced roll position for servos
-	std::atomic<float> pitch_;   //!< common synced pitch position for servos
-
-	void quaternionToEuler(const Quaternion& q, float& roll, float& pitch, float& yaw);
-	void publish_actuator_servos();
-	void publish_actuator_motors();
-
-	void publish_offboard_control_mode();
-	void publish_vehicle_control_mode();
-	void publish_vehicle_command(uint16_t command, float param1 = 0.0, float param2 = 0.0);
 };
 
 void OffboardControl::quaternionToEuler(const Quaternion& q, float& roll, float& pitch, float& yaw) {
@@ -157,8 +159,8 @@ void OffboardControl::publish_actuator_servos()
 	static double time = 0.0;
 	ActuatorServos msg{};
 
-	msg.control[0] = -pitch_.load(); // Pitch value between -0.75 and 0.75
-	msg.control[1] = -roll_.load(); // Roll value between -0.75 and 0.75
+	msg.control[0] = outer_ring_pwm_.load();
+	msg.control[1] = -inner_beam_pwm_.load();
 
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
 	actuator_servos_publisher_->publish(msg);
@@ -176,18 +178,18 @@ void OffboardControl::publish_actuator_motors()
 	ActuatorMotors msg{};
 
 	// Generate sinusoidal values for actuator positions
-	float value_1 = 0.05f * (sin(time / 10.0f)); // Sinusoidal wave between 0 and 0.10
-	float value_2 = -value_1;
+	float sin_wave = 0.05f * (sin(time / 10.0f)); // Sinusoidal wave between 0 and 0.10
+	float inv_sin_wave = -sin_wave;
 
-	if (value_1 < 0.0f) {
-		value_1 = NAN;
+	if (sin_wave < 0.0f) {
+		sin_wave = NAN;
 	}
-	if (value_2 < 0.0f) {
-		value_2 = NAN;
+	if (inv_sin_wave < 0.0f) {
+		inv_sin_wave = NAN;
 	}
 
-	msg.control[0] = value_1;
-	msg.control[1] = value_2;
+	msg.control[0] = sin_wave;
+	msg.control[1] = inv_sin_wave;
 
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
 	actuator_motors_publisher_->publish(msg);

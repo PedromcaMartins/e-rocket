@@ -57,7 +57,7 @@ plt.tight_layout()
 # Plot servo[0] and servo[1]
 plt.figure(figsize=(12, 6))
 for i, servo in enumerate(servo_cols):
-    label = "Pitch Servo" if i == 0 else "Roll Servo"
+    label = "Outer Ring Servo" if i == 0 else "Inner Beam Servo"
     plt.plot(df_servo['time_s'], df_servo[servo], label=label)
 plt.xlabel('Time (s)')
 plt.ylabel('PWM Value')

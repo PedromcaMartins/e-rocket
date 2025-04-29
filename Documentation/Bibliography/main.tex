@@ -1,0 +1,118 @@
+\documentclass[a4paper]{article}
+
+\input{Preamble_commands}
+
+% Diagrams: https://mermaid.live/
+% Tips for Writing Technical Papers: https://cs.stanford.edu/people/widom/paper-writing.html
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%
+% TITLE & NAME %
+%%%%%%%%%%%%%%%%
+\selectlanguage{english}
+\title{Bibliography}
+\author{Pedro Maria da Costa Almeida Martins}
+\istid{99303}
+\email{pedromcamartins@tecnico.ulisboa.pt}
+\advisor{Prof. Paulo Oliveira}
+\coadvisor{Pedro Santos}
+
+% To make the title
+\maketitle
+\thispagestyle{empty}
+\clearpage
+
+
+%%%%%%%%%%%%%%%%%%%%%
+% TABLE OF CONTENTS %
+%%%%%%%%%%%%%%%%%%%%%
+\tableofcontents
+% \listoffigures      % List of Figures
+% \listoftables       % List of Tables
+% \lstlistoflistings  % List of Listings
+\thispagestyle{empty}
+\clearpage
+
+
+%%%%%%%%%%%%%%%%
+%   MAIN TEXT  %
+%%%%%%%%%%%%%%%%
+
+
+\section{A novel distributed architecture for unmanned aircraft systems based on Robot Operating System 2}
+
+Good historical context of ROS and DDS. 
+Example of multi-layered architecture for vision-based navigation. 
+Used PX4 internal control, sending setpoints from offboard computer. 
+
+\cite{bianchi2023novel}
+
+Robotic software architectures aim to solve the need for scalablity, modularity and parallelism inside robotic systems. 
+The Robot Operating System (ROS) was created to address this need. 
+However, it does not satisfy real-time constraints and is not natively fault tolerant. 
+ROS2 addresses these issues, focusing on crossplatform, soft real-time systems. 
+To satisfy soft real-time systems, new middleware technologies were developed. 
+DDS has been adopted as the default middleware for ROS2, allowing developers to use Quality of Service configuration (deadlines, reliability, durability), and support scalability, with no overhead [discussed in a later section of the paper]. 
+
+Today, electronics for drones are composed of several SoCs, depending on the complexity of the system. 
+It is usual to delegate low-level control algorithms to small, real-time SoCs, while high-level algorithms are run on more powerful systems. 
+Therefore, the problem of establishing a connection between these two systems arises. 
+DDS is one solution for this problem. 
+
+The Application of Autonomous Quadcoper was used, following a layered architecture, composed of modules (ROS2 nodes). 
+- Lowest row: soft real-time modules 
+- Middle row: high-level, slower algorithms 
+- Top row: supervision logic 
+
+---
+
+Suggestion for out system
+
+\paragraph{Soft real-time modules: Flight Control. }
+It offers ROS2 services that enable other modules to resquest flight operations: 
+- mode services: arm, disarm, offboard
+
+\paragraph{Soft real-time modules: Sensor Fusion. }
+It is responsible for fusing data from the IMU and GPS. 
+
+\paragraph{Soft real-time modules: Actuator. }
+It is responsible for controlling the motors and servos. 
+
+\paragraph{High-level modules: Controller. }
+It is responsible for controlling the drone.
+It uses the data from the sensor fusion module and sets the actuators accordingly.
+It is composed of two loops:
+- Outer loop: high-level control, responsible for the trajectory generation.
+- Inner loop: low-level control, responsible for the attitude control.
+
+
+\section{Design and test of electromechanical actuators for thrust vector control}
+
+\cite{cowan1993design}
+
+
+\section{A Structured Approach for Modular Design in Robotics and Automation Environments}
+
+\cite{elkady2013structured}
+
+
+%%%%%%%%%%%%%%%%
+% BIBLIOGRAPHY %
+%%%%%%%%%%%%%%%%
+\clearpage
+% add Bibliography to TOC
+\addcontentsline{toc}{section}{\refname}
+% The following command resets the 'emphasis' style for bibliography entries
+\normalem
+% Name of your BiBTeX file
+\bibliography{./Bibliography}
+% The following command modifies the 'emphasis' style for bibliography entries
+\ULforem
+
+
+%%%%%%%%%%%%%
+%    END    %
+%%%%%%%%%%%%%
+
+\end{document}

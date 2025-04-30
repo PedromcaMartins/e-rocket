@@ -10,6 +10,11 @@ procs:
     autostart: true
     stop: SIGINT
 
+  1_Degree_Freedom:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_com 1_degree_freedom.launch.py"
+    autostart: false
+    stop: SIGINT
+
   Offboard_Control:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_com offboard_control.launch.py"
     autostart: false

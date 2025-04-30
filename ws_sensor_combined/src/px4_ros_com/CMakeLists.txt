@@ -40,6 +40,11 @@ target_include_directories(frame_transforms PUBLIC
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
+# 1_degree_freedom/controller
+add_executable(controller src/1_degree_freedom/controller.cpp)
+ament_target_dependencies(controller rclcpp px4_msgs)
+install(TARGETS controller DESTINATION lib/${PROJECT_NAME})
+
 # demos/actuator_motors
 add_executable(actuator_motors src/demos/actuator_motors.cpp)
 ament_target_dependencies(actuator_motors rclcpp px4_msgs)

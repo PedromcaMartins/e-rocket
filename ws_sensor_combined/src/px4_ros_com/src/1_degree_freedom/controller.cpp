@@ -32,6 +32,7 @@ public:
 		offboard_control_mode_publisher_ = this->create_publisher<OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
 		vehicle_control_mode_publisher_ = this->create_publisher<VehicleControlMode>("/fmu/in/vehicle_control_mode", 10);
         euler_angle_publisher_ = this->create_publisher<px4_ros_com::msg::EulerAngle>("/offboard/euler_angle", 10);
+        euler_angle_publisher_ = this->create_publisher<px4_ros_com::msg::EulerAngle>("/offboard/euler_angle_setpoint", 10);
 
 		pitch_angle_.store(0.0, std::memory_order_relaxed);
 		angular_velocity_.store(0.0, std::memory_order_relaxed);
@@ -50,17 +51,6 @@ public:
 				auto q = Eigen::Quaternionf(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
 				auto euler = quaternionToEulerRadians(q);
 				pitch_angle_.store(euler.pitch, std::memory_order_relaxed);
-			}
-		);
-
-        vehicle_angular_velocity_subscription_ = this->create_subscription<VehicleAngularVelocity>("/fmu/out/vehicle_angular_velocity", qos,
-            [this](const VehicleAngularVelocity::SharedPtr msg) {
-                Euler euler;
-                euler.roll = msg->xyz[0];
-                euler.pitch = msg->xyz[1];
-                euler.yaw = msg->xyz[2];
-
-                angular_velocity_.store(euler.pitch, std::memory_order_relaxed);
 
                 px4_ros_com::msg::EulerAngle euler_angle_msg;
                 euler_angle_msg.roll = euler.roll;
@@ -69,6 +59,14 @@ public:
                 euler_angle_msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
                 euler_angle_msg.timestamp_sample = msg->timestamp_sample;
                 euler_angle_publisher_->publish(euler_angle_msg);
+			}
+		);
+
+        vehicle_angular_velocity_subscription_ = this->create_subscription<VehicleAngularVelocity>("/fmu/out/vehicle_angular_velocity", qos,
+            [this](const VehicleAngularVelocity::SharedPtr msg) {
+                auto pitch_angular_velocity = msg->xyz[1];
+
+                angular_velocity_.store(pitch_angular_velocity, std::memory_order_relaxed);
             }
         );
 

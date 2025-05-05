@@ -6,4 +6,4 @@ float32 roll
 float32 pitch
 float32 yaw
 
-# TOPICS euler_angle
+# TOPICS euler_angle euler_angle_setpoint

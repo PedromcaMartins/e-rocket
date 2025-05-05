@@ -1,5 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <px4_msgs/msg/actuator_servos.hpp>
+#include <px4_msgs/msg/actuator_motors.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
 #include <px4_msgs/msg/offboard_control_mode.hpp>
 #include <px4_msgs/msg/vehicle_control_mode.hpp>
@@ -28,6 +29,7 @@ public:
 	explicit Controller() : Node("offboard_control")
 	{
 		actuator_servos_publisher_ = this->create_publisher<ActuatorServos>("/fmu/in/actuator_servos", 10);
+		actuator_motors_publisher_ = this->create_publisher<ActuatorMotors>("/fmu/in/actuator_motors", 10);
 		vehicle_command_publisher_ = this->create_publisher<VehicleCommand>("/fmu/in/vehicle_command", 10);
 		offboard_control_mode_publisher_ = this->create_publisher<OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
 		vehicle_control_mode_publisher_ = this->create_publisher<VehicleControlMode>("/fmu/in/vehicle_control_mode", 10);
@@ -59,23 +61,28 @@ public:
 
         vehicle_angular_velocity_subscription_ = this->create_subscription<VehicleAngularVelocity>("/fmu/out/vehicle_angular_velocity", qos,
             [this](const VehicleAngularVelocity::SharedPtr msg) {
-                angular_velocity_.store(msg->xyz[0], std::memory_order_relaxed);
+                Euler euler;
+                euler.roll = msg->xyz[0];
+                euler.pitch = msg->xyz[1];
+                euler.yaw = msg->xyz[2];
+
+                angular_velocity_.store(euler.pitch, std::memory_order_relaxed);
             }
         );
 
         mission_planner_timer_ = this->create_wall_timer(5000ms, // 5 seconds
             [this]() {
-                if (is_offboard_mode_.load(std::memory_order_relaxed)) {
-                    auto pitch_angle_setpoint = 0.0;
-                    if (mission_planner_iteration_ % 4 == 0) {
-                        pitch_angle_setpoint = M_PI / 9.0; // 20 degrees
-                    }
-                    if (mission_planner_iteration_ % 4 == 2) {
-                        pitch_angle_setpoint = -M_PI / 9.0; // 20 degrees
-                    }
-                    mission_planner_iteration_++;
-                    pitch_angle_setpoint_.store(pitch_angle_setpoint, std::memory_order_relaxed);
+                // match state in FSM to get mission setpoints
+
+                auto pitch_angle_setpoint = 0.0;
+                if (mission_planner_iteration_ % 4 == 0) {
+                    pitch_angle_setpoint = M_PI / 9.0;   // 20 degrees
                 }
+                if (mission_planner_iteration_ % 4 == 2) {
+                    pitch_angle_setpoint = -M_PI / 9.0; // -20 degrees
+                }
+                mission_planner_iteration_++;
+                pitch_angle_setpoint_.store(pitch_angle_setpoint, std::memory_order_relaxed);
             }
         );
 
@@ -95,8 +102,12 @@ public:
                     RCLCPP_INFO(this->get_logger(), "Offboard mode command send");
 
                     // Confirm that we are in offboard mode
-                    is_offboard_mode_ = true;
+                    is_offboard_mode_.store(true, std::memory_order_relaxed);
                     RCLCPP_WARN(this->get_logger(), "Offboard mode not confirmed");
+
+                    // Arm the vehicle
+                    this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 1.0);
+                    RCLCPP_INFO(this->get_logger(), "Arm command send");
 
                     // change the vehicle control mode
                     this->publish_vehicle_control_mode();
@@ -106,11 +117,16 @@ public:
 
                 // Mission to Abort
                 if (state_machine_iteration_ == 600) {
+                    // Disarm the vehicle
+                    this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0);
+                    RCLCPP_INFO(this->get_logger(), "Disarm command send");
+
                     // change to Manual mode
                     this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 1);
                     RCLCPP_INFO(this->get_logger(), "Manual mode command send");
 
-                    is_offboard_mode_ = false;
+                    // Confirm that we are in manual mode
+                    is_offboard_mode_.store(false, std::memory_order_relaxed);
                     RCLCPP_WARN(this->get_logger(), "Manual mode not confirmed");
                 }
                 state_machine_iteration_++;
@@ -119,12 +135,17 @@ public:
 
         controller_timer_ = this->create_wall_timer(20ms, // 50 Hz
             [this]() {
+                // match state in FSM to get mission setpoints
+                if (!is_offboard_mode_.load(std::memory_order_relaxed)) {
+                    return;
+                }
+
                 auto pitch_angle = pitch_angle_.load(std::memory_order_relaxed);
                 auto angular_velocity = angular_velocity_.load(std::memory_order_relaxed);
                 auto pitch_angle_setpoint = pitch_angle_setpoint_.load(std::memory_order_relaxed);
                 auto dt = 0.02f; // 50 Hz
 
-                RCLCPP_DEBUG(this->get_logger(), "Pitch angle: %f, Angular velocity: %f, Setpoint: %f", pitch_angle, angular_velocity, pitch_angle_setpoint);
+                RCLCPP_INFO(this->get_logger(), "Pitch angle: %f, Angular velocity: %f, Setpoint: %f", pitch_angle, angular_velocity, pitch_angle_setpoint);
 
                 // Control algorithm
                 auto tilt_angle = controller(pitch_angle, angular_velocity, pitch_angle_setpoint, dt);
@@ -133,6 +154,9 @@ public:
                 auto tilt_pwm = tilt_angle;
 
                 publish_actuator_servo(tilt_pwm);
+
+                auto motor_pwm = 0.05f; // 5% duty cycle
+                publish_actuator_motors(motor_pwm, motor_pwm);
             }
         );
 	}
@@ -144,9 +168,11 @@ private:
 
 	//!< Publishers and Subscribers
 	rclcpp::Publisher<ActuatorServos>::SharedPtr actuator_servos_publisher_;
+	rclcpp::Publisher<ActuatorMotors>::SharedPtr actuator_motors_publisher_;
 	rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
 	rclcpp::Publisher<OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
 	rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
+
 	rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscription_;
     rclcpp::Subscription<VehicleAngularVelocity>::SharedPtr vehicle_angular_velocity_subscription_;
 
@@ -163,6 +189,7 @@ private:
 	//!< Auxiliary functions
 	Euler quaternionToEulerRadians(const Quaternion q);
 	void publish_actuator_servo(float tilt_pwm);
+	void publish_actuator_motors(float upwards_motor_pwm, float downwards_motor_pwm);
 
 	void publish_offboard_control_mode();
 	void publish_vehicle_control_mode();
@@ -238,6 +265,21 @@ void Controller::publish_actuator_servo(float tilt_pwm)
 	msg.control[0] = tilt_pwm;
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
 	actuator_servos_publisher_->publish(msg);
+}
+
+/**
+ * @brief Publish the actuator motors.
+ *        For this example, we are generating sinusoidal values for the actuator positions.
+ */
+void Controller::publish_actuator_motors(float upwards_motor_pwm, float downwards_motor_pwm)
+{
+	ActuatorMotors msg{};
+
+	msg.control[0] = upwards_motor_pwm;
+	msg.control[1] = downwards_motor_pwm;
+
+	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+	actuator_motors_publisher_->publish(msg);
 }
 
 /**

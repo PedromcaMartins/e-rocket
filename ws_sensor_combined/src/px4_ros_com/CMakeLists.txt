@@ -32,6 +32,11 @@ find_package(rclpy REQUIRED)
 
 include_directories(include)
 
+# Add Message files
+rosidl_generate_interfaces(${PROJECT_NAME}
+	"msg/EulerAngle.msg"
+)
+
 # Add frame_transforms lib
 add_library(frame_transforms SHARED src/lib/frame_transforms.cpp)
 ament_target_dependencies(frame_transforms Eigen3 geometry_msgs sensor_msgs)
@@ -43,6 +48,8 @@ target_include_directories(frame_transforms PUBLIC
 # 1_degree_freedom/controller
 add_executable(controller src/1_degree_freedom/controller.cpp)
 ament_target_dependencies(controller rclcpp px4_msgs)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(controller ${cpp_typesupport_target})
 install(TARGETS controller DESTINATION lib/${PROJECT_NAME})
 
 # demos/actuator_motors

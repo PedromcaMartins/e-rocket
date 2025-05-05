@@ -6,15 +6,13 @@
 #include <px4_msgs/msg/vehicle_control_mode.hpp>
 #include <px4_msgs/msg/vehicle_attitude.hpp>
 #include <px4_msgs/msg/vehicle_angular_velocity.hpp>
+#include <px4_ros_com/msg/euler_angle.hpp>
 
+#include <eigen3/Eigen/Geometry>
 #include <chrono>
 
 using namespace std::chrono;
 using namespace px4_msgs::msg;
-
-struct Quaternion {
-    float w, x, y, z;
-};
 
 struct Euler {
     float roll, pitch, yaw;
@@ -26,13 +24,14 @@ struct Euler {
 class Controller : public rclcpp::Node
 {
 public:
-	explicit Controller() : Node("offboard_control")
+	explicit Controller() : Node("controller")
 	{
 		actuator_servos_publisher_ = this->create_publisher<ActuatorServos>("/fmu/in/actuator_servos", 10);
 		actuator_motors_publisher_ = this->create_publisher<ActuatorMotors>("/fmu/in/actuator_motors", 10);
 		vehicle_command_publisher_ = this->create_publisher<VehicleCommand>("/fmu/in/vehicle_command", 10);
 		offboard_control_mode_publisher_ = this->create_publisher<OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
 		vehicle_control_mode_publisher_ = this->create_publisher<VehicleControlMode>("/fmu/in/vehicle_control_mode", 10);
+        euler_angle_publisher_ = this->create_publisher<px4_ros_com::msg::EulerAngle>("/offboard/euler_angle", 10);
 
 		pitch_angle_.store(0.0, std::memory_order_relaxed);
 		angular_velocity_.store(0.0, std::memory_order_relaxed);
@@ -48,12 +47,7 @@ public:
 		vehicle_attitude_subscription_ = this->create_subscription<VehicleAttitude>("/fmu/out/vehicle_attitude", qos,
 			[this](const VehicleAttitude::SharedPtr msg) {
 				// Process the vehicle attitude message
-				Quaternion q;
-				q.w = msg->q[0];
-				q.x = msg->q[1];
-				q.y = msg->q[2];
-				q.z = msg->q[3];
-
+				auto q = Eigen::Quaternionf(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
 				auto euler = quaternionToEulerRadians(q);
 				pitch_angle_.store(euler.pitch, std::memory_order_relaxed);
 			}
@@ -67,6 +61,14 @@ public:
                 euler.yaw = msg->xyz[2];
 
                 angular_velocity_.store(euler.pitch, std::memory_order_relaxed);
+
+                px4_ros_com::msg::EulerAngle euler_angle_msg;
+                euler_angle_msg.roll = euler.roll;
+                euler_angle_msg.pitch = euler.pitch;
+                euler_angle_msg.yaw = euler.yaw;
+                euler_angle_msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+                euler_angle_msg.timestamp_sample = msg->timestamp_sample;
+                euler_angle_publisher_->publish(euler_angle_msg);
             }
         );
 
@@ -172,6 +174,7 @@ private:
 	rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
 	rclcpp::Publisher<OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
 	rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
+    rclcpp::Publisher<px4_ros_com::msg::EulerAngle>::SharedPtr euler_angle_publisher_;
 
 	rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscription_;
     rclcpp::Subscription<VehicleAngularVelocity>::SharedPtr vehicle_angular_velocity_subscription_;
@@ -187,7 +190,7 @@ private:
 	std::atomic<float> pitch_angle_setpoint_;
 
 	//!< Auxiliary functions
-	Euler quaternionToEulerRadians(const Quaternion q);
+	Euler quaternionToEulerRadians(const Eigen::Quaternionf q);
 	void publish_actuator_servo(float tilt_pwm);
 	void publish_actuator_motors(float upwards_motor_pwm, float downwards_motor_pwm);
 
@@ -228,23 +231,28 @@ float Controller::controller(float delta_theta, float delta_omega, float delta_t
  * @param q Quaternion
  * @return Euler angles (roll, pitch, yaw)
  */
-Euler Controller::quaternionToEulerRadians(const Quaternion q) {
+Euler Controller::quaternionToEulerRadians(const Eigen::Quaternionf q) {
+    auto w = q.w();
+    auto x = q.x();
+    auto y = q.y();
+    auto z = q.z();
+
     // Roll (x-axis rotation)
-    float sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
-    float cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
+    float sinr_cosp = 2 * (w * x + y * z);
+    float cosr_cosp = 1 - 2 * (x * x + y * y);
     float roll = std::atan2(sinr_cosp, cosr_cosp);
     float pitch = 0.0;
 
     // Pitch (y-axis rotation)
-    float sinp = 2 * (q.w * q.y - q.z * q.x);
+    float sinp = 2 * (w * y - z * x);
     if (std::abs(sinp) >= 1)
         pitch = std::copysign(90.0, sinp); // Use 90 degrees if out of range
     else
         pitch = std::asin(sinp);
 
     // Yaw (z-axis rotation)
-    float siny_cosp = 2 * (q.w * q.z + q.x * q.y);
-    float cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
+    float siny_cosp = 2 * (w * z + x * y);
+    float cosy_cosp = 1 - 2 * (y * y + z * z);
     float yaw = std::atan2(siny_cosp, cosy_cosp);
 
     return {roll, pitch, yaw};

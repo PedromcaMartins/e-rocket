@@ -66,7 +66,14 @@ Objectives:
 \clearpage
 \section{Setup}
 
+The message \verb|VehicleAngularVelocity| is not supported by default \footnote{\url{https://github.com/PX4/PX4-Autopilot/blob/main/src/modules/uxrce_dds_client/dds_topics.yaml}}. 
 
+\begin{lstlisting}[caption=Message Not Supported for uXRCE DDS Client Module in PX4]
+  # - topic: /fmu/out/vehicle_angular_velocity
+  #   type: px4_msgs::msg::VehicleAngularVelocity
+\end{lstlisting}
+
+In order to use the message, the team had to add it to the \verb|dds_topics.yaml| file, as part of the PX4 uXRCE DDS client module. Afterwards, the team flashed the PX4 firmware to the flight controller, and used the \verb|ros2 topic echo| command to check if the message was being published. 
 
 \clearpage
 \section{Demo}

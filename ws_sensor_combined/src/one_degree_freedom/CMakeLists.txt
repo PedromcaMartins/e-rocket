@@ -59,17 +59,6 @@ target_include_directories(frame_transforms PUBLIC
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
-# controller_tester
-add_executable(controller_tester src/controller_tester.cpp)
-ament_target_dependencies(controller_tester rclcpp px4_msgs)
-rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(controller_tester ${cpp_typesupport_target})
-target_include_directories(controller_tester PUBLIC
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
-	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
-)
-install(TARGETS controller_tester DESTINATION lib/${PROJECT_NAME})
-
 # controller
 add_executable(controller src/controller.cpp)
 ament_target_dependencies(controller rclcpp px4_msgs)
@@ -125,5 +114,21 @@ if(BUILD_TESTING)
 	#set(ament_cmake_cpplint_FOUND TRUE)
 	ament_lint_auto_find_test_dependencies()
 endif()
+
+# controller test node
+add_executable(controller_test_node test/controller_test_node.cpp)
+ament_target_dependencies(controller_test_node rclcpp px4_msgs)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(controller_test_node ${cpp_typesupport_target})
+target_include_directories(controller_test_node PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
+	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+install(TARGETS controller_test_node DESTINATION lib/${PROJECT_NAME})
+
+ament_add_test(
+	controller_test_node
+	COMMAND $<TARGET_FILE:controller_test_node>
+)
 
 ament_package()

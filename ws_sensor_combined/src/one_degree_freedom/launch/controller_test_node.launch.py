@@ -24,7 +24,7 @@ def generate_launch_description():
 
     controller_tester_node = Node(
         package='one_degree_freedom',
-        executable='controller_tester',
+        executable='controller_test_node',
         output='screen',
         shell=True,
     )

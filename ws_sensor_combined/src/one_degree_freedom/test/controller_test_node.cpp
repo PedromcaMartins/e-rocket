@@ -14,17 +14,17 @@ using namespace one_degree_freedom::constants;
 /**
  * @brief Node that tests the controller for a 1-degree-of-freedom system, using simulated data
  */
-class ControllerTester : public rclcpp::Node
+class ControllerTestNode : public rclcpp::Node
 {
 public:
-	explicit ControllerTester() : Node("controller_tester")
+	explicit ControllerTestNode() : Node("controller_tester")
 	{
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
         tilt_angle_subscriber_ = this->create_subscription<ControllerOutputTiltAngle>(
             one_degree_freedom::constants::CONTROLLER_OUTPUT_TILT_ANGLE, qos,
-            std::bind(&ControllerTester::controller_output_callback, this, std::placeholders::_1)
+            std::bind(&ControllerTestNode::controller_output_callback, this, std::placeholders::_1)
         );
 
         attitude_publisher_ = this->create_publisher<ControllerInputAttitude>(
@@ -44,7 +44,7 @@ public:
 
         // Set up parameter callback
         param_callback_handle_ = this->add_on_set_parameters_callback(
-            std::bind(&ControllerTester::parameter_callback, this, std::placeholders::_1)
+            std::bind(&ControllerTestNode::parameter_callback, this, std::placeholders::_1)
         );
 	}
 
@@ -73,7 +73,7 @@ private:
         const std::vector<rclcpp::Parameter> &parameters);
 };
 
-void ControllerTester::publish_attitude(float attitude)
+void ControllerTestNode::publish_attitude(float attitude)
 {
     ControllerInputAttitude msg{};
     msg.stamp = this->get_clock()->now();
@@ -81,7 +81,7 @@ void ControllerTester::publish_attitude(float attitude)
     attitude_publisher_->publish(msg);
 }
 
-void ControllerTester::publish_angular_rate(float angular_rate)
+void ControllerTestNode::publish_angular_rate(float angular_rate)
 {
     ControllerInputAngularRate msg{};
     msg.stamp = this->get_clock()->now();
@@ -89,7 +89,7 @@ void ControllerTester::publish_angular_rate(float angular_rate)
     angular_rate_publisher_->publish(msg);
 }
 
-void ControllerTester::publish_setpoint(float setpoint)
+void ControllerTestNode::publish_setpoint(float setpoint)
 {
     ControllerInputSetpoint msg{};
     msg.stamp = this->get_clock()->now();
@@ -97,7 +97,7 @@ void ControllerTester::publish_setpoint(float setpoint)
     setpoint_publisher_->publish(msg);
 }
 
-void ControllerTester::controller_output_callback(const ControllerOutputTiltAngle::SharedPtr msg)
+void ControllerTestNode::controller_output_callback(const ControllerOutputTiltAngle::SharedPtr msg)
 {
     float delta_gamma = msg->tilt_angle;
     float step = CONTROLLER_DT;
@@ -111,7 +111,7 @@ void ControllerTester::controller_output_callback(const ControllerOutputTiltAngl
     publish_angular_rate(delta_omega_);
 }
 
-rcl_interfaces::msg::SetParametersResult ControllerTester::parameter_callback(
+rcl_interfaces::msg::SetParametersResult ControllerTestNode::parameter_callback(
     const std::vector<rclcpp::Parameter> &parameters)
 {
     rcl_interfaces::msg::SetParametersResult result;
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
 	std::cout << "Starting controller tester node..." << std::endl;
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	rclcpp::init(argc, argv);
-	rclcpp::spin(std::make_shared<ControllerTester>());
+	rclcpp::spin(std::make_shared<ControllerTestNode>());
 
 	rclcpp::shutdown();
 	return 0;

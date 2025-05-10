@@ -22,7 +22,15 @@ def generate_launch_description():
         shell=True,
     )
 
+    controller_tester_node = Node(
+        package='px4_ros_com',
+        executable='1_degree_freedom_controller_tester',
+        output='screen',
+        shell=True,
+    )
+
     return LaunchDescription([
         #micro_ros_agent,
-        controller_node
+        controller_node,
+        controller_tester_node
     ])

@@ -26,16 +26,30 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(rclpy REQUIRED)
 
+# ##############################################################################
+# Generate ROS messages, ROS2 interfaces and IDL files #
+# ##############################################################################
+
+# get all msg files
+set(MSGS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/msg")
+file(GLOB PX4_MSGS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${MSGS_DIR}/*.msg")
+
+# get all srv files
+set(SRVS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/srv")
+file(GLOB PX4_SRVS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${SRVS_DIR}/*.srv")
+
+# Generate introspection typesupport for C and C++ and IDL files
+rosidl_generate_interfaces(${PROJECT_NAME}
+	${PX4_MSGS}
+	${PX4_SRVS}
+	DEPENDENCIES builtin_interfaces
+)
+
 #################
 # Setup targets #
 #################
 
 include_directories(include)
-
-# Add Message files
-rosidl_generate_interfaces(${PROJECT_NAME}
-	"msg/EulerAngle.msg"
-)
 
 # Add frame_transforms lib
 add_library(frame_transforms SHARED src/lib/frame_transforms.cpp)
@@ -45,12 +59,23 @@ target_include_directories(frame_transforms PUBLIC
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
-# 1_degree_freedom/controller
-add_executable(controller src/1_degree_freedom/controller.cpp)
-ament_target_dependencies(controller rclcpp px4_msgs)
+# 1_degree_freedom/controller_tester
+add_executable(1_degree_freedom_controller_tester src/1_degree_freedom/controller_tester.cpp)
+ament_target_dependencies(1_degree_freedom_controller_tester rclcpp px4_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(controller ${cpp_typesupport_target})
-install(TARGETS controller DESTINATION lib/${PROJECT_NAME})
+target_link_libraries(1_degree_freedom_controller_tester ${cpp_typesupport_target})
+install(TARGETS 1_degree_freedom_controller_tester DESTINATION lib/${PROJECT_NAME})
+
+# 1_degree_freedom/controller
+add_executable(1_degree_freedom_controller src/1_degree_freedom/controller.cpp)
+ament_target_dependencies(1_degree_freedom_controller rclcpp px4_msgs)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(1_degree_freedom_controller ${cpp_typesupport_target})
+target_include_directories(1_degree_freedom_controller PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
+	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+install(TARGETS 1_degree_freedom_controller DESTINATION lib/${PROJECT_NAME})
 
 # demos/actuator_motors
 add_executable(actuator_motors src/demos/actuator_motors.cpp)

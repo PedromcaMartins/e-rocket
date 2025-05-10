@@ -1,0 +1,11 @@
+
+uint64 timestamp          # time since system start (microseconds)
+
+uint8 mode_id
+string mode_label
+
+---
+
+string result
+
+# TOPICS offboard/flight_mode 

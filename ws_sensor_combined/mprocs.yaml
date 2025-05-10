@@ -11,7 +11,7 @@ procs:
     stop: SIGINT
 
   1_DoF_Controller_Tester:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom controller_tester.launch.py"
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom controller_test_node.launch.py"
     autostart: false
     stop: SIGINT
 

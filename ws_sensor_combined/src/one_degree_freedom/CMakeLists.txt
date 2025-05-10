@@ -116,7 +116,7 @@ if(BUILD_TESTING)
 endif()
 
 # controller test node
-add_executable(controller_test_node test/controller_test_node.cpp)
+add_executable(controller_test_node test/controller/controller_test_node.cpp)
 ament_target_dependencies(controller_test_node rclcpp px4_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 target_link_libraries(controller_test_node ${cpp_typesupport_target})

@@ -17,7 +17,7 @@ using namespace one_degree_freedom::constants;
 class ControllerTestNode : public rclcpp::Node
 {
 public:
-	explicit ControllerTestNode() : Node("controller_tester")
+	explicit ControllerTestNode() : Node("controller_test_node")
 	{
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
@@ -130,7 +130,7 @@ rcl_interfaces::msg::SetParametersResult ControllerTestNode::parameter_callback(
 
 int main(int argc, char *argv[])
 {
-	std::cout << "Starting controller tester node..." << std::endl;
+	std::cout << "Starting controller test node..." << std::endl;
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	rclcpp::init(argc, argv);
 	rclcpp::spin(std::make_shared<ControllerTestNode>());

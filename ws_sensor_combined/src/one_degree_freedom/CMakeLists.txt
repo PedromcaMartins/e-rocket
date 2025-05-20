@@ -70,6 +70,28 @@ target_include_directories(controller PUBLIC
 )
 install(TARGETS controller DESTINATION lib/${PROJECT_NAME})
 
+# controller simulator (for testing / development)
+add_executable(controller_simulator test/controller/controller_simulator.cpp)
+ament_target_dependencies(controller_simulator rclcpp px4_msgs)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(controller_simulator ${cpp_typesupport_target})
+target_include_directories(controller_simulator PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
+	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+install(TARGETS controller_simulator DESTINATION lib/${PROJECT_NAME})
+
+# controller test node (for testing / development)
+add_executable(controller_test_node test/controller/controller_test_node.cpp)
+ament_target_dependencies(controller_test_node rclcpp px4_msgs)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(controller_test_node ${cpp_typesupport_target})
+target_include_directories(controller_test_node PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
+	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+install(TARGETS controller_test_node DESTINATION lib/${PROJECT_NAME})
+
 ############
 # Install ##
 ############
@@ -114,17 +136,6 @@ if(BUILD_TESTING)
 	#set(ament_cmake_cpplint_FOUND TRUE)
 	ament_lint_auto_find_test_dependencies()
 endif()
-
-# controller test node
-add_executable(controller_test_node test/controller/controller_test_node.cpp)
-ament_target_dependencies(controller_test_node rclcpp px4_msgs)
-rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(controller_test_node ${cpp_typesupport_target})
-target_include_directories(controller_test_node PUBLIC
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
-	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
-)
-install(TARGETS controller_test_node DESTINATION lib/${PROJECT_NAME})
 
 ament_add_test(
 	controller_test_node

@@ -45,9 +45,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 	DEPENDENCIES builtin_interfaces
 )
 
-#################
-# Setup targets #
-#################
+################
+# System nodes #
+################
 
 include_directories(include)
 
@@ -70,6 +70,21 @@ target_include_directories(controller PUBLIC
 )
 install(TARGETS controller DESTINATION lib/${PROJECT_NAME})
 
+# px4_ros2_communication
+add_executable(px4_ros2_communication src/px4_ros2_communication.cpp)
+ament_target_dependencies(px4_ros2_communication rclcpp px4_msgs)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(px4_ros2_communication ${cpp_typesupport_target})
+target_include_directories(px4_ros2_communication PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
+	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+install(TARGETS px4_ros2_communication DESTINATION lib/${PROJECT_NAME})
+
+##############################
+# Test and Development nodes #
+##############################
+
 # controller simulator (for testing / development)
 add_executable(controller_simulator test/controller/controller_simulator.cpp)
 ament_target_dependencies(controller_simulator rclcpp px4_msgs)
@@ -82,15 +97,26 @@ target_include_directories(controller_simulator PUBLIC
 install(TARGETS controller_simulator DESTINATION lib/${PROJECT_NAME})
 
 # controller test node (for testing / development)
-add_executable(controller_test_node test/controller/controller_test_node.cpp)
-ament_target_dependencies(controller_test_node rclcpp px4_msgs)
+add_executable(controller_test test/controller/controller_test.cpp)
+ament_target_dependencies(controller_test rclcpp px4_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(controller_test_node ${cpp_typesupport_target})
-target_include_directories(controller_test_node PUBLIC
+target_link_libraries(controller_test ${cpp_typesupport_target})
+target_include_directories(controller_test PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-install(TARGETS controller_test_node DESTINATION lib/${PROJECT_NAME})
+install(TARGETS controller_test DESTINATION lib/${PROJECT_NAME})
+
+# px4_ros2_communication test node (for testing / development)
+add_executable(px4_ros2_communication_test test/px4_ros2_communication/px4_ros2_communication_test.cpp)
+ament_target_dependencies(px4_ros2_communication_test rclcpp px4_msgs)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(px4_ros2_communication_test ${cpp_typesupport_target})
+target_include_directories(px4_ros2_communication_test PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
+	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+install(TARGETS px4_ros2_communication_test DESTINATION lib/${PROJECT_NAME})
 
 ############
 # Install ##
@@ -138,8 +164,8 @@ if(BUILD_TESTING)
 endif()
 
 ament_add_test(
-	controller_test_node
-	COMMAND $<TARGET_FILE:controller_test_node>
+	controller_test
+	COMMAND $<TARGET_FILE:controller_test>
 )
 
 ament_package()

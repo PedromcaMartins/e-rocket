@@ -8,6 +8,10 @@ procs:
   Colcon_Build:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build"
     autostart: true
+
+  Px4_Ros2_Communication_Test:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom px4_ros2_communication_test.launch.py"
+    autostart: false
     stop: SIGINT
 
   1_DoF_Controller_Test:
@@ -20,25 +24,25 @@ procs:
     autostart: false
     stop: SIGINT
 
-  Offboard_Control:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_demos offboard_control.launch.py"
-    autostart: false
-    stop: SIGINT
+  # Offboard_Control:
+  #   shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_demos offboard_control.launch.py"
+  #   autostart: false
+  #   stop: SIGINT
 
-  Actuator_Servos:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_demos actuator_servos.launch.py"
-    autostart: false
-    stop: SIGINT
+  # Actuator_Servos:
+  #   shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_demos actuator_servos.launch.py"
+  #   autostart: false
+  #   stop: SIGINT
 
-  Actuator_Motors:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_demos actuator_motors.launch.py"
-    autostart: false
-    stop: SIGINT
+  # Actuator_Motors:
+  #   shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_demos actuator_motors.launch.py"
+  #   autostart: false
+  #   stop: SIGINT
 
-  Sensor_Combined:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_demos sensor_combined.launch.py"
-    autostart: false
-    stop: SIGINT
+  # Sensor_Combined:
+  #   shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch px4_ros_demos sensor_combined.launch.py"
+  #   autostart: false
+  #   stop: SIGINT
 
   Plot_Juggler:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 run plotjuggler plotjuggler"
@@ -48,4 +52,3 @@ procs:
   ROS_Setup:
     shell: /bin/bash --rcfile "source /opt/ros/humble/setup.bash && source install/local_setup.bash"
     autostart: true
-    stop: SIGINT

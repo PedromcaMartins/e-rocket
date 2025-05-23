@@ -8,7 +8,7 @@
 
 using namespace std::chrono;
 using namespace one_degree_freedom::msg;
-using namespace one_degree_freedom::constants;
+using namespace one_degree_freedom::constants::controller;
 
 /**
  * @brief Node that simulates the effects of the controller on the environment. It is used for testing the controller
@@ -22,16 +22,16 @@ public:
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
         tilt_angle_subscriber_ = this->create_subscription<ControllerOutputTiltAngle>(
-            one_degree_freedom::constants::CONTROLLER_OUTPUT_TILT_ANGLE, qos,
+            CONTROLLER_OUTPUT_TILT_ANGLE_TOPIC, qos,
             std::bind(&ControllerSimulator::controller_output_callback, this, std::placeholders::_1)
         );
 
         attitude_publisher_ = this->create_publisher<ControllerInputAttitude>(
-            CONTROLLER_INPUT_ATTITUDE, qos
+            CONTROLLER_INPUT_ATTITUDE_TOPIC, qos
         );
 
         angular_rate_publisher_ = this->create_publisher<ControllerInputAngularRate>(
-            CONTROLLER_INPUT_ANGULAR_RATE, qos
+            CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos
         );
 	}
 

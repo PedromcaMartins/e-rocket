@@ -6,7 +6,7 @@
 
 using namespace std::chrono;
 using namespace one_degree_freedom::msg;
-using namespace one_degree_freedom::constants;
+using namespace one_degree_freedom::constants::controller;
 
 /**
  * @brief Node that tests the controller for a 1-degree-of-freedom system, verifying if the setpoints are being reached. 
@@ -20,7 +20,7 @@ public:
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
         setpoint_publisher_ = this->create_publisher<ControllerInputSetpoint>(
-            CONTROLLER_INPUT_SETPOINT, qos
+            CONTROLLER_INPUT_SETPOINT_TOPIC, qos
         );
 
         // Declare the setpoint parameter

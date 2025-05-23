@@ -9,7 +9,7 @@
 
 using namespace std::chrono;
 using namespace one_degree_freedom::msg;
-using namespace one_degree_freedom::constants;
+using namespace one_degree_freedom::constants::controller;
 
 /**
  * @brief Node that runs the controller for a 1-degree-of-freedom system
@@ -28,28 +28,28 @@ public:
         );
 
         attitude_subscriber_ = this->create_subscription<ControllerInputAttitude>(
-            CONTROLLER_INPUT_ATTITUDE, qos,
+            CONTROLLER_INPUT_ATTITUDE_TOPIC, qos,
             [this](const ControllerInputAttitude::SharedPtr msg) {
                 angle_ = msg->attitude;
             }
         );
 
         angular_rate_subscriber_ = this->create_subscription<ControllerInputAngularRate>(
-            CONTROLLER_INPUT_ANGULAR_RATE, qos,
+            CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos,
             [this](const ControllerInputAngularRate::SharedPtr msg) {
                 angular_velocity_ = msg->angular_rate;
             }
         );
 
         setpoint_subscriber_ = this->create_subscription<ControllerInputSetpoint>(
-            CONTROLLER_INPUT_SETPOINT, qos,
+            CONTROLLER_INPUT_SETPOINT_TOPIC, qos,
             [this](const ControllerInputSetpoint::SharedPtr msg) {
                 angle_setpoint_ = msg->setpoint;
             }
         );
 
         tilt_angle_publisher_ = this->create_publisher<ControllerOutputTiltAngle>(
-            CONTROLLER_OUTPUT_TILT_ANGLE, qos
+            CONTROLLER_OUTPUT_TILT_ANGLE_TOPIC, qos
         );
 	}
 

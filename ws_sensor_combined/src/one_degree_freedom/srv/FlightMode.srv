@@ -1,11 +1,11 @@
 
 uint64 timestamp          # time since system start (microseconds)
 
-uint8 mode_id
-string mode_label
+string flight_mode        # flight mode to set
 
 ---
 
-string result
+bool success               # true if successful, false if error
+string message             # error message if success is false
 
 # TOPICS offboard/flight_mode 

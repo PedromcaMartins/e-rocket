@@ -22,7 +22,15 @@ def generate_launch_description():
         shell=True,
     )
 
+    px4_ros2_communication_test_node = Node(
+        package='one_degree_freedom',
+        executable='px4_ros2_communication_test',
+        output='screen',
+        shell=True,
+    )
+
     return LaunchDescription([
         #micro_ros_agent,
         px4_ros2_communication_node,
+        px4_ros2_communication_test_node,
     ])

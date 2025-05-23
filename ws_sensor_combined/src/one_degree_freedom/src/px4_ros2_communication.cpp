@@ -27,60 +27,11 @@ public:
 			std::bind(&Px4Ros2Communication::handle_flight_mode_service, this, std::placeholders::_1, std::placeholders::_2)
 		)}
     {
-		test_timer_ = this->create_wall_timer(
-            1s, 
-            [this] {
-				auto request = std::make_shared<one_degree_freedom::srv::FlightMode::Request>();
-				auto response = std::make_shared<one_degree_freedom::srv::FlightMode::Response>();
-
-				switch (counter_) {
-				case 5: 
-					RCLCPP_INFO(this->get_logger(), "Switching to Offboard mode");
-					request->flight_mode = FLIGHT_MODE_OFFBOARD;
-					handle_flight_mode_service(
-						request,
-						response
-					);
-					break;
-
-				case 10:
-					RCLCPP_INFO(this->get_logger(), "Arming the vehicle");
-					request->flight_mode = FLIGHT_MODE_ARM;
-					handle_flight_mode_service(
-						request,
-						response
-					);
-					break;
-
-				case 15:
-					RCLCPP_INFO(this->get_logger(), "Disarming the vehicle");
-					request->flight_mode = FLIGHT_MODE_DISARM;
-					handle_flight_mode_service(
-						request,
-						response
-					);
-					break;
-
-				case 20:
-					RCLCPP_INFO(this->get_logger(), "Switching to Manual mode");
-					request->flight_mode = FLIGHT_MODE_MANUAL;
-					handle_flight_mode_service(
-						request,
-						response
-					);
-					break;
-				}
-				counter_++;
-			}
-        );
 	}
 
 private:
 	rclcpp::Client<px4_msgs::srv::VehicleCommand>::SharedPtr vehicle_command_client_;
 	rclcpp::Service<one_degree_freedom::srv::FlightMode>::SharedPtr flight_mode_service_;
-
-    rclcpp::TimerBase::SharedPtr test_timer_;
-	uint counter_ = 0;
 
 	void handle_flight_mode_service(
 		const std::shared_ptr<one_degree_freedom::srv::FlightMode::Request> request,

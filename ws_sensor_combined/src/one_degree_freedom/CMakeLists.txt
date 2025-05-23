@@ -108,15 +108,15 @@ target_include_directories(controller_test PUBLIC
 install(TARGETS controller_test DESTINATION lib/${PROJECT_NAME})
 
 # px4_ros2_communication test node (for testing / development)
-# add_executable(px4_ros2_communication_test test/px4_ros2_communication/px4_ros2_communication_test.cpp)
-# ament_target_dependencies(px4_ros2_communication_test rclcpp px4_msgs)
-# rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-# target_link_libraries(px4_ros2_communication_test ${cpp_typesupport_target})
-# target_include_directories(px4_ros2_communication_test PUBLIC
-# 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
-# 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
-# )
-# install(TARGETS px4_ros2_communication_test DESTINATION lib/${PROJECT_NAME})
+add_executable(px4_ros2_communication_test test/px4_ros2_communication/px4_ros2_communication_test.cpp)
+ament_target_dependencies(px4_ros2_communication_test rclcpp px4_msgs)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(px4_ros2_communication_test ${cpp_typesupport_target})
+target_include_directories(px4_ros2_communication_test PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
+	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+install(TARGETS px4_ros2_communication_test DESTINATION lib/${PROJECT_NAME})
 
 ############
 # Install ##

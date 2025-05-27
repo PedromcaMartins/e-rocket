@@ -30,21 +30,21 @@ public:
         attitude_subscriber_ = this->create_subscription<ControllerInputAttitude>(
             CONTROLLER_INPUT_ATTITUDE_TOPIC, qos,
             [this](const ControllerInputAttitude::SharedPtr msg) {
-                angle_ = msg->attitude;
+                angle_.store(msg->attitude);
             }
         );
 
         angular_rate_subscriber_ = this->create_subscription<ControllerInputAngularRate>(
             CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos,
             [this](const ControllerInputAngularRate::SharedPtr msg) {
-                angular_velocity_ = msg->angular_rate;
+                angular_velocity_.store(msg->angular_rate);
             }
         );
 
         setpoint_subscriber_ = this->create_subscription<ControllerInputSetpoint>(
             CONTROLLER_INPUT_SETPOINT_TOPIC, qos,
             [this](const ControllerInputSetpoint::SharedPtr msg) {
-                angle_setpoint_ = msg->setpoint;
+                angle_setpoint_.store(msg->setpoint);
             }
         );
 

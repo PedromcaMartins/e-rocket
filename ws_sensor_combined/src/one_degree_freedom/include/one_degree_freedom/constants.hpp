@@ -30,7 +30,8 @@ namespace controller
 namespace px4_ros2_communication
 {
     //<! Topics for the 1-degree-of-freedom system
-    constexpr char FLIGHT_MODE_TOPIC[] = "offboard/flight_mode";
+    constexpr char FLIGHT_MODE_REQUEST_TOPIC[] = "offboard/flight_mode/request";
+    constexpr char FLIGHT_MODE_RESPONSE_TOPIC[] = "offboard/flight_mode/response";
 
     //<! Flight modes for the PX4
     constexpr char FLIGHT_MODE_OFFBOARD[] = "OFFBOARD";

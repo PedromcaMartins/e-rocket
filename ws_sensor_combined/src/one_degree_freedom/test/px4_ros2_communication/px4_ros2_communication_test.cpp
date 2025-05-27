@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 
-#include <one_degree_freedom/srv/flight_mode.hpp>
+#include <one_degree_freedom/msg/flight_mode_request.hpp>
+#include <one_degree_freedom/msg/flight_mode_response.hpp>
 #include <one_degree_freedom/constants.hpp>
 
 #include <stdint.h>
@@ -20,52 +21,102 @@ class Px4Ros2CommunicationTest : public rclcpp::Node
 public: 
     Px4Ros2CommunicationTest() : 
 		Node("px4_ros2_communication_test"),
-		flight_mode_client_{this->create_client<one_degree_freedom::srv::FlightMode>(FLIGHT_MODE_TOPIC)}
+		qos_profile_{rmw_qos_profile_sensor_data},
+		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
+		flight_mode_client_request_publisher_{this->create_publisher<one_degree_freedom::msg::FlightModeRequest>(
+			FLIGHT_MODE_REQUEST_TOPIC, qos_
+		)},
+		flight_mode_client_response_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightModeResponse>(
+			FLIGHT_MODE_RESPONSE_TOPIC, qos_, 
+			std::bind(&Px4Ros2CommunicationTest::response_callback, this, std::placeholders::_1)
+		)},
+		flight_mode_response_received_{false},
+		flight_mode_response_success_{false}
     {
-		RCLCPP_INFO(this->get_logger(), "Waiting for %s flight_mode service", "");
-		while (!flight_mode_client_->wait_for_service(1s)) {
-			if (!rclcpp::ok()) {
-				RCLCPP_ERROR(this->get_logger(), "Interrupted while waiting for the service. Exiting.");
-				return;
+        test_timer_ = this->create_wall_timer(5000ms, // 5 seconds
+            [this]() {
+				if (flight_mode_response_received_.load()) {
+					flight_mode_response_received_.store(false);
+					auto success = flight_mode_response_success_.load();
+					RCLCPP_INFO(this->get_logger(), "Flight mode response received: %s", success ? "Success" : "Failure");
+
+					if (success) {
+						// change to next state
+						counter_++;
+					}
+				} else {
+					RCLCPP_WARN(this->get_logger(), "No flight mode response received yet.");
+				}
+
+				switch (counter_ % 4) {
+				case 0:
+					RCLCPP_INFO(this->get_logger(), "Switching to Offboard mode");
+					request_flight_mode(FLIGHT_MODE_OFFBOARD);
+
+					// while (!flight_mode_response_success_.load()) {}
+					// flight_mode_response_success_.store(false);
+				break;
+
+				case 1:
+					RCLCPP_INFO(this->get_logger(), "Arming the vehicle");
+					request_flight_mode(FLIGHT_MODE_ARM);
+
+					// while (!flight_mode_response_success_.load()) {}
+					// flight_mode_response_success_.store(false);
+				break;
+
+				case 2:
+					RCLCPP_INFO(this->get_logger(), "Disarming the vehicle");
+					request_flight_mode(FLIGHT_MODE_DISARM);
+
+					// while (!flight_mode_response_success_.load()) {}
+					// flight_mode_response_success_.store(false);
+				break;
+
+				case 3:
+					RCLCPP_INFO(this->get_logger(), "Switching to Manual mode");
+					request_flight_mode(FLIGHT_MODE_MANUAL);
+
+					// while (!flight_mode_response_success_.load()) {}
+					// flight_mode_response_success_.store(false);
+				break;
+				}
 			}
-			RCLCPP_INFO(this->get_logger(), "service not available, waiting again...");
-		}
-		RCLCPP_INFO(this->get_logger(), "flight_mode service active");
-
-		auto request = std::make_shared<one_degree_freedom::srv::FlightMode::Request>();
-
-		std::this_thread::sleep_for(std::chrono::seconds(5));
-		RCLCPP_INFO(this->get_logger(), "Switching to Offboard mode");
-		request->flight_mode = FLIGHT_MODE_OFFBOARD;
-		flight_mode_client_->async_send_request(request);
-
-		std::this_thread::sleep_for(std::chrono::seconds(5));
-		RCLCPP_INFO(this->get_logger(), "Arming the vehicle");
-		request->flight_mode = FLIGHT_MODE_ARM;
-		flight_mode_client_->async_send_request(request);
-
-		std::this_thread::sleep_for(std::chrono::seconds(5));
-		RCLCPP_INFO(this->get_logger(), "Disarming the vehicle");
-		request->flight_mode = FLIGHT_MODE_DISARM;
-		flight_mode_client_->async_send_request(request);
-
-		std::this_thread::sleep_for(std::chrono::seconds(5));
-		RCLCPP_INFO(this->get_logger(), "Switching to Manual mode");
-		request->flight_mode = FLIGHT_MODE_MANUAL;
-		flight_mode_client_->async_send_request(request);
+		);
     }
 
-	void switch_to_offboard_mode();
-	void switch_to_manual_mode();
-	void arm();
-	void disarm();
-
 private:
-    rclcpp::Client<one_degree_freedom::srv::FlightMode>::SharedPtr flight_mode_client_;
+	rmw_qos_profile_t qos_profile_;
+	rclcpp::QoS qos_;
 
-	void request_vehicle_command(uint16_t command, float param1 = 0.0, float param2 = 0.0);
-	void response_callback(rclcpp::Client<one_degree_freedom::srv::FlightMode>::SharedFuture future);
+    rclcpp::Publisher<one_degree_freedom::msg::FlightModeRequest>::SharedPtr flight_mode_client_request_publisher_;
+    rclcpp::Subscription<one_degree_freedom::msg::FlightModeResponse>::SharedPtr flight_mode_client_response_subscriber_;
+
+	std::atomic<bool> flight_mode_response_received_;
+	std::atomic<bool> flight_mode_response_success_;
+
+	rclcpp::TimerBase::SharedPtr test_timer_;
+	uint counter_ = 0;
+
+	void request_flight_mode(const char * flight_mode);
+	void response_callback(std::shared_ptr<one_degree_freedom::msg::FlightModeResponse> response);
 };
+
+void Px4Ros2CommunicationTest::request_flight_mode(const char * flight_mode)
+{
+	one_degree_freedom::msg::FlightModeRequest msg {};
+	msg.flight_mode = std::string(flight_mode);
+    msg.stamp = this->get_clock()->now();
+
+	flight_mode_client_request_publisher_->publish(msg);
+}
+
+void Px4Ros2CommunicationTest::response_callback(std::shared_ptr<one_degree_freedom::msg::FlightModeResponse> response)
+{
+	RCLCPP_INFO(this->get_logger(), "Received flight mode response: '%s'", response->message.c_str());
+	flight_mode_response_success_.store(response->success);
+	flight_mode_response_received_.store(true);
+}
 
 int main(int argc, char *argv[])
 {

@@ -1,7 +1,8 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <px4_msgs/srv/vehicle_command.hpp>
-#include <one_degree_freedom/srv/flight_mode.hpp>
+#include <one_degree_freedom/msg/flight_mode_request.hpp>
+#include <one_degree_freedom/msg/flight_mode_response.hpp>
 #include <one_degree_freedom/constants.hpp>
 
 #include <stdint.h>
@@ -21,31 +22,43 @@ class Px4Ros2Communication : public rclcpp::Node
 public: 
     Px4Ros2Communication() : 
 		Node("px4_ros2_communication"),
-		vehicle_command_client_{this->create_client<px4_msgs::srv::VehicleCommand>("fmu/vehicle_command")},
-		flight_mode_service_{this->create_service<one_degree_freedom::srv::FlightMode>(
-			FLIGHT_MODE_TOPIC, 
-			std::bind(&Px4Ros2Communication::handle_flight_mode_service, this, std::placeholders::_1, std::placeholders::_2)
+		qos_profile_{rmw_qos_profile_sensor_data},
+		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
+		vehicle_command_client_{this->create_client<px4_msgs::srv::VehicleCommand>("fmu/vehicle_command", qos_profile_)},
+		flight_mode_request_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightModeRequest>(
+			FLIGHT_MODE_REQUEST_TOPIC, qos_, 
+			std::bind(&Px4Ros2Communication::handle_flight_mode_request, this, std::placeholders::_1)
+		)},
+		flight_mode_response_publisher_{this->create_publisher<one_degree_freedom::msg::FlightModeResponse>(
+			FLIGHT_MODE_RESPONSE_TOPIC, qos_
 		)}
     {
 	}
 
 private:
-	rclcpp::Client<px4_msgs::srv::VehicleCommand>::SharedPtr vehicle_command_client_;
-	rclcpp::Service<one_degree_freedom::srv::FlightMode>::SharedPtr flight_mode_service_;
+	rmw_qos_profile_t qos_profile_;
+	rclcpp::QoS qos_;
 
-	void handle_flight_mode_service(
-		const std::shared_ptr<one_degree_freedom::srv::FlightMode::Request> request,
-		std::shared_ptr<one_degree_freedom::srv::FlightMode::Response> response
+	rclcpp::Client<px4_msgs::srv::VehicleCommand>::SharedPtr vehicle_command_client_;
+	rclcpp::Subscription<one_degree_freedom::msg::FlightModeRequest>::SharedPtr flight_mode_request_subscriber_;
+	rclcpp::Publisher<one_degree_freedom::msg::FlightModeResponse>::SharedPtr flight_mode_response_publisher_;
+
+	void handle_flight_mode_request(
+		const std::shared_ptr<one_degree_freedom::msg::FlightModeRequest> request
+	);
+
+	void publish_flight_mode_response(
+		const bool success, 
+		const char * message
 	);
 
 	bool adapt_flight_mode_request_to_vehicle_command(
-		const std::shared_ptr<one_degree_freedom::srv::FlightMode::Request> flight_mode_request,
+		const std::shared_ptr<one_degree_freedom::msg::FlightModeRequest> flight_mode_request,
 		std::shared_ptr<px4_msgs::srv::VehicleCommand::Request> vehicle_command_request
 	);
 
-	void adapt_vehicle_command_to_flight_mode_response(
-		const std::shared_ptr<px4_msgs::srv::VehicleCommand::Response> vehicle_command_response,
-		std::shared_ptr<one_degree_freedom::srv::FlightMode::Response> flight_mode_response
+	void publish_vehicle_command_as_flight_mode_response(
+		const std::shared_ptr<px4_msgs::srv::VehicleCommand::Response> vehicle_command_response
 	);
 
 	void set_vehicle_command_request(
@@ -56,41 +69,50 @@ private:
 	);
 };
 
-void Px4Ros2Communication::handle_flight_mode_service(
-	const std::shared_ptr<one_degree_freedom::srv::FlightMode::Request> flight_mode_request,
-	std::shared_ptr<one_degree_freedom::srv::FlightMode::Response> flight_mode_response
+void Px4Ros2Communication::handle_flight_mode_request(
+	const std::shared_ptr<one_degree_freedom::msg::FlightModeRequest> flight_mode_request
 ) {
 	RCLCPP_INFO(this->get_logger(), "Received flight mode service request: '%s'", flight_mode_request->flight_mode.c_str());
 
 	while (!vehicle_command_client_->wait_for_service(1s)) {
-		RCLCPP_ERROR(this->get_logger(), "VehicleCommand service not available.");
-		flight_mode_response->success = false;
-		flight_mode_response->message = "VehicleCommand service unavailable.";
+		publish_flight_mode_response(
+			false,
+			"VehicleCommand service unavailable."
+		);
 		return;
 	}
 
 	auto vehicle_command_request = std::make_shared<px4_msgs::srv::VehicleCommand::Request>();
 	if (adapt_flight_mode_request_to_vehicle_command(flight_mode_request, vehicle_command_request)) {
-		RCLCPP_ERROR(this->get_logger(), "Invalid flight mode request received.");
-		flight_mode_response->success = false;
-		flight_mode_response->message = "Invalid flight mode request received.";
+		publish_flight_mode_response(
+			false, 
+			"Invalid flight mode request received."
+		);
 		return;
 	}
 
 	// Send the request asynchronously
 	auto result_future = vehicle_command_client_->async_send_request(
 		vehicle_command_request, 
-		[this, flight_mode_response](rclcpp::Client<px4_msgs::srv::VehicleCommand>::SharedFuture future) {
-			adapt_vehicle_command_to_flight_mode_response(future.get(), flight_mode_response);
+		[this](rclcpp::Client<px4_msgs::srv::VehicleCommand>::SharedFuture future) {
+			publish_vehicle_command_as_flight_mode_response(future.get());
 		}
 	);
+}
+
+void Px4Ros2Communication::publish_flight_mode_response(const bool success, const char * message) {
+	one_degree_freedom::msg::FlightModeResponse msg {};
+	msg.success = success;
+	msg.message = std::string(message);
+
+	flight_mode_response_publisher_->publish(msg);
 }
 
 /**
  * @return true if
  */
 bool Px4Ros2Communication::adapt_flight_mode_request_to_vehicle_command(
-	const std::shared_ptr<one_degree_freedom::srv::FlightMode::Request> flight_mode_request,
+	const std::shared_ptr<one_degree_freedom::msg::FlightModeRequest> flight_mode_request,
 	std::shared_ptr<px4_msgs::srv::VehicleCommand::Request> vehicle_command_request
 ) {
 	auto flight_mode = flight_mode_request->flight_mode.c_str();
@@ -119,52 +141,67 @@ bool Px4Ros2Communication::adapt_flight_mode_request_to_vehicle_command(
 	return false;
 }
 
-void Px4Ros2Communication::adapt_vehicle_command_to_flight_mode_response(
-	const std::shared_ptr<px4_msgs::srv::VehicleCommand::Response> vehicle_command_response,
-	std::shared_ptr<one_degree_freedom::srv::FlightMode::Response> flight_mode_response
+void Px4Ros2Communication::publish_vehicle_command_as_flight_mode_response(
+	const std::shared_ptr<px4_msgs::srv::VehicleCommand::Response> vehicle_command_response
 ) {
 	auto reply = vehicle_command_response->reply;
 	switch (reply.result)
 	{
 	case reply.VEHICLE_CMD_RESULT_ACCEPTED:
 		RCLCPP_INFO(this->get_logger(), "vehicle command accepted");
-		flight_mode_response->success = true;
-		flight_mode_response->message = "Vehicle command accepted.";
+		publish_flight_mode_response(
+			true,
+			"Vehicle command accepted."
+		);
 		break;
 	case reply.VEHICLE_CMD_RESULT_TEMPORARILY_REJECTED:
 		RCLCPP_WARN(this->get_logger(), "vehicle command temporarily rejected");
-		flight_mode_response->success = false;
-		flight_mode_response->message = "Vehicle command temporarily rejected.";
+		publish_flight_mode_response(
+			false,
+			"Vehicle command temporarily rejected."
+		);
 		break;
 	case reply.VEHICLE_CMD_RESULT_DENIED:
 		RCLCPP_WARN(this->get_logger(), "vehicle command denied");
-		flight_mode_response->success = false;
-		flight_mode_response->message = "Vehicle command denied.";
+		publish_flight_mode_response(
+			false,
+			"Vehicle command denied."
+		);
 		break;
 	case reply.VEHICLE_CMD_RESULT_UNSUPPORTED:
 		RCLCPP_WARN(this->get_logger(), "vehicle command unsupported");
-		flight_mode_response->success = false;
-		flight_mode_response->message = "Vehicle command unsupported.";
+		publish_flight_mode_response(
+			false,
+			"Vehicle command unsupported."
+		);
 		break;
 	case reply.VEHICLE_CMD_RESULT_FAILED:
 		RCLCPP_WARN(this->get_logger(), "vehicle command failed");
-		flight_mode_response->success = false;
-		flight_mode_response->message = "Vehicle command failed.";
+		publish_flight_mode_response(
+			false,
+			"Vehicle command failed."
+		);
 		break;
 	case reply.VEHICLE_CMD_RESULT_IN_PROGRESS:
 		RCLCPP_WARN(this->get_logger(), "vehicle command in progress");
-		flight_mode_response->success = false;
-		flight_mode_response->message = "Vehicle command in progress.";
+		publish_flight_mode_response(
+			false,
+			"Vehicle command in progress."
+		);
 		break;
 	case reply.VEHICLE_CMD_RESULT_CANCELLED:
 		RCLCPP_WARN(this->get_logger(), "vehicle command cancelled");
-		flight_mode_response->success = false;
-		flight_mode_response->message = "Vehicle command cancelled.";
+		publish_flight_mode_response(
+			false,
+			"Vehicle command cancelled."
+		);
 		break;
 	default:
-		RCLCPP_WARN(this->get_logger(), "vehicle command response unknown");
-		flight_mode_response->success = false;
-		flight_mode_response->message = "Vehicle command response unknown.";
+		RCLCPP_ERROR(this->get_logger(), "vehicle command response unknown");
+		publish_flight_mode_response(
+			false,
+			"Vehicle command response unknown."
+		);
 		break;
 	}
 }

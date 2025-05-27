@@ -6,10 +6,12 @@
 #include <px4_msgs/msg/vehicle_control_mode.hpp>
 #include <px4_msgs/msg/vehicle_attitude.hpp>
 #include <px4_msgs/msg/vehicle_angular_velocity.hpp>
-#include <px4_ros_com/msg/euler_angle.hpp>
+#include <px4_ros_com/msg/controller_debug.hpp>
 
 #include <eigen3/Eigen/Geometry>
 #include <chrono>
+
+const char CONTROLLER_INPUT_SETPOINT_PARAM[] = "controller_input_setpoint";
 
 using namespace std::chrono;
 using namespace px4_msgs::msg;
@@ -31,8 +33,7 @@ public:
 		vehicle_command_publisher_ = this->create_publisher<VehicleCommand>("/fmu/in/vehicle_command", 10);
 		offboard_control_mode_publisher_ = this->create_publisher<OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
 		vehicle_control_mode_publisher_ = this->create_publisher<VehicleControlMode>("/fmu/in/vehicle_control_mode", 10);
-        euler_angle_publisher_ = this->create_publisher<px4_ros_com::msg::EulerAngle>("/offboard/euler_angle", 10);
-        euler_angle_publisher_ = this->create_publisher<px4_ros_com::msg::EulerAngle>("/offboard/euler_angle_setpoint", 10);
+        controller_debug_publisher_ = this->create_publisher<px4_ros_com::msg::ControllerDebug>("/offboard/controller_debug", 10);
 
 		pitch_angle_.store(0.0, std::memory_order_relaxed);
 		angular_velocity_.store(0.0, std::memory_order_relaxed);
@@ -40,7 +41,6 @@ public:
         is_offboard_mode_.store(false, std::memory_order_relaxed);
 
         state_machine_iteration_ = 0;
-        mission_planner_iteration_ = 0;
 
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
@@ -51,14 +51,6 @@ public:
 				auto q = Eigen::Quaternionf(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
 				auto euler = quaternionToEulerRadians(q);
 				pitch_angle_.store(euler.pitch, std::memory_order_relaxed);
-
-                px4_ros_com::msg::EulerAngle euler_angle_msg;
-                euler_angle_msg.roll = euler.roll;
-                euler_angle_msg.pitch = euler.pitch;
-                euler_angle_msg.yaw = euler.yaw;
-                euler_angle_msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-                euler_angle_msg.timestamp_sample = msg->timestamp_sample;
-                euler_angle_publisher_->publish(euler_angle_msg);
 			}
 		);
 
@@ -70,20 +62,12 @@ public:
             }
         );
 
-        mission_planner_timer_ = this->create_wall_timer(5000ms, // 5 seconds
-            [this]() {
-                // match state in FSM to get mission setpoints
+        // Declare the setpoint parameter
+        this->declare_parameter<float>(CONTROLLER_INPUT_SETPOINT_PARAM, 0.0f);
 
-                auto pitch_angle_setpoint = 0.0;
-                if (mission_planner_iteration_ % 4 == 0) {
-                    pitch_angle_setpoint = M_PI / 9.0;   // 20 degrees
-                }
-                if (mission_planner_iteration_ % 4 == 2) {
-                    pitch_angle_setpoint = -M_PI / 9.0; // -20 degrees
-                }
-                mission_planner_iteration_++;
-                pitch_angle_setpoint_.store(pitch_angle_setpoint, std::memory_order_relaxed);
-            }
+        // Set up parameter callback
+        setpoint_param_handle_ = this->add_on_set_parameters_callback(
+            std::bind(&Controller::setpoint_param_callback, this, std::placeholders::_1)
         );
 
 		state_machine_callback_timer_ = this->create_wall_timer(100ms, // 10 Hz
@@ -145,17 +129,17 @@ public:
                 auto pitch_angle_setpoint = pitch_angle_setpoint_.load(std::memory_order_relaxed);
                 auto dt = 0.02f; // 50 Hz
 
-                RCLCPP_INFO(this->get_logger(), "Pitch angle: %f, Angular velocity: %f, Setpoint: %f", pitch_angle, angular_velocity, pitch_angle_setpoint);
-
                 // Control algorithm
                 auto tilt_angle = controller(pitch_angle, angular_velocity, pitch_angle_setpoint, dt);
+                publish_controller_debug(pitch_angle, angular_velocity, pitch_angle_setpoint, tilt_angle);
 
                 // Convert to PWM signal
                 auto tilt_pwm = tilt_angle;
 
                 publish_actuator_servo(tilt_pwm);
 
-                auto motor_pwm = 0.05f; // 5% duty cycle
+                auto motor_pwm = NAN; // 5% duty cycle
+                // auto motor_pwm = 0.05f; // 5% duty cycle
                 publish_actuator_motors(motor_pwm, motor_pwm);
             }
         );
@@ -172,13 +156,12 @@ private:
 	rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
 	rclcpp::Publisher<OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
 	rclcpp::Publisher<VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
-    rclcpp::Publisher<px4_ros_com::msg::EulerAngle>::SharedPtr euler_angle_publisher_;
+    rclcpp::Publisher<px4_ros_com::msg::ControllerDebug>::SharedPtr controller_debug_publisher_;
 
 	rclcpp::Subscription<VehicleAttitude>::SharedPtr vehicle_attitude_subscription_;
     rclcpp::Subscription<VehicleAngularVelocity>::SharedPtr vehicle_angular_velocity_subscription_;
 
 	uint64_t state_machine_iteration_;   //!< counter for mission timekeeping
-    uint64_t mission_planner_iteration_; //!< counter for mission planner
 
 	std::atomic<bool> is_offboard_mode_; //!< flag to check if the vehicle is in offboard mode
 
@@ -186,6 +169,13 @@ private:
 	std::atomic<float> pitch_angle_;
 	std::atomic<float> angular_velocity_;
 	std::atomic<float> pitch_angle_setpoint_;
+
+    //!< Setpoint variable
+    OnSetParametersCallbackHandle::SharedPtr setpoint_param_handle_;
+
+    // Add parameter callback method
+    rcl_interfaces::msg::SetParametersResult setpoint_param_callback(
+        const std::vector<rclcpp::Parameter> &parameters);
 
 	//!< Auxiliary functions
 	Euler quaternionToEulerRadians(const Eigen::Quaternionf q);
@@ -197,7 +187,38 @@ private:
 	void publish_vehicle_command(uint16_t command, float param1 = 0.0, float param2 = 0.0);
 
     float controller(float pitch_angle, float angular_velocity, float pitch_angle_setpoint, float dt);
+    void publish_controller_debug(float pitch_angle, float angular_velocity, float pitch_angle_setpoint, float tilt_angle);
 };
+
+rcl_interfaces::msg::SetParametersResult Controller::setpoint_param_callback(
+    const std::vector<rclcpp::Parameter> &parameters)
+{
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+
+    for (const auto &param : parameters) {
+        if (param.get_name() == CONTROLLER_INPUT_SETPOINT_PARAM) {
+            float new_setpoint = param.as_double();
+            pitch_angle_setpoint_.store(new_setpoint);
+            RCLCPP_INFO(this->get_logger(), "Updated setpoint to: %f", new_setpoint);
+        }
+    }
+
+    return result;
+}
+
+void Controller::publish_controller_debug(float pitch_angle, float angular_velocity, float pitch_angle_setpoint, float tilt_angle) {
+    RCLCPP_INFO(this->get_logger(), "Pitch angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", pitch_angle, angular_velocity, pitch_angle_setpoint, tilt_angle);
+
+    px4_ros_com::msg::ControllerDebug msg{};
+    msg.pitch_angle = pitch_angle;
+    msg.angular_velocity = angular_velocity;
+    msg.pitch_angle_setpoint = pitch_angle_setpoint;
+    msg.tilt_angle = tilt_angle;
+    msg.stamp = this->get_clock()->now();
+
+    controller_debug_publisher_->publish(msg);
+}
 
 /**
  * @brief Controller function
@@ -268,7 +289,7 @@ void Controller::publish_actuator_servo(float tilt_pwm)
         tilt_pwm = -1.0f;
     }
 	ActuatorServos msg{};
-	msg.control[0] = tilt_pwm;
+	msg.control[1] = -tilt_pwm;
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
 	actuator_servos_publisher_->publish(msg);
 }

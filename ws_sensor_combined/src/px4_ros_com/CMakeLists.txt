@@ -35,6 +35,8 @@ include_directories(include)
 # Add Message files
 rosidl_generate_interfaces(${PROJECT_NAME}
 	"msg/EulerAngle.msg"
+	"msg/ControllerDebug.msg"
+	DEPENDENCIES builtin_interfaces
 )
 
 # Add frame_transforms lib

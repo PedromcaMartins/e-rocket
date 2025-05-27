@@ -38,16 +38,20 @@
 
 \section{Objective}
 
-Now that the team can read sensor data and actaute the sensors and motors, it can start development on a software architecture, with a controller. 
-To start of, the team decided to use a simple 1 degree of freedom controller, to ensure the rocket maintains a desired orientation. 
-Independent tests of pitch and roll are performed, in order to evaluate the performance of the controller using the inner beam, or outer ring. 
+The team is now able to read sensor data and actaute the sensors and motors. 
+We agreed the next step would be to develop a software architecture for the offboard computer, that can adapt to the different controllers the researchers want to explore. 
+The team decided to start with a simple 1 degree of freedom controller which, in this case, will attemp to maintain a set orientation over one axys of rotation. 
 
+This means performing independent tests of pitch and roll, using the inner beam or outer ring, respectively. 
+Testing will also serve to evaluate the simulation model and the performance of the controller. 
 
-Objectives: 
+In summary, these are the objectives: 
 
 \begin{itemize}
-    \item Implment a software architecture containing a state-machine, mission planner and controller 
+    \item Implement a software architecture for the offboard computer 
     \item Use a 1 degree of freedom control algorithm 
+    \item Test the all nodes and controller prior to deploying in real hardware
+    \item Test the system in 2 degrees of freedom (pitch and roll)
 \end{itemize}
 
 
@@ -56,11 +60,75 @@ Objectives:
 \section{Background}
 
 
+For the TVC mechanism to have any effect on the drone's attitude, the motors need to be turned on. 
+The controller researchers suggested keeping the motor's thrust constant. The exact thrust will be tuned when testing the controller, in order to minimize the error between the model and real world. 
+% does this have to do with the momentum of inertia? - help me on this
+
+Controllers usually don't like it when the same sensor data is used in two iterations (the setpoint is not affected by this). 
+This can be caused by delays in the data acquisition system, or with a data acquisition rate lower that the controller execution rate. 
+% add dangers 
+This means that the controller should have a higher frequency than the data acquisition system.
+
+
+
+\subsection{Requirements}
+
+Non-functional requirements: 
+\begin{itemize}
+    \item Being able to easily change multiple constants (i.e. controller's frequency) at compile time. 
+    \item 
+\end{itemize}
+
+Functional requirements:
+\begin{itemize}
+    \item 
+\end{itemize}
+
+\subsection{Tests}
+
+Testing is required in order to verify that our proposal accomplishes the objectives and meets the requirements set. 
+Given the distributed and decoupled nature of the ros2 architecture, and the right interfaces, testing can be done by using test doubles nodes, that replace nodes in the architecture. 
+This gives the team the ability to test systems separately, , and even perform SITL testing. 
+% verify testing terminology
+
+
 
 \clearpage
 \section{Architecture}
 
-   
+All nodes use the sensor qos ros2 profile. 
+
+\subsection{Controller Node}
+
+From a software engineering point of view, the controllers is a black box, with set inputs and outputs. 
+In order to facilitate collaboration between the software engineer and controller researchers, the team decided the controller node should receive its inputs and send its outputs via topics and messages. 
+This controller node should be a one-to-one implementation of the controller (developed in matlab), with the same inputs, outputs and instructions. 
+This way, the controller logic is decoupled from the rest of the system, acting as a black box itself, only connected via the inputs and outputs. 
+This provides multiple benefits: it facilitates implementation, collaboration, validation, testing, and tuning of the controller's implementation on the final system. 
+And ideally, since the node is decoupled from the rest of the system, it could be replaced by a ros2 node connected to matlab or simulink. 
+This would enable a more iterative design directly in tools that control researchers are used to. 
+
+These inputs and outputs will depend on the controller implemented, but for the case of a 1 degree of freedom controller are as follows: 
+
+\begin{itemize}
+    \item input: attitude (rad)
+    \item input: angular rate (rad/s)
+    \item input: setpoint (rad)
+    \item output: tilt angle (rad)
+\end{itemize}
+
+Each of these values has a message associated with them, with a timestamp. 
+% is this timestamp really necesssary? Our controllers ignore it... 
+Each input value has its own message because the attitude and angular rates are published from 2 different topics (different rates), and the setpoint is published by the mission node. 
+This means that the acquisition of the input values is asyncronous, but the execution of the controller is syncronous, at a constant rate. 
+% explain how this is not a problem
+
+A controller test node was created to test the controller. 
+This node exposes the setpoint parameter, which when set, sends a setpoint to the controller. 
+In parallel, the controller simulator node is used to update the controller with attitude and angular rate values. 
+Using the equations of motion, it calculates the actuator's affect on the attitude and angular rate. 
+This allows the team to validate the controller in isolation from the rest of the system. 
+
 
 
 \clearpage

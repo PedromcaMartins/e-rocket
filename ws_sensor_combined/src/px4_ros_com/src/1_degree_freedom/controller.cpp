@@ -138,8 +138,7 @@ public:
 
                 publish_actuator_servo(tilt_pwm);
 
-                auto motor_pwm = NAN; // 5% duty cycle
-                // auto motor_pwm = 0.05f; // 5% duty cycle
+                auto motor_pwm = 0.05f; // 5% duty cycle
                 publish_actuator_motors(motor_pwm, motor_pwm);
             }
         );
@@ -230,9 +229,9 @@ void Controller::publish_controller_debug(float pitch_angle, float angular_veloc
  */
 float Controller::controller(float delta_theta, float delta_omega, float delta_theta_desired, float dt)
 {
-    const float k_p = 0.3350f; // Proportional gain
-    const float k_d = 0.1616f; // Derivative gain
-    const float k_i = 0.3162f; // Integral gain
+    const float k_p = 0.7968f; // Proportional gain
+    const float k_d = 0.6651f; // Derivative gain
+    const float k_i = 0.4472f; // Integral gain
 
     // Update the integrated error
     static float zeta_theta = 0.0f;

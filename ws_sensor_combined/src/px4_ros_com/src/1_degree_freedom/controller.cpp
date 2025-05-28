@@ -50,13 +50,13 @@ public:
 				// Process the vehicle attitude message
 				auto q = Eigen::Quaternionf(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
 				auto euler = quaternionToEulerRadians(q);
-				pitch_angle_.store(euler.roll, std::memory_order_relaxed);
+				pitch_angle_.store(euler.pitch, std::memory_order_relaxed);
 			}
 		);
 
         vehicle_angular_velocity_subscription_ = this->create_subscription<VehicleAngularVelocity>("/fmu/out/vehicle_angular_velocity", qos,
             [this](const VehicleAngularVelocity::SharedPtr msg) {
-                auto pitch_angular_velocity = msg->xyz[0];
+                auto pitch_angular_velocity = msg->xyz[1];
 
                 angular_velocity_.store(pitch_angular_velocity, std::memory_order_relaxed);
             }
@@ -288,7 +288,7 @@ void Controller::publish_actuator_servo(float tilt_pwm)
         tilt_pwm = -1.0f;
     }
 	ActuatorServos msg{};
-	msg.control[0] = -tilt_pwm;
+	msg.control[1] = -tilt_pwm;
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
 	actuator_servos_publisher_->publish(msg);
 }

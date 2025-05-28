@@ -50,13 +50,13 @@ public:
 				// Process the vehicle attitude message
 				auto q = Eigen::Quaternionf(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
 				auto euler = quaternionToEulerRadians(q);
-				pitch_angle_.store(euler.pitch, std::memory_order_relaxed);
+				pitch_angle_.store(euler.roll, std::memory_order_relaxed);
 			}
 		);
 
         vehicle_angular_velocity_subscription_ = this->create_subscription<VehicleAngularVelocity>("/fmu/out/vehicle_angular_velocity", qos,
             [this](const VehicleAngularVelocity::SharedPtr msg) {
-                auto pitch_angular_velocity = msg->xyz[1];
+                auto pitch_angular_velocity = msg->xyz[0];
 
                 angular_velocity_.store(pitch_angular_velocity, std::memory_order_relaxed);
             }
@@ -100,19 +100,19 @@ public:
                 }
 
                 // Mission to Abort
-                if (state_machine_iteration_ == 600) {
-                    // Disarm the vehicle
-                    this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0);
-                    RCLCPP_INFO(this->get_logger(), "Disarm command send");
+                // if (state_machine_iteration_ == 1200) {
+                //     // Disarm the vehicle
+                //     this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0);
+                //     RCLCPP_INFO(this->get_logger(), "Disarm command send");
 
-                    // change to Manual mode
-                    this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 1);
-                    RCLCPP_INFO(this->get_logger(), "Manual mode command send");
+                //     // change to Manual mode
+                //     this->publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 1);
+                //     RCLCPP_INFO(this->get_logger(), "Manual mode command send");
 
-                    // Confirm that we are in manual mode
-                    is_offboard_mode_.store(false, std::memory_order_relaxed);
-                    RCLCPP_WARN(this->get_logger(), "Manual mode not confirmed");
-                }
+                //     // Confirm that we are in manual mode
+                //     is_offboard_mode_.store(false, std::memory_order_relaxed);
+                //     RCLCPP_WARN(this->get_logger(), "Manual mode not confirmed");
+                // }
                 state_machine_iteration_++;
             }
         );
@@ -138,7 +138,7 @@ public:
 
                 publish_actuator_servo(tilt_pwm);
 
-                auto motor_pwm = 0.05f; // 5% duty cycle
+                auto motor_pwm = 0.10f; // 5% duty cycle
                 publish_actuator_motors(motor_pwm, motor_pwm);
             }
         );
@@ -229,9 +229,9 @@ void Controller::publish_controller_debug(float pitch_angle, float angular_veloc
  */
 float Controller::controller(float delta_theta, float delta_omega, float delta_theta_desired, float dt)
 {
-    const float k_p = 1.5862f; // Proportional gain
-    const float k_d = 1.1579f; // Derivative gain
-    const float k_i = 1.0f; // Integral gain
+    const float k_p = 1.7825f; // Proportional gain
+    const float k_d = 0.6881f; // Derivative gain
+    const float k_i = 2.2361f; // Integral gain
 
     // Update the integrated error
     static float zeta_theta = 0.0f;
@@ -288,7 +288,7 @@ void Controller::publish_actuator_servo(float tilt_pwm)
         tilt_pwm = -1.0f;
     }
 	ActuatorServos msg{};
-	msg.control[1] = -tilt_pwm;
+	msg.control[0] = -tilt_pwm;
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
 	actuator_servos_publisher_->publish(msg);
 }

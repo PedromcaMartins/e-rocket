@@ -27,7 +27,7 @@ namespace controller
 
 } // namespace controller
 
-namespace px4_ros2_communication
+namespace px4_ros2_flight_mode
 {
     //<! Topics for the 1-degree-of-freedom system
     constexpr char FLIGHT_MODE_REQUEST_TOPIC[] = "offboard/flight_mode/request";
@@ -39,6 +39,6 @@ namespace px4_ros2_communication
     constexpr char FLIGHT_MODE_ARM[] = "ARM";
     constexpr char FLIGHT_MODE_DISARM[] = "DISARM";
 
-} // namespace px4_ros2_communication
+} // namespace px4_ros2_flight_mode
 } // namespace constants
 } // namespace one_degree_freedom

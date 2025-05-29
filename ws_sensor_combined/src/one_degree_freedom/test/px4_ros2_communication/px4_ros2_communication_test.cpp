@@ -11,16 +11,16 @@
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
-using namespace one_degree_freedom::constants::px4_ros2_communication;
+using namespace one_degree_freedom::constants::px4_ros2_flight_mode;
 
 /**
  * @brief PX4 ROS2 Communication Node is responsible for sending and receiving commands to and from the PX4. 
  */
-class Px4Ros2CommunicationTest : public rclcpp::Node
+class Px4Ros2FlightModeTest : public rclcpp::Node
 {
 public: 
-    Px4Ros2CommunicationTest() : 
-		Node("px4_ros2_communication_test"),
+    Px4Ros2FlightModeTest() : 
+		Node("px4_ros2_flight_mode_test"),
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 		flight_mode_client_request_publisher_{this->create_publisher<one_degree_freedom::msg::FlightModeRequest>(
@@ -28,7 +28,7 @@ public:
 		)},
 		flight_mode_client_response_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightModeResponse>(
 			FLIGHT_MODE_RESPONSE_TOPIC, qos_, 
-			std::bind(&Px4Ros2CommunicationTest::response_callback, this, std::placeholders::_1)
+			std::bind(&Px4Ros2FlightModeTest::response_callback, this, std::placeholders::_1)
 		)},
 		flight_mode_response_received_{false},
 		flight_mode_response_success_{false}
@@ -52,33 +52,21 @@ public:
 				case 0:
 					RCLCPP_INFO(this->get_logger(), "Switching to Offboard mode");
 					request_flight_mode(FLIGHT_MODE_OFFBOARD);
-
-					// while (!flight_mode_response_success_.load()) {}
-					// flight_mode_response_success_.store(false);
 				break;
 
 				case 1:
 					RCLCPP_INFO(this->get_logger(), "Arming the vehicle");
 					request_flight_mode(FLIGHT_MODE_ARM);
-
-					// while (!flight_mode_response_success_.load()) {}
-					// flight_mode_response_success_.store(false);
 				break;
 
 				case 2:
 					RCLCPP_INFO(this->get_logger(), "Disarming the vehicle");
 					request_flight_mode(FLIGHT_MODE_DISARM);
-
-					// while (!flight_mode_response_success_.load()) {}
-					// flight_mode_response_success_.store(false);
 				break;
 
 				case 3:
 					RCLCPP_INFO(this->get_logger(), "Switching to Manual mode");
 					request_flight_mode(FLIGHT_MODE_MANUAL);
-
-					// while (!flight_mode_response_success_.load()) {}
-					// flight_mode_response_success_.store(false);
 				break;
 				}
 			}
@@ -102,7 +90,7 @@ private:
 	void response_callback(std::shared_ptr<one_degree_freedom::msg::FlightModeResponse> response);
 };
 
-void Px4Ros2CommunicationTest::request_flight_mode(const char * flight_mode)
+void Px4Ros2FlightModeTest::request_flight_mode(const char * flight_mode)
 {
 	one_degree_freedom::msg::FlightModeRequest msg {};
 	msg.flight_mode = std::string(flight_mode);
@@ -111,7 +99,7 @@ void Px4Ros2CommunicationTest::request_flight_mode(const char * flight_mode)
 	flight_mode_client_request_publisher_->publish(msg);
 }
 
-void Px4Ros2CommunicationTest::response_callback(std::shared_ptr<one_degree_freedom::msg::FlightModeResponse> response)
+void Px4Ros2FlightModeTest::response_callback(std::shared_ptr<one_degree_freedom::msg::FlightModeResponse> response)
 {
 	RCLCPP_INFO(this->get_logger(), "Received flight mode response: '%s'", response->message.c_str());
 	flight_mode_response_success_.store(response->success);
@@ -124,7 +112,7 @@ int main(int argc, char *argv[])
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 
 	rclcpp::init(argc, argv);
-	rclcpp::spin(std::make_shared<Px4Ros2CommunicationTest>());
+	rclcpp::spin(std::make_shared<Px4Ros2FlightModeTest>());
 
 	rclcpp::shutdown();
 	return 0;

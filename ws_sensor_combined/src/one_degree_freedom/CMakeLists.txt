@@ -70,16 +70,16 @@ target_include_directories(controller PUBLIC
 )
 install(TARGETS controller DESTINATION lib/${PROJECT_NAME})
 
-# px4_ros2_communication
-add_executable(px4_ros2_communication src/px4_ros2_communication.cpp)
-ament_target_dependencies(px4_ros2_communication rclcpp px4_msgs)
+# px4_ros2_flight_mode
+add_executable(px4_ros2_flight_mode src/px4_ros2_flight_mode.cpp)
+ament_target_dependencies(px4_ros2_flight_mode rclcpp px4_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(px4_ros2_communication ${cpp_typesupport_target})
-target_include_directories(px4_ros2_communication PUBLIC
+target_link_libraries(px4_ros2_flight_mode ${cpp_typesupport_target})
+target_include_directories(px4_ros2_flight_mode PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-install(TARGETS px4_ros2_communication DESTINATION lib/${PROJECT_NAME})
+install(TARGETS px4_ros2_flight_mode DESTINATION lib/${PROJECT_NAME})
 
 ##############################
 # Test and Development nodes #
@@ -107,16 +107,16 @@ target_include_directories(controller_test PUBLIC
 )
 install(TARGETS controller_test DESTINATION lib/${PROJECT_NAME})
 
-# px4_ros2_communication test node (for testing / development)
-add_executable(px4_ros2_communication_test test/px4_ros2_communication/px4_ros2_communication_test.cpp)
-ament_target_dependencies(px4_ros2_communication_test rclcpp px4_msgs)
+# px4_ros2_flight_mode test node (for testing / development)
+add_executable(px4_ros2_flight_mode_test test/px4_ros2_communication/px4_ros2_flight_mode_test.cpp)
+ament_target_dependencies(px4_ros2_flight_mode_test rclcpp px4_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(px4_ros2_communication_test ${cpp_typesupport_target})
-target_include_directories(px4_ros2_communication_test PUBLIC
+target_link_libraries(px4_ros2_flight_mode_test ${cpp_typesupport_target})
+target_include_directories(px4_ros2_flight_mode_test PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-install(TARGETS px4_ros2_communication_test DESTINATION lib/${PROJECT_NAME})
+install(TARGETS px4_ros2_flight_mode_test DESTINATION lib/${PROJECT_NAME})
 
 ############
 # Install ##

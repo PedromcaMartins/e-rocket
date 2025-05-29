@@ -1,5 +1,5 @@
 """
-Example to launch a px4_ros2_communication listener node.
+Example to launch a px4_ros2_flight_mode listener node.
 """
 
 from launch import LaunchDescription
@@ -15,22 +15,22 @@ def generate_launch_description():
         shell=True
     )
 
-    px4_ros2_communication_node = Node(
+    px4_ros2_flight_mode_node = Node(
         package='one_degree_freedom',
-        executable='px4_ros2_communication',
+        executable='px4_ros2_flight_mode',
         output='screen',
         shell=True,
     )
 
-    px4_ros2_communication_test_node = Node(
+    px4_ros2_flight_mode_test_node = Node(
         package='one_degree_freedom',
-        executable='px4_ros2_communication_test',
+        executable='px4_ros2_flight_mode_test',
         output='screen',
         shell=True,
     )
 
     return LaunchDescription([
         #micro_ros_agent,
-        px4_ros2_communication_node,
-        px4_ros2_communication_test_node,
+        px4_ros2_flight_mode_node,
+        px4_ros2_flight_mode_test_node,
     ])

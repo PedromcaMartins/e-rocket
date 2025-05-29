@@ -12,22 +12,22 @@
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
-using namespace one_degree_freedom::constants::px4_ros2_communication;
+using namespace one_degree_freedom::constants::px4_ros2_flight_mode;
 
 /**
  * @brief PX4 ROS2 Communication Node is responsible for sending and receiving commands to and from the PX4. 
  */
-class Px4Ros2Communication : public rclcpp::Node
+class Px4Ros2FlightMode : public rclcpp::Node
 {
 public: 
-    Px4Ros2Communication() : 
-		Node("px4_ros2_communication"),
+    Px4Ros2FlightMode() : 
+		Node("px4_ros2_flight_mode"),
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 		vehicle_command_client_{this->create_client<px4_msgs::srv::VehicleCommand>("fmu/vehicle_command", qos_profile_)},
 		flight_mode_request_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightModeRequest>(
 			FLIGHT_MODE_REQUEST_TOPIC, qos_, 
-			std::bind(&Px4Ros2Communication::handle_flight_mode_request, this, std::placeholders::_1)
+			std::bind(&Px4Ros2FlightMode::handle_flight_mode_request, this, std::placeholders::_1)
 		)},
 		flight_mode_response_publisher_{this->create_publisher<one_degree_freedom::msg::FlightModeResponse>(
 			FLIGHT_MODE_RESPONSE_TOPIC, qos_
@@ -69,7 +69,7 @@ private:
 	);
 };
 
-void Px4Ros2Communication::handle_flight_mode_request(
+void Px4Ros2FlightMode::handle_flight_mode_request(
 	const std::shared_ptr<one_degree_freedom::msg::FlightModeRequest> flight_mode_request
 ) {
 	RCLCPP_INFO(this->get_logger(), "Received flight mode service request: '%s'", flight_mode_request->flight_mode.c_str());
@@ -100,18 +100,20 @@ void Px4Ros2Communication::handle_flight_mode_request(
 	);
 }
 
-void Px4Ros2Communication::publish_flight_mode_response(const bool success, const char * message) {
+void Px4Ros2FlightMode::publish_flight_mode_response(const bool success, const char * message) {
 	one_degree_freedom::msg::FlightModeResponse msg {};
 	msg.success = success;
 	msg.message = std::string(message);
 
 	flight_mode_response_publisher_->publish(msg);
+	RCLCPP_INFO(this->get_logger(), "Published flight mode response: success=%s, message='%s'", 
+		success ? "true" : "false", message);
 }
 
 /**
  * @return true if
  */
-bool Px4Ros2Communication::adapt_flight_mode_request_to_vehicle_command(
+bool Px4Ros2FlightMode::adapt_flight_mode_request_to_vehicle_command(
 	const std::shared_ptr<one_degree_freedom::msg::FlightModeRequest> flight_mode_request,
 	std::shared_ptr<px4_msgs::srv::VehicleCommand::Request> vehicle_command_request
 ) {
@@ -141,7 +143,7 @@ bool Px4Ros2Communication::adapt_flight_mode_request_to_vehicle_command(
 	return false;
 }
 
-void Px4Ros2Communication::publish_vehicle_command_as_flight_mode_response(
+void Px4Ros2FlightMode::publish_vehicle_command_as_flight_mode_response(
 	const std::shared_ptr<px4_msgs::srv::VehicleCommand::Response> vehicle_command_response
 ) {
 	auto reply = vehicle_command_response->reply;
@@ -206,7 +208,7 @@ void Px4Ros2Communication::publish_vehicle_command_as_flight_mode_response(
 	}
 }
 
-void Px4Ros2Communication::set_vehicle_command_request(
+void Px4Ros2FlightMode::set_vehicle_command_request(
 	std::shared_ptr<px4_msgs::srv::VehicleCommand::Request> request, 
 	const uint16_t command, 
 	const float param1, 
@@ -232,7 +234,7 @@ int main(int argc, char *argv[])
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 
 	rclcpp::init(argc, argv);
-	rclcpp::spin(std::make_shared<Px4Ros2Communication>());
+	rclcpp::spin(std::make_shared<Px4Ros2FlightMode>());
 
 	rclcpp::shutdown();
 	return 0;

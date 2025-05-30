@@ -1,5 +1,5 @@
 """
-Example to launch a px4_ros2_flight_mode listener node.
+Example to launch a px4_ros2_flight_mode test node.
 """
 
 from launch import LaunchDescription

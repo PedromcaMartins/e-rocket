@@ -42,8 +42,8 @@
  #ifndef FRAME_TRANSFORMS_H
  #define FRAME_TRANSFORMS_H
  
- #include <Eigen/Eigen>
- #include <Eigen/Geometry>
+ #include <eigen3/Eigen/Eigen>
+ #include <eigen3/Eigen/Geometry>
  #include <array>
  
  // for Covariance types

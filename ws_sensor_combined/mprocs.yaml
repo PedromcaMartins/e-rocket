@@ -9,8 +9,13 @@ procs:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build"
     autostart: true
 
-  Px4_Ros2_Communication_Test:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom px4_ros2_communication_test.launch.py"
+  Px4_Ros2_Message_Mapping_Test:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom px4_ros2_message_mapping_test.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  Px4_Ros2_Flight_Mode_Test:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom px4_ros2_flight_mode_test.launch.py"
     autostart: false
     stop: SIGINT
 

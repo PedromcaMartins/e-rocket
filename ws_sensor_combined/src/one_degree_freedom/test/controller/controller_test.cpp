@@ -37,7 +37,7 @@ private:
 	rclcpp::Publisher<ControllerInputSetpoint>::SharedPtr setpoint_publisher_;
 
 	//!< Auxiliary functions
-    void publish_setpoint(float setpoint);
+    void publish_setpoint(float setpoint_radians);
 
     //!< Setpoint variable
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
@@ -47,11 +47,11 @@ private:
         const std::vector<rclcpp::Parameter> &parameters);
 };
 
-void ControllerTestNode::publish_setpoint(float setpoint)
+void ControllerTestNode::publish_setpoint(float setpoint_radians)
 {
     ControllerInputSetpoint msg{};
     msg.stamp = this->get_clock()->now();
-    msg.setpoint = setpoint;
+    msg.setpoint_radians = setpoint_radians;
     setpoint_publisher_->publish(msg);
 }
 
@@ -63,9 +63,9 @@ rcl_interfaces::msg::SetParametersResult ControllerTestNode::parameter_callback(
 
     for (const auto &param : parameters) {
         if (param.get_name() == CONTROLLER_INPUT_SETPOINT_PARAM) {
-            float new_setpoint = param.as_double();
-            publish_setpoint(new_setpoint);
-            RCLCPP_INFO(this->get_logger(), "Updated setpoint to: %f", new_setpoint);
+            float new_setpoint_radians = param.as_double();
+            publish_setpoint(new_setpoint_radians);
+            RCLCPP_INFO(this->get_logger(), "Updated setpoint to: %f", new_setpoint_radians);
         }
     }
 

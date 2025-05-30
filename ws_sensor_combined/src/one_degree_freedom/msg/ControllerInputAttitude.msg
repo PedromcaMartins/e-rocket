@@ -1,5 +1,5 @@
 
 builtin_interfaces/Time stamp
-float32 attitude          # attitude in radians
+float32 attitude_radians
 
 # TOPICS offboard/controller_input_attitude 

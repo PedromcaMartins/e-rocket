@@ -2,7 +2,8 @@
 #include <one_degree_freedom/msg/controller_input_attitude.hpp>
 #include <one_degree_freedom/msg/controller_input_angular_rate.hpp>
 #include <one_degree_freedom/msg/controller_input_setpoint.hpp>
-#include <one_degree_freedom/msg/controller_output_tilt_angle.hpp>
+#include <one_degree_freedom/msg/controller_output_servo_tilt_angle.hpp>
+#include <one_degree_freedom/msg/controller_output_motor_thrust.hpp>
 #include <one_degree_freedom/constants.hpp>
 
 #include <chrono>
@@ -17,56 +18,58 @@ using namespace one_degree_freedom::constants::controller;
 class Controller : public rclcpp::Node
 {
 public:
-	explicit Controller() : Node("controller")
-	{
-		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
-		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
-
-        controller_timer_ = this->create_wall_timer(
-            std::chrono::duration<float>(CONTROLLER_DT), 
-            std::bind(&Controller::controller_callback, this)
-        );
-
-        attitude_subscriber_ = this->create_subscription<ControllerInputAttitude>(
-            CONTROLLER_INPUT_ATTITUDE_TOPIC, qos,
-            [this](const ControllerInputAttitude::SharedPtr msg) {
-                angle_.store(msg->attitude);
-            }
-        );
-
-        angular_rate_subscriber_ = this->create_subscription<ControllerInputAngularRate>(
-            CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos,
-            [this](const ControllerInputAngularRate::SharedPtr msg) {
-                angular_velocity_.store(msg->angular_rate);
-            }
-        );
-
-        setpoint_subscriber_ = this->create_subscription<ControllerInputSetpoint>(
-            CONTROLLER_INPUT_SETPOINT_TOPIC, qos,
-            [this](const ControllerInputSetpoint::SharedPtr msg) {
-                angle_setpoint_.store(msg->setpoint);
-            }
-        );
-
-        tilt_angle_publisher_ = this->create_publisher<ControllerOutputTiltAngle>(
-            CONTROLLER_OUTPUT_TILT_ANGLE_TOPIC, qos
-        );
+	explicit Controller() : Node("controller"),
+    qos_profile_{rmw_qos_profile_sensor_data},
+    qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
+    controller_timer_{this->create_wall_timer(
+        std::chrono::duration<float>(CONTROLLER_DT_SECONDS), 
+        std::bind(&Controller::controller_callback, this)
+    )},
+    attitude_subscriber_{this->create_subscription<ControllerInputAttitude>(
+        CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_,
+        [this](const ControllerInputAttitude::SharedPtr msg) {
+            angle_radians_.store(msg->attitude_radians);
+        }
+    )},
+    angular_rate_subscriber_{this->create_subscription<ControllerInputAngularRate>(
+        CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_,
+        [this](const ControllerInputAngularRate::SharedPtr msg) {
+            angular_velocity_radians_per_second_.store(msg->angular_rate_radians_per_second);
+        }
+    )},
+    setpoint_subscriber_{this->create_subscription<ControllerInputSetpoint>(
+        CONTROLLER_INPUT_SETPOINT_TOPIC, qos_,
+        [this](const ControllerInputSetpoint::SharedPtr msg) {
+            angle_setpoint_radians_.store(msg->setpoint_radians);
+        }
+    )},
+    servo_tilt_angle_publisher_{this->create_publisher<ControllerOutputServoTiltAngle>(
+        CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC, qos_
+    )},
+    motor_thrust_publisher_{this->create_publisher<ControllerOutputMotorThrust>(
+        CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC, qos_
+    )}
+    {
 	}
 
 private:
+    rmw_qos_profile_t qos_profile_;
+    rclcpp::QoS qos_;
+
     //!< Time variables
     rclcpp::TimerBase::SharedPtr controller_timer_;
 
 	//!< Publishers and Subscribers
-	rclcpp::Subscription<ControllerInputAttitude>::SharedPtr    attitude_subscriber_;
-	rclcpp::Subscription<ControllerInputAngularRate>::SharedPtr angular_rate_subscriber_;
-	rclcpp::Subscription<ControllerInputSetpoint>::SharedPtr    setpoint_subscriber_;
-	rclcpp::Publisher<ControllerOutputTiltAngle>::SharedPtr     tilt_angle_publisher_;
+	rclcpp::Subscription<ControllerInputAttitude>::SharedPtr     attitude_subscriber_;
+	rclcpp::Subscription<ControllerInputAngularRate>::SharedPtr  angular_rate_subscriber_;
+	rclcpp::Subscription<ControllerInputSetpoint>::SharedPtr     setpoint_subscriber_;
+	rclcpp::Publisher<ControllerOutputServoTiltAngle>::SharedPtr servo_tilt_angle_publisher_;
+    rclcpp::Publisher<ControllerOutputMotorThrust>::SharedPtr    motor_thrust_publisher_;
 
     // control algorithm variables
-	std::atomic<float> angle_ = 0.0f;
-	std::atomic<float> angular_velocity_ = 0.0f;
-	std::atomic<float> angle_setpoint_ = 0.0f;
+	std::atomic<float> angle_radians_ = 0.0f;
+	std::atomic<float> angular_velocity_radians_per_second_ = 0.0f;
+	std::atomic<float> angle_setpoint_radians_ = 0.0f;
 
     //!< Control algorithm parameters
     const float k_p = 0.3350f; // Proportional gain
@@ -75,8 +78,9 @@ private:
 
 	//!< Auxiliary functions
     void controller_callback();
-    float controller(float angle, float angular_velocity, float angle_setpoint, float dt);
-	void publish_tilt_angle(float tilt_angle);
+    float controller(float angle_radians, float angular_velocity_radians_per_second, float angle_setpoint_radians, float dt_seconds);
+	void publish_servo_tilt_angle(float servo_tilt_angle_radians);
+	void publish_motor_thrust(float upwards_motor_thrust_percentage, float downwards_motor_thrust_percentage);
 };
 
 /**
@@ -86,15 +90,18 @@ void Controller::controller_callback()
 {
     // Get the time step
     // Read the sensor data and setpoint
-    float delta_theta = angle_.load();
-    float delta_omega = angular_velocity_.load();
-    float delta_theta_desired = angle_setpoint_.load();
+    float delta_theta = angle_radians_.load();
+    float delta_omega = angular_velocity_radians_per_second_.load();
+    float delta_theta_desired = angle_setpoint_radians_.load();
 
     // Call the controller function
-    float delta_gamma = controller(delta_theta, delta_omega, delta_theta_desired, CONTROLLER_DT);
+    float delta_gamma = controller(delta_theta, delta_omega, delta_theta_desired, CONTROLLER_DT_SECONDS);
 
     // Publish the tilt angle output
-    publish_tilt_angle(delta_gamma);
+    publish_servo_tilt_angle(delta_gamma);
+
+    // Publish the motor thrust
+    publish_motor_thrust(CONTROLLER_MOTOR_THRUST_PERCENTAGE, CONTROLLER_MOTOR_THRUST_PERCENTAGE);
 }
 
 /**
@@ -118,12 +125,25 @@ float Controller::controller(float delta_theta, float delta_omega, float delta_t
     return delta_gamma;
 }
 
-void Controller::publish_tilt_angle(float tilt_angle)
+void Controller::publish_servo_tilt_angle(float servo_tilt_angle_radians)
 {
-    ControllerOutputTiltAngle msg{};
+    ControllerOutputServoTiltAngle msg{};
     msg.stamp = this->get_clock()->now();
-    msg.tilt_angle = tilt_angle;
-    tilt_angle_publisher_->publish(msg);
+    msg.servo_tilt_angle_radians = servo_tilt_angle_radians;
+    servo_tilt_angle_publisher_->publish(msg);
+}
+
+/**
+ * @brief Publish the actuator motors.
+ *        For this example, we are generating sinusoidal values for the actuator positions.
+ */
+void Controller::publish_motor_thrust(float upwards_motor_thrust_percentage, float downwards_motor_thrust_percentage)
+{
+	ControllerOutputMotorThrust msg{};
+	msg.stamp = this->get_clock()->now();
+	msg.upwards_motor_thrust_percentage = upwards_motor_thrust_percentage;
+	msg.downwards_motor_thrust_percentage = downwards_motor_thrust_percentage;
+	motor_thrust_publisher_->publish(msg);
 }
 
 int main(int argc, char *argv[])

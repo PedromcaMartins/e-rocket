@@ -108,7 +108,7 @@ void Px4Ros2FlightModeTest::response_callback(std::shared_ptr<one_degree_freedom
 
 int main(int argc, char *argv[])
 {
-	std::cout << "Starting PX4 ROS2 Communication node..." << std::endl;
+	std::cout << "Starting PX4 ROS2 Flight Mode Test node..." << std::endl;
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 
 	rclcpp::init(argc, argv);

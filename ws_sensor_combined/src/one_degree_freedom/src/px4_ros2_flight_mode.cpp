@@ -1,5 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 
+#include <px4_msgs/msg/offboard_control_mode.hpp>
+#include <px4_msgs/msg/vehicle_control_mode.hpp>
 #include <px4_msgs/srv/vehicle_command.hpp>
 #include <one_degree_freedom/msg/flight_mode_request.hpp>
 #include <one_degree_freedom/msg/flight_mode_response.hpp>
@@ -31,6 +33,12 @@ public:
 		)},
 		flight_mode_response_publisher_{this->create_publisher<one_degree_freedom::msg::FlightModeResponse>(
 			FLIGHT_MODE_RESPONSE_TOPIC, qos_
+		)},
+		offboard_control_mode_publisher_{this->create_publisher<px4_msgs::msg::OffboardControlMode>("/fmu/in/offboard_control_mode", 10)},
+		vehicle_control_mode_publisher_{this->create_publisher<px4_msgs::msg::VehicleControlMode>("/fmu/in/vehicle_control_mode", 10)},
+		mantain_offboard_mode_timer_{this->create_wall_timer(
+			std::chrono::duration<float>(MANTAIN_OFFBOARD_MODE_TIMER_PERIOD_SECONDS),
+			std::bind(&Px4Ros2FlightMode::mantain_offboard_mode_callback, this)
 		)}
     {
 	}
@@ -67,6 +75,14 @@ private:
 		const float param1 = 0.0, 
 		const float param2 = 0.0
 	);
+
+	rclcpp::Publisher<px4_msgs::msg::OffboardControlMode>::SharedPtr offboard_control_mode_publisher_;
+	rclcpp::Publisher<px4_msgs::msg::VehicleControlMode>::SharedPtr vehicle_control_mode_publisher_;
+	void publish_offboard_control_mode();
+	void publish_vehicle_control_mode();
+
+	rclcpp::TimerBase::SharedPtr mantain_offboard_mode_timer_;
+	void mantain_offboard_mode_callback();
 };
 
 void Px4Ros2FlightMode::handle_flight_mode_request(
@@ -228,9 +244,65 @@ void Px4Ros2FlightMode::set_vehicle_command_request(
 	request->request = msg;
 }
 
+void Px4Ros2FlightMode::mantain_offboard_mode_callback() {
+	// TODO: verify if these commands are being received 
+	// TODO: tie this behaviour with state machine 
+	publish_offboard_control_mode();
+	publish_vehicle_control_mode();	
+}
+
+/**
+ * @brief Publish the offboard control mode.
+ *        For this example, only direct actuator is active.
+ */
+void Px4Ros2FlightMode::publish_offboard_control_mode()
+{
+	px4_msgs::msg::OffboardControlMode msg{};
+	msg.position = false;
+	msg.velocity = false;
+	msg.acceleration = false;
+	msg.attitude = false;
+	msg.body_rate = false;
+	msg.thrust_and_torque = false;
+	msg.direct_actuator = true;
+	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+	offboard_control_mode_publisher_->publish(msg);
+}
+
+/**
+ * @brief Publish the vehicle control mode.
+ *        For this example, we are setting the vehicle to offboard mode.
+ */
+void Px4Ros2FlightMode::publish_vehicle_control_mode()
+{
+	px4_msgs::msg::VehicleControlMode msg{};
+	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+	msg.flag_armed = true;
+
+	msg.flag_multicopter_position_control_enabled = false;
+
+	msg.flag_control_manual_enabled = false;
+	msg.flag_control_auto_enabled = false;
+	msg.flag_control_offboard_enabled = true;
+	msg.flag_control_position_enabled = false;
+	msg.flag_control_velocity_enabled = false;
+	msg.flag_control_altitude_enabled = false;
+	msg.flag_control_climb_rate_enabled = false;
+	msg.flag_control_acceleration_enabled = false;
+	msg.flag_control_attitude_enabled = false;
+	msg.flag_control_rates_enabled = false;
+	msg.flag_control_allocation_enabled = false;
+	msg.flag_control_termination_enabled = false;
+
+	msg.source_id = 1;
+
+	vehicle_control_mode_publisher_->publish(msg);
+}
+
+
 int main(int argc, char *argv[])
 {
-	std::cout << "Starting PX4 ROS2 Communication node..." << std::endl;
+	std::cout << "Starting PX4 ROS2 Flight Mode node..." << std::endl;
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 
 	rclcpp::init(argc, argv);

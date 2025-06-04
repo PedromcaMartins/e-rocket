@@ -229,9 +229,9 @@ void Controller::publish_controller_debug(float pitch_angle, float angular_veloc
  */
 float Controller::controller(float delta_theta, float delta_omega, float delta_theta_desired, float dt)
 {
-    const float k_p = 1.7825f; // Proportional gain
-    const float k_d = 0.6881f; // Derivative gain
-    const float k_i = 2.2361f; // Integral gain
+    const float k_p = 1.8275f; // Proportional gain
+    const float k_d = 0.8273f; // Derivative gain
+    const float k_i = 1.4142f; // Integral gain
 
     // Update the integrated error
     static float zeta_theta = 0.0f;

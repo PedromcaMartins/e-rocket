@@ -9,8 +9,8 @@ procs:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build"
     autostart: true
 
-  Px4_Ros2_Message_Mapping_Test:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom px4_ros2_message_mapping_test.launch.py"
+  1_DoF_Offboard:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom offboard_computer.launch.py"
     autostart: false
     stop: SIGINT
 
@@ -19,13 +19,13 @@ procs:
     autostart: false
     stop: SIGINT
 
-  1_DoF_Controller_Test:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom controller_test.launch.py"
+  Px4_Ros2_Message_Mapping_Test:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom px4_ros2_message_mapping_test.launch.py"
     autostart: false
     stop: SIGINT
 
-  1_DoF_Offboard:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom offboard_computer.launch.py"
+  1_DoF_Controller_Test:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom controller_test.launch.py"
     autostart: false
     stop: SIGINT
 

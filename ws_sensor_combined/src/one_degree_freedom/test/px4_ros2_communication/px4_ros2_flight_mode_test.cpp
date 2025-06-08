@@ -1,7 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 
-#include <one_degree_freedom/msg/flight_mode_request.hpp>
-#include <one_degree_freedom/msg/flight_mode_response.hpp>
+#include <one_degree_freedom/msg/flight_mode.hpp>
 #include <one_degree_freedom/constants.hpp>
 
 #include <stdint.h>
@@ -11,6 +10,8 @@
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
+using namespace one_degree_freedom::msg;
+using namespace one_degree_freedom::constants::flight_mode;
 using namespace one_degree_freedom::constants::px4_ros2_flight_mode;
 
 /**
@@ -23,50 +24,41 @@ public:
 		Node("px4_ros2_flight_mode_test"),
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
-		flight_mode_client_request_publisher_{this->create_publisher<one_degree_freedom::msg::FlightModeRequest>(
-			FLIGHT_MODE_REQUEST_TOPIC, qos_
+		flight_mode_set_publisher_{this->create_publisher<one_degree_freedom::msg::FlightMode>(
+			FLIGHT_MODE_SET_TOPIC, qos_
 		)},
-		flight_mode_client_response_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightModeResponse>(
-			FLIGHT_MODE_RESPONSE_TOPIC, qos_, 
+		flight_mode_get_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightMode>(
+			FLIGHT_MODE_GET_TOPIC, qos_, 
 			std::bind(&Px4Ros2FlightModeTest::response_callback, this, std::placeholders::_1)
 		)},
-		flight_mode_response_received_{false},
-		flight_mode_response_success_{false}
+		flight_mode_{FlightMode::INIT}
     {
         test_timer_ = this->create_wall_timer(5000ms, // 5 seconds
             [this]() {
-				if (flight_mode_response_received_.load()) {
-					flight_mode_response_received_.store(false);
-					auto success = flight_mode_response_success_.load();
-					RCLCPP_INFO(this->get_logger(), "Flight mode response received: %s", success ? "Success" : "Failure");
-
-					if (success) {
-						// change to next state
-						counter_++;
-					}
-				} else {
-					RCLCPP_WARN(this->get_logger(), "No flight mode response received yet.");
-				}
-
-				switch (counter_ % 4) {
-				case 0:
-					RCLCPP_INFO(this->get_logger(), "Switching to Offboard mode");
-					request_flight_mode(FLIGHT_MODE_OFFBOARD);
+				switch (flight_mode_.load()) {
+				case FlightMode::INIT:
+					RCLCPP_INFO(this->get_logger(), "Switching to INIT mode");
+					request_flight_mode(FlightMode::PRE_ARM);
 				break;
 
-				case 1:
-					RCLCPP_INFO(this->get_logger(), "Arming the vehicle");
-					request_flight_mode(FLIGHT_MODE_ARM);
+				case FlightMode::PRE_ARM:
+					RCLCPP_INFO(this->get_logger(), "Switching to PRE_ARM mode");
+					request_flight_mode(FlightMode::ARM);
 				break;
 
-				case 2:
-					RCLCPP_INFO(this->get_logger(), "Disarming the vehicle");
-					request_flight_mode(FLIGHT_MODE_DISARM);
+				case FlightMode::ARM:
+					RCLCPP_INFO(this->get_logger(), "Switching to ARM mode");
+					request_flight_mode(FlightMode::MISSION_START);
 				break;
 
-				case 3:
-					RCLCPP_INFO(this->get_logger(), "Switching to Manual mode");
-					request_flight_mode(FLIGHT_MODE_MANUAL);
+				case FlightMode::MISSION_START:
+					RCLCPP_INFO(this->get_logger(), "Switching to MISSION_START mode");
+					request_flight_mode(FlightMode::MISSION_END);
+				break;
+
+				case FlightMode::MISSION_END:
+					RCLCPP_INFO(this->get_logger(), "Switching to MISSION_END mode");
+					request_flight_mode(FlightMode::ABORT);
 				break;
 				}
 			}
@@ -77,33 +69,30 @@ private:
 	rmw_qos_profile_t qos_profile_;
 	rclcpp::QoS qos_;
 
-    rclcpp::Publisher<one_degree_freedom::msg::FlightModeRequest>::SharedPtr flight_mode_client_request_publisher_;
-    rclcpp::Subscription<one_degree_freedom::msg::FlightModeResponse>::SharedPtr flight_mode_client_response_subscriber_;
+    rclcpp::Publisher<one_degree_freedom::msg::FlightMode>::SharedPtr flight_mode_set_publisher_;
+    rclcpp::Subscription<one_degree_freedom::msg::FlightMode>::SharedPtr flight_mode_get_subscriber_;
 
-	std::atomic<bool> flight_mode_response_received_;
-	std::atomic<bool> flight_mode_response_success_;
+	std::atomic<uint8_t> flight_mode_;
 
 	rclcpp::TimerBase::SharedPtr test_timer_;
-	uint counter_ = 0;
 
-	void request_flight_mode(const char * flight_mode);
-	void response_callback(std::shared_ptr<one_degree_freedom::msg::FlightModeResponse> response);
+	void request_flight_mode(uint8_t flight_mode);
+	void response_callback(std::shared_ptr<one_degree_freedom::msg::FlightMode> response);
 };
 
-void Px4Ros2FlightModeTest::request_flight_mode(const char * flight_mode)
+void Px4Ros2FlightModeTest::request_flight_mode(uint8_t flight_mode)
 {
-	one_degree_freedom::msg::FlightModeRequest msg {};
-	msg.flight_mode = std::string(flight_mode);
+	one_degree_freedom::msg::FlightMode msg {};
+
+	msg.flight_mode = flight_mode;
     msg.stamp = this->get_clock()->now();
 
-	flight_mode_client_request_publisher_->publish(msg);
+	flight_mode_set_publisher_->publish(msg);
 }
 
-void Px4Ros2FlightModeTest::response_callback(std::shared_ptr<one_degree_freedom::msg::FlightModeResponse> response)
+void Px4Ros2FlightModeTest::response_callback(std::shared_ptr<one_degree_freedom::msg::FlightMode> response)
 {
-	RCLCPP_INFO(this->get_logger(), "Received flight mode response: '%s'", response->message.c_str());
-	flight_mode_response_success_.store(response->success);
-	flight_mode_response_received_.store(true);
+	flight_mode_.store(response->flight_mode);
 }
 
 int main(int argc, char *argv[])

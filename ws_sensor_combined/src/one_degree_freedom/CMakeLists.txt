@@ -70,6 +70,17 @@ target_include_directories(controller PUBLIC
 )
 install(TARGETS controller DESTINATION lib/${PROJECT_NAME})
 
+# mission
+add_executable(mission src/mission.cpp)
+ament_target_dependencies(mission rclcpp px4_msgs)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(mission ${cpp_typesupport_target})
+target_include_directories(mission PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
+	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+install(TARGETS mission DESTINATION lib/${PROJECT_NAME})
+
 # px4_ros2_flight_mode
 add_executable(px4_ros2_flight_mode src/px4_ros2_flight_mode.cpp)
 ament_target_dependencies(px4_ros2_flight_mode rclcpp px4_msgs)

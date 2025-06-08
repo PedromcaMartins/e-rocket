@@ -22,7 +22,31 @@ def generate_launch_description():
         shell=True,
     )
 
+    px4_ros2_flight_mode_node = Node(
+        package='one_degree_freedom',
+        executable='px4_ros2_flight_mode',
+        output='screen',
+        shell=True,
+    )
+
+    px4_ros2_message_mapping_node = Node(
+        package='one_degree_freedom',
+        executable='px4_ros2_message_mapping',
+        output='screen',
+        shell=True,
+    )
+
+    mission_node = Node(
+        package='one_degree_freedom',
+        executable='mission',
+        output='screen',
+        shell=True,
+    )
+
     return LaunchDescription([
         #micro_ros_agent,
-        controller_node
+        controller_node,
+        px4_ros2_flight_mode_node,
+        px4_ros2_message_mapping_node,
+        mission_node,
     ])

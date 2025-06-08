@@ -29,7 +29,7 @@ class Px4Ros2MessageMapping : public rclcpp::Node
 {
 public: 
     Px4Ros2MessageMapping() : 
-		Node("px4_ros2_flight_mode"),
+		Node("px4_ros2_message_mapping"),
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 

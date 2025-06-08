@@ -29,20 +29,22 @@ namespace controller
 
 } // namespace controller
 
-namespace px4_ros2_flight_mode
+namespace flight_mode
 {
 
     //<! Topics for the 1-degree-of-freedom system
-    constexpr char FLIGHT_MODE_REQUEST_TOPIC[] = "offboard/flight_mode/request";
-    constexpr char FLIGHT_MODE_RESPONSE_TOPIC[] = "offboard/flight_mode/response";
+    constexpr char FLIGHT_MODE_GET_TOPIC[] = "offboard/flight_mode/get";
+    constexpr char FLIGHT_MODE_SET_TOPIC[] = "offboard/flight_mode/set";
 
-    //<! Flight modes for the PX4
-    constexpr char FLIGHT_MODE_OFFBOARD[] = "OFFBOARD";
-    constexpr char FLIGHT_MODE_MANUAL[] = "MANUAL";
-    constexpr char FLIGHT_MODE_ARM[] = "ARM";
-    constexpr char FLIGHT_MODE_DISARM[] = "DISARM";
+} // namespace flight_mode
+
+namespace px4_ros2_flight_mode
+{
 
     constexpr float MANTAIN_OFFBOARD_MODE_TIMER_PERIOD_SECONDS = 0.1f; // 10 Hz
+
+    //<! Parameters for the flight mode node
+    constexpr char FLIGHT_MODE_PARAM[] = "flight_mode";
 
 } // namespace px4_ros2_flight_mode
 } // namespace constants

@@ -50,6 +50,24 @@ public:
         CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC, qos_
     )}
     {
+        this->declare_parameter<float>(CONTROLLER_K_P_PARAM);
+        this->declare_parameter<float>(CONTROLLER_K_D_PARAM);
+        this->declare_parameter<float>(CONTROLLER_K_I_PARAM);
+
+        k_p_ = this->get_parameter(CONTROLLER_K_P_PARAM).as_double();
+        k_d_ = this->get_parameter(CONTROLLER_K_D_PARAM).as_double();
+        k_i_ = this->get_parameter(CONTROLLER_K_I_PARAM).as_double();
+
+        // Safety check
+        if (k_p_ == NAN || k_d_ == NAN || k_i_ == NAN) {
+            RCLCPP_ERROR(this->get_logger(), "Could not read PID position controller gains correctly.");
+            throw std::runtime_error("Gains vector was empty");
+        }
+
+        // Print values
+        RCLCPP_INFO(this->get_logger(), "gains k_p: %f", k_p_);
+        RCLCPP_INFO(this->get_logger(), "gains k_d: %f", k_d_);
+        RCLCPP_INFO(this->get_logger(), "gains k_i: %f", k_i_);
 	}
 
 private:
@@ -71,10 +89,10 @@ private:
 	std::atomic<float> angular_velocity_radians_per_second_ = 0.0f;
 	std::atomic<float> angle_setpoint_radians_ = 0.0f;
 
-    //!< Control algorithm parameters
-    const float k_p = 0.3350f; // Proportional gain
-    const float k_d = 0.1616f; // Derivative gain
-    const float k_i = 0.3162f; // Integral gain
+    // //!< Control algorithm parameters
+    float k_p_;
+    float k_d_;
+    float k_i_;
 
 	//!< Auxiliary functions
     void controller_callback();
@@ -119,8 +137,8 @@ float Controller::controller(float delta_theta, float delta_omega, float delta_t
     zeta_theta = zeta_theta + (delta_theta_desired - delta_theta) * dt; 
 
     // Compute control input
-    float dot_product = delta_theta * k_p + delta_omega * k_d;
-    float delta_gamma = -dot_product + zeta_theta * k_i;
+    float dot_product = delta_theta * k_p_ + delta_omega * k_d_;
+    float delta_gamma = -dot_product + zeta_theta * k_i_;
 
     return delta_gamma;
 }

@@ -5,6 +5,8 @@ Example to launch a controller listener node.
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import ExecuteProcess
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
 
@@ -20,13 +22,21 @@ def generate_launch_description():
         executable='controller',
         output='screen',
         shell=True,
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
+        ],
     )
 
     controller_tester_node = Node(
         package='one_degree_freedom',
-        executable='controller_test_node',
+        executable='controller_test',
         output='screen',
         shell=True,
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
+        ],
     )
 
     controller_simulator_node = Node(
@@ -34,6 +44,10 @@ def generate_launch_description():
         executable='controller_simulator',
         output='screen',
         shell=True,
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
+        ],
     )
 
     return LaunchDescription([

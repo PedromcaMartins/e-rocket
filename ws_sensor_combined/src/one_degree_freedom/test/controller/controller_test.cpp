@@ -14,7 +14,7 @@ using namespace one_degree_freedom::constants::controller;
 class ControllerTestNode : public rclcpp::Node
 {
 public:
-	explicit ControllerTestNode() : Node("controller_test_node")
+	explicit ControllerTestNode() : Node("controller_test")
 	{
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);

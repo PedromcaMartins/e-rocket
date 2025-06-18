@@ -9,14 +9,17 @@ namespace controller
 {
 
     //<! Topics for the 1-degree-of-freedom system
-    constexpr char CONTROLLER_INPUT_ATTITUDE_TOPIC[] = "offboard/controller_input_attitude";
-    constexpr char CONTROLLER_INPUT_ANGULAR_RATE_TOPIC[] = "offboard/controller_input_angular_rate";
-    constexpr char CONTROLLER_INPUT_SETPOINT_TOPIC[] = "offboard/controller_input_setpoint";
-    constexpr char CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC[] = "offboard/controller_output_servo_tilt_angle";
-    constexpr char CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC[] = "offboard/controller_output_motor_thrust";
+    constexpr char CONTROLLER_INPUT_ATTITUDE_TOPIC[] = "offboard/controller/input/attitude";
+    constexpr char CONTROLLER_INPUT_ANGULAR_RATE_TOPIC[] = "offboard/controller/input/angular_rate";
+    constexpr char CONTROLLER_INPUT_SETPOINT_TOPIC[] = "offboard/controller/input/setpoint";
+    constexpr char CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC[] = "offboard/controller/output/servo_tilt_angle";
+    constexpr char CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC[] = "offboard/controller/output/motor_thrust";
 
     //<! Parameters for the 1-degree-of-freedom controller
-    constexpr char CONTROLLER_INPUT_SETPOINT_PARAM[] = "controller_input_setpoint_radians";
+    constexpr char CONTROLLER_INPUT_SETPOINT_PARAM[] = "offboard.controller.input.setpoint.radians";
+    constexpr char CONTROLLER_K_P_PARAM[] = "offboard.controller.gains.k_p";
+    constexpr char CONTROLLER_K_D_PARAM[] = "offboard.controller.gains.k_d";
+    constexpr char CONTROLLER_K_I_PARAM[] = "offboard.controller.gains.k_i";
 
     //<! Constants for the 1-degree-of-freedom system
     constexpr float M = 2.0f; // mass of the system
@@ -44,7 +47,7 @@ namespace px4_ros2_flight_mode
     constexpr float MANTAIN_OFFBOARD_MODE_TIMER_PERIOD_SECONDS = 0.1f; // 10 Hz
 
     //<! Parameters for the flight mode node
-    constexpr char FLIGHT_MODE_PARAM[] = "flight_mode";
+    constexpr char FLIGHT_MODE_PARAM[] = "offboard.flight_mode";
 
 } // namespace px4_ros2_flight_mode
 } // namespace constants

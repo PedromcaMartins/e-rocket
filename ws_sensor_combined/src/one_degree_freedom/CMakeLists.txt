@@ -30,6 +30,11 @@ find_package(rclpy REQUIRED)
 # Generate ROS messages, ROS2 interfaces and IDL files #
 # ##############################################################################
 
+# Install the config directory
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}/
+)
+
 # get all msg files
 set(MSGS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/msg")
 file(GLOB PX4_MSGS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "${MSGS_DIR}/*.msg")

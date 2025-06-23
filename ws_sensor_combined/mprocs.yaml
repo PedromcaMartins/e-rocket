@@ -14,17 +14,22 @@ procs:
     autostart: false
     stop: SIGINT
 
-  Px4_Ros2_Flight_Mode_Test:
+  1_DoF_Offboard_HITL:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom offboard_computer_hitl_simulator.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  Flight_Mode_Test:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom px4_ros2_flight_mode_test.launch.py"
     autostart: false
     stop: SIGINT
 
-  Px4_Ros2_Message_Mapping_Test:
+  Message_Mapping_Test:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom px4_ros2_message_mapping_test.launch.py"
     autostart: false
     stop: SIGINT
 
-  1_DoF_Controller_Test:
+  Controller_Test:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom controller_test.launch.py"
     autostart: false
     stop: SIGINT

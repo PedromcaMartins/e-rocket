@@ -37,27 +37,27 @@ public:
             [this]() {
 				switch (flight_mode_.load()) {
 				case FlightMode::INIT:
-					RCLCPP_INFO(this->get_logger(), "Switching to INIT mode");
+					RCLCPP_INFO(this->get_logger(), "Switching to PRE_ARM mode");
 					request_flight_mode(FlightMode::PRE_ARM);
 				break;
 
 				case FlightMode::PRE_ARM:
-					RCLCPP_INFO(this->get_logger(), "Switching to PRE_ARM mode");
+					RCLCPP_INFO(this->get_logger(), "Switching to ARM mode");
 					request_flight_mode(FlightMode::ARM);
 				break;
 
 				case FlightMode::ARM:
-					RCLCPP_INFO(this->get_logger(), "Switching to ARM mode");
-					request_flight_mode(FlightMode::MISSION_START);
+					RCLCPP_INFO(this->get_logger(), "Switching to IN_MISSION mode");
+					request_flight_mode(FlightMode::IN_MISSION);
 				break;
 
-				case FlightMode::MISSION_START:
-					RCLCPP_INFO(this->get_logger(), "Switching to MISSION_START mode");
-					request_flight_mode(FlightMode::MISSION_END);
+				case FlightMode::IN_MISSION:
+					RCLCPP_INFO(this->get_logger(), "Switching to MISSION_COMPLETE mode");
+					request_flight_mode(FlightMode::MISSION_COMPLETE);
 				break;
 
-				case FlightMode::MISSION_END:
-					RCLCPP_INFO(this->get_logger(), "Switching to MISSION_END mode");
+				case FlightMode::MISSION_COMPLETE:
+					RCLCPP_INFO(this->get_logger(), "Switching to ABORT mode");
 					request_flight_mode(FlightMode::ABORT);
 				break;
 				}

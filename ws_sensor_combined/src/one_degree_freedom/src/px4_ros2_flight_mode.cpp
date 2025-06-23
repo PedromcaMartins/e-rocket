@@ -29,7 +29,7 @@ public:
         flight_mode_requested_{FlightMode::INIT},
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
-		vehicle_command_client_{this->create_client<px4_msgs::srv::VehicleCommand>("fmu/vehicle_command", qos_profile_)},
+		vehicle_command_client_{this->create_client<px4_msgs::srv::VehicleCommand>("/fmu/vehicle_command")},
 		flight_mode_set_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightMode>(
 			FLIGHT_MODE_SET_TOPIC, qos_, 
 			std::bind(&Px4Ros2FlightMode::handle_flight_mode_set, this, std::placeholders::_1)
@@ -119,23 +119,27 @@ void Px4Ros2FlightMode::handle_flight_mode_set(
 	if (flight_mode_current == FlightMode::INIT && flight_mode_requested == FlightMode::PRE_ARM) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to PRE_ARM");
 		switch_to_offboard_mode();
-	} 
+	}
 	else if (flight_mode_current == FlightMode::PRE_ARM && flight_mode_requested == FlightMode::ARM) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to ARM");
 		arm();
-	} 
-	else if (flight_mode_current == FlightMode::ARM && flight_mode_requested == FlightMode::MISSION_START) {
-		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to MISSION_START");
+	}
+	else if (flight_mode_current == FlightMode::ARM && flight_mode_requested == FlightMode::IN_MISSION) {
+		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to IN_MISSION");
+
+		// no need to change PX4 internal state
 		publish_vehicle_control_mode();
-	} 
-	else if (flight_mode_current == FlightMode::MISSION_START && flight_mode_requested == FlightMode::MISSION_END) {
-		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to MISSION_END");
-		switch_to_manual_mode();
+		flight_mode_current_.store(FlightMode::IN_MISSION);
+		publish_flight_mode();
+	}
+	else if (flight_mode_current == FlightMode::IN_MISSION && flight_mode_requested == FlightMode::MISSION_COMPLETE) {
+		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to MISSION_COMPLETE");
+		disarm();
 	}
 	else if (flight_mode_requested == FlightMode::ABORT) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to ABORT");
-		switch_to_manual_mode();
-	} 
+		disarm();
+	}
 	else {
 		RCLCPP_ERROR(this->get_logger(), "Received invalid request to change flight mode");
 	}
@@ -153,7 +157,7 @@ void Px4Ros2FlightMode::handle_vehicle_command_response(
 		RCLCPP_INFO(this->get_logger(), "Flight Mode change successful!");
 	} else {
 		flight_mode_requested_.store(flight_mode_current_.load());
-		RCLCPP_WARN(this->get_logger(), "Flight Mode change unsiccessful!");
+		RCLCPP_WARN(this->get_logger(), "Flight Mode change unsuccessful! Error: %d", reply.result);
 	}
 
 	publish_flight_mode();
@@ -173,7 +177,7 @@ void Px4Ros2FlightMode::send_vehicle_command_request(
 	const float param1, 
 	const float param2
 ) {
-	std::shared_ptr<px4_msgs::srv::VehicleCommand::Request> request{};
+	auto request = std::make_shared<px4_msgs::srv::VehicleCommand::Request>();
 
 	px4_msgs::msg::VehicleCommand msg{};
 	msg.param1 = param1;

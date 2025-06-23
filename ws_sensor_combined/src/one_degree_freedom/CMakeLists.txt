@@ -204,9 +204,4 @@ if(BUILD_TESTING)
 	ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_add_test(
-	controller_test
-	COMMAND $<TARGET_FILE:controller_test>
-)
-
 ament_package()

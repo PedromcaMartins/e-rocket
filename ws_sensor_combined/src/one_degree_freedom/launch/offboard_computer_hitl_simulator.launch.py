@@ -28,23 +28,23 @@ def generate_launch_description():
         ],
     )
 
-    px4_ros2_flight_mode_node = Node(
+    controller_simulator_node = Node(
         package='one_degree_freedom',
-        executable='px4_ros2_flight_mode',
+        executable='controller_simulator',
         output='screen',
         shell=True,
-        arguments=['--ros-args', '--log-level', 'warn'],
         parameters=[
             PathJoinSubstitution([
                 FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
         ],
     )
 
-    px4_ros2_message_mapping_node = Node(
+    px4_ros2_flight_mode_node = Node(
         package='one_degree_freedom',
-        executable='px4_ros2_message_mapping',
+        executable='px4_ros2_flight_mode',
         output='screen',
         shell=True,
+        arguments=['--ros-args', '--log-level', 'warn'],
         parameters=[
             PathJoinSubstitution([
                 FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
@@ -65,7 +65,7 @@ def generate_launch_description():
     return LaunchDescription([
         #micro_ros_agent,
         controller_node,
+        controller_simulator_node,
         px4_ros2_flight_mode_node,
-        px4_ros2_message_mapping_node,
         mission_node,
     ])

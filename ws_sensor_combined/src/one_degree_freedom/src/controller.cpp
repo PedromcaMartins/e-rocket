@@ -4,6 +4,7 @@
 #include <one_degree_freedom/msg/controller_input_setpoint.hpp>
 #include <one_degree_freedom/msg/controller_output_servo_tilt_angle.hpp>
 #include <one_degree_freedom/msg/controller_output_motor_thrust.hpp>
+#include <one_degree_freedom/msg/flight_mode.hpp>
 #include <one_degree_freedom/constants.hpp>
 
 #include <chrono>
@@ -11,6 +12,7 @@
 using namespace std::chrono;
 using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::controller;
+using namespace one_degree_freedom::constants::flight_mode;
 
 /**
  * @brief Node that runs the controller for a 1-degree-of-freedom system
@@ -48,6 +50,11 @@ public:
     )},
     motor_thrust_publisher_{this->create_publisher<ControllerOutputMotorThrust>(
         CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC, qos_
+    )},
+    flight_mode_{FlightMode::INIT},
+    flight_mode_get_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightMode>(
+        FLIGHT_MODE_GET_TOPIC, qos_, 
+        std::bind(&Controller::response_flight_mode_callback, this, std::placeholders::_1)
     )}
     {
         this->declare_parameter<float>(CONTROLLER_K_P_PARAM);
@@ -99,27 +106,38 @@ private:
     float controller(float angle_radians, float angular_velocity_radians_per_second, float angle_setpoint_radians, float dt_seconds);
 	void publish_servo_tilt_angle(float servo_tilt_angle_radians);
 	void publish_motor_thrust(float upwards_motor_thrust_percentage, float downwards_motor_thrust_percentage);
+
+    std::atomic<uint8_t> flight_mode_;
+    rclcpp::Subscription<one_degree_freedom::msg::FlightMode>::SharedPtr flight_mode_get_subscriber_;
+	void response_flight_mode_callback(std::shared_ptr<one_degree_freedom::msg::FlightMode> response);
 };
+
+void Controller::response_flight_mode_callback(std::shared_ptr<one_degree_freedom::msg::FlightMode> response)
+{
+	flight_mode_.store(response->flight_mode);
+}
 
 /**
  * @brief Callback function for the controller
  */
 void Controller::controller_callback()
 {
-    // Get the time step
-    // Read the sensor data and setpoint
-    float delta_theta = angle_radians_.load();
-    float delta_omega = angular_velocity_radians_per_second_.load();
-    float delta_theta_desired = angle_setpoint_radians_.load();
+    // only run controller when in mission
+    if (flight_mode_.load() == FlightMode::IN_MISSION) {
+        // Read the sensor data and setpoint
+        float delta_theta = angle_radians_.load();
+        float delta_omega = angular_velocity_radians_per_second_.load();
+        float delta_theta_desired = angle_setpoint_radians_.load();
 
-    // Call the controller function
-    float delta_gamma = controller(delta_theta, delta_omega, delta_theta_desired, CONTROLLER_DT_SECONDS);
+        // Call the controller function
+        float delta_gamma = controller(delta_theta, delta_omega, delta_theta_desired, CONTROLLER_DT_SECONDS);
 
-    // Publish the tilt angle output
-    publish_servo_tilt_angle(delta_gamma);
+        // Publish the tilt angle output
+        publish_servo_tilt_angle(delta_gamma);
 
-    // Publish the motor thrust
-    publish_motor_thrust(CONTROLLER_MOTOR_THRUST_PERCENTAGE, CONTROLLER_MOTOR_THRUST_PERCENTAGE);
+        // Publish the motor thrust
+        publish_motor_thrust(CONTROLLER_MOTOR_THRUST_PERCENTAGE, CONTROLLER_MOTOR_THRUST_PERCENTAGE);
+    }
 }
 
 /**

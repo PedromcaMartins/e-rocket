@@ -1,6 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <one_degree_freedom/msg/flight_mode.hpp>
+#include <one_degree_freedom/msg/controller_input_setpoint.hpp>
 #include <one_degree_freedom/constants.hpp>
 
 #include <stdint.h>
@@ -11,6 +12,7 @@
 using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace one_degree_freedom::msg;
+using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
 using namespace one_degree_freedom::constants::px4_ros2_flight_mode;
 
@@ -30,42 +32,52 @@ public:
 		)},
 		flight_mode_get_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightMode>(
 			FLIGHT_MODE_GET_TOPIC, qos_, 
-			std::bind(&Mission::response_callback, this, std::placeholders::_1)
-		)}
+			std::bind(&Mission::response_flight_mode_callback, this, std::placeholders::_1)
+		)},
+		mission_timer_{this->create_wall_timer(10ms, 
+			std::bind(&Mission::mission, this)
+		)},
+        setpoint_publisher_{this->create_publisher<ControllerInputSetpoint>(
+            CONTROLLER_INPUT_SETPOINT_TOPIC, qos_
+        )}
     {
-        flight_mode_timer_ = this->create_wall_timer(1000ms,
+        flight_mode_timer_ = this->create_wall_timer(1s,
             [this]() {
 				switch (flight_mode_.load()) {
 				case FlightMode::INIT:
-					RCLCPP_INFO(this->get_logger(), "Switching to INIT mode");
+					RCLCPP_INFO(this->get_logger(), "Switching to PRE_ARM mode");
 					request_flight_mode(FlightMode::PRE_ARM);
-				break;
+					break;
 
 				case FlightMode::PRE_ARM:
-					RCLCPP_INFO(this->get_logger(), "Switching to PRE_ARM mode");
+					RCLCPP_INFO(this->get_logger(), "Switching to ARM mode");
 					request_flight_mode(FlightMode::ARM);
-				break;
+					break;
 
 				case FlightMode::ARM:
 					{
 						static rclcpp::Time t0 = this->get_clock()->now();
 						auto now = this->get_clock()->now();
 						if (now - t0 > 1s) {
-							RCLCPP_INFO(this->get_logger(), "Switching to ARM mode");
-							request_flight_mode(FlightMode::MISSION_START);
+							RCLCPP_INFO(this->get_logger(), "Switching to IN_MISSION mode");
+							request_flight_mode(FlightMode::IN_MISSION);
 						}
 					}
-				break;
+					break;	
 
-                // Mission how is this going to work? 
-				// case FlightMode::MISSION_START:
-				// 	RCLCPP_INFO(this->get_logger(), "Switching to MISSION_START mode");
-				// 	request_flight_mode(FlightMode::MISSION_END);
-				// break;
+				case FlightMode::ABORT:
+					RCLCPP_ERROR(this->get_logger(), "Mission Aborted!");
+					rclcpp::shutdown();
 				}
 			}
 		);
-		// mission_timer_ = this->create_wall_timer
+
+        this->declare_parameter<float>(CONTROLLER_INPUT_SETPOINT_PARAM, 0.0f);
+        this->declare_parameter<uint8_t>(FLIGHT_MODE_PARAM, FlightMode::INIT);
+
+        parameter_callback_handle_ = this->add_on_set_parameters_callback(
+            std::bind(&Mission::parameter_callback, this, std::placeholders::_1)
+        );
     }
 
 private:
@@ -74,29 +86,103 @@ private:
 	rmw_qos_profile_t qos_profile_;
 	rclcpp::QoS qos_;
 
+	std::atomic<bool> flag_flight_mode_requested_;
     rclcpp::Publisher<one_degree_freedom::msg::FlightMode>::SharedPtr flight_mode_set_publisher_;
+	void request_flight_mode(uint8_t flight_mode);
+
     rclcpp::Subscription<one_degree_freedom::msg::FlightMode>::SharedPtr flight_mode_get_subscriber_;
+	void response_flight_mode_callback(std::shared_ptr<one_degree_freedom::msg::FlightMode> response);
 
 	rclcpp::TimerBase::SharedPtr flight_mode_timer_;
 
-	void request_flight_mode(uint8_t flight_mode);
-	void response_callback(std::shared_ptr<one_degree_freedom::msg::FlightMode> response);
+	rclcpp::TimerBase::SharedPtr mission_timer_;
+	void mission();
+
+	//!< Setpoint
+	rclcpp::Publisher<ControllerInputSetpoint>::SharedPtr setpoint_publisher_;
+    void publish_setpoint(float setpoint_radians);
+
+    OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
+    rcl_interfaces::msg::SetParametersResult parameter_callback(
+        const std::vector<rclcpp::Parameter> &parameters
+	);
 };
+
+void Mission::mission() {
+    if (flight_mode_.load() == FlightMode::IN_MISSION) {
+        static rclcpp::Time IN_MISSION_time = this->get_clock()->now();
+        auto current_time = this->get_clock()->now();
+        auto elapsed_time = current_time - IN_MISSION_time;
+
+        // Log mission progress periodically (every second)
+        static rclcpp::Time last_log_time = IN_MISSION_time;
+        if (current_time - last_log_time > 10s) {
+            RCLCPP_INFO(
+                this->get_logger(),
+                "Mission in progress - Elapsed time: %.2f seconds",
+                elapsed_time.seconds()
+            );
+            last_log_time = current_time;
+        }
+
+        if (elapsed_time > 120s) {
+            // Mission completion
+            RCLCPP_INFO(this->get_logger(), "Mission complete, switching to MISSION_COMPLETE mode");
+            request_flight_mode(FlightMode::MISSION_COMPLETE);
+        }
+    }
+}
+
+void Mission::publish_setpoint(float setpoint_radians)
+{
+    ControllerInputSetpoint msg{};
+    msg.stamp = this->get_clock()->now();
+    msg.setpoint_radians = setpoint_radians;
+    setpoint_publisher_->publish(msg);
+}
+
+rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
+    const std::vector<rclcpp::Parameter> &parameters)
+{
+    rcl_interfaces::msg::SetParametersResult result;
+    result.successful = true;
+
+    for (const auto &param : parameters) {
+        if (param.get_name() == CONTROLLER_INPUT_SETPOINT_PARAM) {
+            float new_setpoint_radians = param.as_double();
+            publish_setpoint(new_setpoint_radians);
+            RCLCPP_INFO(this->get_logger(), "Updated setpoint to: %f", new_setpoint_radians);
+        }
+		else if (param.get_name() == FLIGHT_MODE_PARAM) {
+            uint8_t new_flight_mode = param.as_int();
+            flight_mode_.store(new_flight_mode);
+            RCLCPP_INFO(this->get_logger(), "Updated flight mode to: %d", new_flight_mode);
+        }
+    }
+
+    return result;
+}
 
 void Mission::request_flight_mode(uint8_t flight_mode)
 {
-	one_degree_freedom::msg::FlightMode msg {};
+	if (flag_flight_mode_requested_.load() == false) {
+		flag_flight_mode_requested_.store(true);
+		one_degree_freedom::msg::FlightMode msg {};
 
-	msg.flight_mode = flight_mode;
-    msg.stamp = this->get_clock()->now();
+		msg.flight_mode = flight_mode;
+		msg.stamp = this->get_clock()->now();
 
-	flight_mode_set_publisher_->publish(msg);
+		flight_mode_set_publisher_->publish(msg);
+	}
 }
 
-void Mission::response_callback(std::shared_ptr<one_degree_freedom::msg::FlightMode> response)
+void Mission::response_flight_mode_callback(std::shared_ptr<one_degree_freedom::msg::FlightMode> response)
 {
-	RCLCPP_INFO(this->get_logger(), "Flight Mode switch %s", (response->flight_mode != flight_mode_.load()) ? "Confirmed" : "Aborted");
+	RCLCPP_INFO(this->get_logger(), "Flight Mode switch %s", (response->flight_mode != flight_mode_.load()) ? "Confirmed" : "Failed");
 	flight_mode_.store(response->flight_mode);
+
+	// reset flag
+	flag_flight_mode_requested_.store(false);
 }
 
 int main(int argc, char *argv[])

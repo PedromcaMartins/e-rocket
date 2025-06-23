@@ -24,7 +24,7 @@ def generate_launch_description():
         shell=True,
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'hitl_simulator.yaml']),
         ],
     )
 
@@ -35,7 +35,7 @@ def generate_launch_description():
         shell=True,
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'hitl_simulator.yaml']),
         ],
     )
 
@@ -47,7 +47,18 @@ def generate_launch_description():
         arguments=['--ros-args', '--log-level', 'warn'],
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'hitl_simulator.yaml']),
+        ],
+    )
+
+    px4_ros2_message_mapping_node = Node(
+        package='one_degree_freedom',
+        executable='px4_ros2_message_mapping',
+        output='screen',
+        shell=True,
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('one_degree_freedom'), 'config', 'hitl_simulator.yaml']),
         ],
     )
 
@@ -58,7 +69,7 @@ def generate_launch_description():
         shell=True,
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'hitl_simulator.yaml']),
         ],
     )
 
@@ -67,5 +78,6 @@ def generate_launch_description():
         controller_node,
         controller_simulator_node,
         px4_ros2_flight_mode_node,
+        px4_ros2_message_mapping_node,
         mission_node,
     ])

@@ -20,6 +20,7 @@
 using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace one_degree_freedom::constants::controller;
+using namespace one_degree_freedom::constants::px4_ros2_message_mapping;
 using namespace one_degree_freedom::frame_transforms::utils::quaternion;
 
 /**
@@ -31,40 +32,64 @@ public:
     Px4Ros2MessageMapping() : 
 		Node("px4_ros2_message_mapping"),
 		qos_profile_{rmw_qos_profile_sensor_data},
-		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
-
-        actuator_servos_publisher_{this->create_publisher<px4_msgs::msg::ActuatorServos>(
-            "/fmu/in/actuator_servos", qos_
-        )},
-        controller_output_servo_tilt_angle_subscription_{this->create_subscription<one_degree_freedom::msg::ControllerOutputServoTiltAngle>(
-            CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC, qos_,
-            std::bind(&Px4Ros2MessageMapping::controller_output_servo_tilt_angle_callback, this, std::placeholders::_1)
-        )},
-
-		actuator_motors_publisher_{this->create_publisher<px4_msgs::msg::ActuatorMotors>(
-            "/fmu/in/actuator_motors", qos_
-        )},
-        controller_output_motor_thrust_subscription_{this->create_subscription<one_degree_freedom::msg::ControllerOutputMotorThrust>(
-            CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC, qos_,
-            std::bind(&Px4Ros2MessageMapping::controller_output_motor_thrust_callback, this, std::placeholders::_1)
-        )},
-
-		vehicle_attitude_subscription_{this->create_subscription<px4_msgs::msg::VehicleAttitude>(
-            "/fmu/out/vehicle_attitude", qos_,
-            std::bind(&Px4Ros2MessageMapping::vehicle_attitude_callback, this, std::placeholders::_1)
-        )},
-        controller_input_attitude_publisher_{this->create_publisher<one_degree_freedom::msg::ControllerInputAttitude>(
-            CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_
-        )},
-
-        vehicle_angular_velocity_subscription_{this->create_subscription<px4_msgs::msg::VehicleAngularVelocity>(
-            "/fmu/out/vehicle_angular_velocity", qos_,
-            std::bind(&Px4Ros2MessageMapping::vehicle_angular_velocity_callback, this, std::placeholders::_1)
-        )},
-        controller_input_angular_rate_publisher_{this->create_publisher<one_degree_freedom::msg::ControllerInputAngularRate>(
-            CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_
-        )}
+		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)}
     {
+        // declare parameters
+        this->declare_parameter<bool>(SERVOS_MAPPING_PARAM, true);
+        this->declare_parameter<bool>(MOTORS_MAPPING_PARAM, true);
+        this->declare_parameter<bool>(ATTITUDE_MAPPING_PARAM, true);
+        this->declare_parameter<bool>(ANGULAR_RATE_MAPPING_PARAM, true);
+
+        // get values from config
+        bool servos_mapping = this->get_parameter(SERVOS_MAPPING_PARAM).as_bool();
+        bool motors_mapping = this->get_parameter(MOTORS_MAPPING_PARAM).as_bool();
+        bool attitude_mapping = this->get_parameter(ATTITUDE_MAPPING_PARAM).as_bool();
+        bool angular_rate_mapping = this->get_parameter(ANGULAR_RATE_MAPPING_PARAM).as_bool();
+
+        RCLCPP_INFO(this->get_logger(), "Servos Mapping %s", (servos_mapping)? "Activated" : "Deactivated");
+        RCLCPP_INFO(this->get_logger(), "Motors Mapping %s", (motors_mapping)? "Activated" : "Deactivated");
+        RCLCPP_INFO(this->get_logger(), "Attitude Mapping %s", (attitude_mapping)? "Activated" : "Deactivated");
+        RCLCPP_INFO(this->get_logger(), "Angular Rate Mapping %s", (angular_rate_mapping)? "Activated" : "Deactivated");
+
+        if (servos_mapping) {
+            actuator_servos_publisher_ = this->create_publisher<px4_msgs::msg::ActuatorServos>(
+                "/fmu/in/actuator_servos", qos_
+            );
+            controller_output_servo_tilt_angle_subscription_ = this->create_subscription<one_degree_freedom::msg::ControllerOutputServoTiltAngle>(
+                CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC, qos_,
+                std::bind(&Px4Ros2MessageMapping::controller_output_servo_tilt_angle_callback, this, std::placeholders::_1)
+            );
+        }
+
+        if (motors_mapping) {
+            actuator_motors_publisher_ = this->create_publisher<px4_msgs::msg::ActuatorMotors>(
+                "/fmu/in/actuator_motors", qos_
+            );
+            controller_output_motor_thrust_subscription_ = this->create_subscription<one_degree_freedom::msg::ControllerOutputMotorThrust>(
+                CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC, qos_,
+                std::bind(&Px4Ros2MessageMapping::controller_output_motor_thrust_callback, this, std::placeholders::_1)
+            );
+        }
+
+        if (attitude_mapping) {
+            vehicle_attitude_subscription_ = this->create_subscription<px4_msgs::msg::VehicleAttitude>(
+                "/fmu/out/vehicle_attitude", qos_,
+                std::bind(&Px4Ros2MessageMapping::vehicle_attitude_callback, this, std::placeholders::_1)
+            );
+            controller_input_attitude_publisher_ = this->create_publisher<one_degree_freedom::msg::ControllerInputAttitude>(
+                CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_
+            );
+        }
+
+        if (angular_rate_mapping) {
+            vehicle_angular_velocity_subscription_ = this->create_subscription<px4_msgs::msg::VehicleAngularVelocity>(
+                "/fmu/out/vehicle_angular_velocity", qos_,
+                std::bind(&Px4Ros2MessageMapping::vehicle_angular_velocity_callback, this, std::placeholders::_1)
+            );
+            controller_input_angular_rate_publisher_ = this->create_publisher<one_degree_freedom::msg::ControllerInputAngularRate>(
+                CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_
+            );
+        }
 	}
 
 private:

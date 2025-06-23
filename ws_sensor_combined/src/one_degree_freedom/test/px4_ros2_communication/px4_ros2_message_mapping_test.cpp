@@ -47,15 +47,17 @@ public:
         test_timer_ = this->create_wall_timer(100ms,
             [this]() {
                 static double time = 0.0;
-                float sin_wave = 0.05f * (sin(time / 10.0f)); // Sinusoidal wave between 0 and 0.10
                 time++;
+                float motor_sin_wave = 0.05f * (sin(time / 10.0f));
 
-                if (sin_wave < 0.0f) {
-                    sin_wave = NAN;
+                if (motor_sin_wave < 0.0f) {
+                    motor_sin_wave = NAN;
                 }
 
-                publish_controller_output_servo_tilt_angle_(sin_wave);
-                publish_controller_output_motor_thrust_(sin_wave, sin_wave);
+                float servo_sin_wave = 0.5f * (sin(time / 10.0f));
+
+                publish_controller_output_servo_tilt_angle_(servo_sin_wave);
+                publish_controller_output_motor_thrust_(motor_sin_wave, motor_sin_wave);
                 RCLCPP_INFO(this->get_logger(), "attitude radians: %f", attitude_radians_.load());
                 RCLCPP_INFO(this->get_logger(), "angular rate radians: %f", angular_rate_radians_.load());
             }

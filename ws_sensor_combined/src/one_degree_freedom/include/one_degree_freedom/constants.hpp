@@ -50,5 +50,15 @@ namespace px4_ros2_flight_mode
     constexpr char FLIGHT_MODE_PARAM[] = "offboard.flight_mode";
 
 } // namespace px4_ros2_flight_mode
+
+namespace px4_ros2_message_mapping
+{
+
+    constexpr char SERVOS_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.output.servos";
+    constexpr char MOTORS_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.output.motors";
+    constexpr char ATTITUDE_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.input.attitude";
+    constexpr char ANGULAR_RATE_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.input.angular_rate";
+
+} // namespace px4_ros2_message_mapping
 } // namespace constants
 } // namespace one_degree_freedom

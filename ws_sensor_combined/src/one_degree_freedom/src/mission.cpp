@@ -34,42 +34,17 @@ public:
 			FLIGHT_MODE_GET_TOPIC, qos_, 
 			std::bind(&Mission::response_flight_mode_callback, this, std::placeholders::_1)
 		)},
-		mission_timer_{this->create_wall_timer(10ms, 
+		mission_timer_{this->create_wall_timer(
+			10ms, 
 			std::bind(&Mission::mission, this)
 		)},
         setpoint_publisher_{this->create_publisher<ControllerInputSetpoint>(
             CONTROLLER_INPUT_SETPOINT_TOPIC, qos_
         )}
     {
-        flight_mode_timer_ = this->create_wall_timer(1s,
-            [this]() {
-				switch (flight_mode_.load()) {
-				case FlightMode::INIT:
-					RCLCPP_INFO(this->get_logger(), "Switching to PRE_ARM mode");
-					request_flight_mode(FlightMode::PRE_ARM);
-					break;
-
-				case FlightMode::PRE_ARM:
-					RCLCPP_INFO(this->get_logger(), "Switching to ARM mode");
-					request_flight_mode(FlightMode::ARM);
-					break;
-
-				case FlightMode::ARM:
-					{
-						static rclcpp::Time t0 = this->get_clock()->now();
-						auto now = this->get_clock()->now();
-						if (now - t0 > 1s) {
-							RCLCPP_INFO(this->get_logger(), "Switching to IN_MISSION mode");
-							request_flight_mode(FlightMode::IN_MISSION);
-						}
-					}
-					break;	
-
-				case FlightMode::ABORT:
-					RCLCPP_ERROR(this->get_logger(), "Mission Aborted!");
-					rclcpp::shutdown();
-				}
-			}
+        flight_mode_timer_ = this->create_wall_timer(
+			1s,
+            std::bind(&Mission::flight_mode, this)
 		);
 
         this->declare_parameter<float>(CONTROLLER_INPUT_SETPOINT_PARAM, 0.0f);
@@ -94,6 +69,7 @@ private:
 	void response_flight_mode_callback(std::shared_ptr<one_degree_freedom::msg::FlightMode> response);
 
 	rclcpp::TimerBase::SharedPtr flight_mode_timer_;
+	void flight_mode();
 
 	rclcpp::TimerBase::SharedPtr mission_timer_;
 	void mission();
@@ -107,6 +83,35 @@ private:
         const std::vector<rclcpp::Parameter> &parameters
 	);
 };
+
+void Mission::flight_mode() {
+	switch (flight_mode_.load()) {
+		case FlightMode::INIT:
+			RCLCPP_INFO(this->get_logger(), "Switching to PRE_ARM mode");
+			request_flight_mode(FlightMode::PRE_ARM);
+			break;
+
+		case FlightMode::PRE_ARM:
+			RCLCPP_INFO(this->get_logger(), "Switching to ARM mode");
+			request_flight_mode(FlightMode::ARM);
+			break;
+
+		case FlightMode::ARM:
+			{
+				static rclcpp::Time t0 = this->get_clock()->now();
+				auto now = this->get_clock()->now();
+				if (now - t0 > 1s) {
+					RCLCPP_INFO(this->get_logger(), "Switching to IN_MISSION mode");
+					request_flight_mode(FlightMode::IN_MISSION);
+				}
+			}
+			break;	
+
+		case FlightMode::ABORT:
+			RCLCPP_ERROR(this->get_logger(), "Mission Aborted!");
+			rclcpp::shutdown();
+		}
+}
 
 void Mission::mission() {
     if (flight_mode_.load() == FlightMode::IN_MISSION) {
@@ -124,6 +129,22 @@ void Mission::mission() {
             );
             last_log_time = current_time;
         }
+
+		if (elapsed_time > 5s && elapsed_time <= 6s) {
+			publish_setpoint(0.5f);
+		}
+
+		else if (elapsed_time > 10s && elapsed_time <= 11s) {
+			publish_setpoint(0.0f);
+		}
+
+		else if (elapsed_time > 15s && elapsed_time <= 16s) {
+			publish_setpoint(-0.5f);
+		}
+
+		else if (elapsed_time > 20s && elapsed_time <= 21s) {
+			publish_setpoint(0.0f);
+		}
 
         if (elapsed_time > 120s) {
             // Mission completion

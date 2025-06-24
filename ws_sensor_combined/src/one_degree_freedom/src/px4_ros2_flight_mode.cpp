@@ -140,6 +140,9 @@ void Px4Ros2FlightMode::handle_flight_mode_set(
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to ABORT");
 		disarm();
 	}
+	else if (flight_mode_current == FlightMode::ABORT) {
+		rclcpp::shutdown();
+	}
 	else {
 		RCLCPP_ERROR(this->get_logger(), "Received invalid request to change flight mode");
 	}

@@ -28,7 +28,7 @@ def generate_launch_description():
         ],
     )
 
-    controller_tester_node = Node(
+    controller_test_node = Node(
         package='one_degree_freedom',
         executable='controller_test',
         output='screen',
@@ -53,6 +53,6 @@ def generate_launch_description():
     return LaunchDescription([
         #micro_ros_agent,
         controller_node,
-        controller_tester_node,
+        controller_test_node,
         controller_simulator_node
     ])

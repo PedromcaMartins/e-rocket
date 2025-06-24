@@ -1,5 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <one_degree_freedom/msg/controller_input_setpoint.hpp>
+#include <one_degree_freedom/msg/flight_mode.hpp>
 #include <one_degree_freedom/constants.hpp>
 
 #include <chrono>
@@ -7,6 +8,7 @@
 using namespace std::chrono;
 using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::controller;
+using namespace one_degree_freedom::constants::flight_mode;
 
 /**
  * @brief Node that tests the controller for a 1-degree-of-freedom system, verifying if the setpoints are being reached. 
@@ -30,11 +32,28 @@ public:
         param_callback_handle_ = this->add_on_set_parameters_callback(
             std::bind(&ControllerTestNode::parameter_callback, this, std::placeholders::_1)
         );
+
+        flight_mode_get_publisher_ = this->create_publisher<FlightMode>(
+            FLIGHT_MODE_GET_TOPIC, qos
+        );
+
+        flight_mode_timer_ = this->create_wall_timer(
+            1s,
+            [this]() {
+                FlightMode msg {};
+                msg.stamp = this->get_clock()->now();
+                msg.flight_mode = FlightMode::IN_MISSION;
+                flight_mode_get_publisher_->publish(msg);
+            }
+        );
 	}
 
 private:
 	//!< Publishers and Subscribers
 	rclcpp::Publisher<ControllerInputSetpoint>::SharedPtr setpoint_publisher_;
+	rclcpp::Publisher<FlightMode>::SharedPtr flight_mode_get_publisher_;
+
+    rclcpp::TimerBase::SharedPtr flight_mode_timer_;
 
 	//!< Auxiliary functions
     void publish_setpoint(float setpoint_radians);

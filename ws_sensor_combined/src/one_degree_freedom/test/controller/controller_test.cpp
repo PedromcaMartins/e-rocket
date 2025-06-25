@@ -70,7 +70,7 @@ void ControllerTestNode::publish_setpoint(float setpoint_radians)
 {
     ControllerInputSetpoint msg{};
     msg.stamp = this->get_clock()->now();
-    msg.setpoint_radians = setpoint_radians;
+    msg.pitch_setpoint_radians = setpoint_radians;
     setpoint_publisher_->publish(msg);
 }
 

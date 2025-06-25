@@ -55,7 +55,7 @@ void ControllerSimulator::publish_attitude(float attitude_radians)
 {
     ControllerInputAttitude msg{};
     msg.stamp = this->get_clock()->now();
-    msg.attitude_radians = attitude_radians;
+    msg.pitch_radians = attitude_radians;
     attitude_publisher_->publish(msg);
 }
 
@@ -63,13 +63,13 @@ void ControllerSimulator::publish_angular_rate(float angular_rate_radians_per_se
 {
     ControllerInputAngularRate msg{};
     msg.stamp = this->get_clock()->now();
-    msg.angular_rate_radians_per_second = angular_rate_radians_per_second;
+    msg.y_pitch_angular_rate_radians_per_second = angular_rate_radians_per_second;
     angular_rate_publisher_->publish(msg);
 }
 
 void ControllerSimulator::controller_output_callback(const ControllerOutputServoTiltAngle::SharedPtr msg)
 {
-    float delta_gamma = msg->servo_tilt_angle_radians;
+    float delta_gamma = msg->outer_servo_tilt_angle_radians;
     float step = CONTROLLER_DT_SECONDS;
 
     float a = delta_gamma * M * L * G / J;

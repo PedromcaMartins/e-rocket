@@ -13,15 +13,18 @@
 #include <one_degree_freedom/msg/controller_input_angular_rate.hpp>
 
 #include <one_degree_freedom/constants.hpp>
-#include <one_degree_freedom/frame_transforms.h>
 
+#include <eigen3/Eigen/Geometry>
 #include <chrono>
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::px4_ros2_message_mapping;
-using namespace one_degree_freedom::frame_transforms::utils::quaternion;
+
+struct Euler {
+    float roll, pitch, yaw;
+};
 
 /**
  * @brief PX4 ROS2 Communication Node is responsible for sending and receiving commands to and from the PX4. 
@@ -113,62 +116,71 @@ private:
     void vehicle_angular_velocity_callback(const px4_msgs::msg::VehicleAngularVelocity::SharedPtr px4_msg);
 };
 
-float servo_tilt_angle_radians_to_servo_pwm(float servo_tilt_angle_radians) {
-    auto servo_pwm = servo_tilt_angle_radians;
+/**
+ * @brief Convert quaternion to Euler angles (radiands)
+ * @param q Quaternion
+ * @return Euler angles (roll, pitch, yaw)
+ */
+Euler quaternionToEulerRadians(const Eigen::Quaternionf q) {
+    auto w = q.w();
+    auto x = q.x();
+    auto y = q.y();
+    auto z = q.z();
 
-    if (servo_pwm > 1.0f) {
-        servo_pwm = 1.0f;
-    } else if (servo_pwm < -1.0f) {
-        servo_pwm = -1.0f;
-    }
+    // Roll (x-axis rotation)
+    float sinr_cosp = 2 * (w * x + y * z);
+    float cosr_cosp = 1 - 2 * (x * x + y * y);
+    float roll = std::atan2(sinr_cosp, cosr_cosp);
+    float pitch = 0.0;
 
-    return servo_pwm;
+    // Pitch (y-axis rotation)
+    float sinp = 2 * (w * y - z * x);
+    if (std::abs(sinp) >= 1)
+        pitch = std::copysign(90.0, sinp); // Use 90 degrees if out of range
+    else
+        pitch = std::asin(sinp);
+
+    // Yaw (z-axis rotation)
+    float siny_cosp = 2 * (w * z + x * y);
+    float cosy_cosp = 1 - 2 * (y * y + z * z);
+    float yaw = std::atan2(siny_cosp, cosy_cosp);
+
+    return {roll, pitch, yaw};
 }
 
 void Px4Ros2MessageMapping::controller_output_servo_tilt_angle_callback(const one_degree_freedom::msg::ControllerOutputServoTiltAngle::SharedPtr ros2_msg) {
-    auto servo_tilt_angle_radians = ros2_msg->servo_tilt_angle_radians;
-    auto servo_pwm = servo_tilt_angle_radians_to_servo_pwm(servo_tilt_angle_radians);
-
     px4_msgs::msg::ActuatorServos px4_msg {};
-    px4_msg.control[0] = servo_pwm;
+    px4_msg.control[0] = ros2_msg->outer_servo_tilt_angle_radians;
+    px4_msg.control[1] = ros2_msg->inner_servo_tilt_angle_radians;
 	px4_msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
 	actuator_servos_publisher_->publish(px4_msg);
 }
 
 void Px4Ros2MessageMapping::controller_output_motor_thrust_callback(const one_degree_freedom::msg::ControllerOutputMotorThrust::SharedPtr ros2_msg) {
     px4_msgs::msg::ActuatorMotors px4_msg {};
-    px4_msg.control[0] = ros2_msg->upwards_motor_thrust_percentage;
     px4_msg.control[0] = ros2_msg->downwards_motor_thrust_percentage;
+    px4_msg.control[1] = ros2_msg->upwards_motor_thrust_percentage;
 	px4_msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
     actuator_motors_publisher_->publish(px4_msg);
 }
 
 void Px4Ros2MessageMapping::vehicle_attitude_callback(const px4_msgs::msg::VehicleAttitude::SharedPtr px4_msg) {
-    double roll, pitch, yaw;
-    const auto &q = px4_msg->q;
-    Eigen::Quaterniond quaternion(q[0], q[1], q[2], q[3]);
-    quaternion_to_euler(quaternion, roll, pitch, yaw);
-
-    (void) roll;
-    (void) yaw;
+    auto q = Eigen::Quaternionf(px4_msg->q[0], px4_msg->q[1], px4_msg->q[2], px4_msg->q[3]);
+    auto euler = quaternionToEulerRadians(q);
 
     one_degree_freedom::msg::ControllerInputAttitude ros2_msg {};
-    ros2_msg.attitude_radians = pitch;
+    ros2_msg.roll_radians = euler.roll;
+    ros2_msg.pitch_radians = euler.pitch;
+    ros2_msg.yaw_radians = euler.yaw;
     ros2_msg.stamp = this->get_clock()->now();
     controller_input_attitude_publisher_->publish(ros2_msg);
 }
 
 void Px4Ros2MessageMapping::vehicle_angular_velocity_callback(const px4_msgs::msg::VehicleAngularVelocity::SharedPtr px4_msg) {
-    double _roll_angular_rate = px4_msg->xyz[0];
-    (void) _roll_angular_rate;
-    
-    double pitch_angular_rate = px4_msg->xyz[1];
-
-    double _yaw_angular_rate = px4_msg->xyz[2];
-    (void) _yaw_angular_rate;
-
     one_degree_freedom::msg::ControllerInputAngularRate ros2_msg {};
-    ros2_msg.angular_rate_radians_per_second = pitch_angular_rate;
+    ros2_msg.x_roll_angular_rate_radians_per_second = px4_msg->xyz[0];
+    ros2_msg.y_pitch_angular_rate_radians_per_second = px4_msg->xyz[1];
+    ros2_msg.z_yaw_angular_rate_radians_per_second = px4_msg->xyz[2];
     ros2_msg.stamp = this->get_clock()->now();
     controller_input_angular_rate_publisher_->publish(ros2_msg);
 }

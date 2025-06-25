@@ -31,19 +31,19 @@ public:
     attitude_subscriber_{this->create_subscription<ControllerInputAttitude>(
         CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_,
         [this](const ControllerInputAttitude::SharedPtr msg) {
-            angle_radians_.store(msg->attitude_radians);
+            angle_radians_.store(msg->pitch_radians);
         }
     )},
     angular_rate_subscriber_{this->create_subscription<ControllerInputAngularRate>(
         CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_,
         [this](const ControllerInputAngularRate::SharedPtr msg) {
-            angular_velocity_radians_per_second_.store(msg->angular_rate_radians_per_second);
+            angular_velocity_radians_per_second_.store(msg->y_pitch_angular_rate_radians_per_second);
         }
     )},
     setpoint_subscriber_{this->create_subscription<ControllerInputSetpoint>(
         CONTROLLER_INPUT_SETPOINT_TOPIC, qos_,
         [this](const ControllerInputSetpoint::SharedPtr msg) {
-            angle_setpoint_radians_.store(msg->setpoint_radians);
+            angle_setpoint_radians_.store(msg->pitch_setpoint_radians);
         }
     )},
     servo_tilt_angle_publisher_{this->create_publisher<ControllerOutputServoTiltAngle>(
@@ -124,6 +124,18 @@ void Controller::response_flight_mode_callback(std::shared_ptr<one_degree_freedo
 	flight_mode_.store(response->flight_mode);
 }
 
+float servo_tilt_angle_radians_to_servo_pwm(float servo_tilt_angle_radians) {
+    auto servo_pwm = servo_tilt_angle_radians;
+
+    if (servo_pwm > 1.0f) {
+        servo_pwm = 1.0f;
+    } else if (servo_pwm < -1.0f) {
+        servo_pwm = -1.0f;
+    }
+
+    return servo_pwm;
+}
+
 /**
  * @brief Callback function for the controller
  */
@@ -141,7 +153,8 @@ void Controller::controller_callback()
         publish_controller_debug(delta_theta, delta_omega, delta_theta_desired, delta_gamma);
 
         // Publish the tilt angle output
-        publish_servo_tilt_angle(delta_gamma);
+        float servo_pwm = servo_tilt_angle_radians_to_servo_pwm(delta_gamma);
+        publish_servo_tilt_angle(servo_pwm);
 
         // Publish the motor thrust
         publish_motor_thrust(CONTROLLER_MOTOR_THRUST_PERCENTAGE, CONTROLLER_MOTOR_THRUST_PERCENTAGE);
@@ -186,7 +199,7 @@ void Controller::publish_servo_tilt_angle(float servo_tilt_angle_radians)
 {
     ControllerOutputServoTiltAngle msg{};
     msg.stamp = this->get_clock()->now();
-    msg.servo_tilt_angle_radians = servo_tilt_angle_radians;
+    msg.outer_servo_tilt_angle_radians = servo_tilt_angle_radians;
     servo_tilt_angle_publisher_->publish(msg);
 }
 

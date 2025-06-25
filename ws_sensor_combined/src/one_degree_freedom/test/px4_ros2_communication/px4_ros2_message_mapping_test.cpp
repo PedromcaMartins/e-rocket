@@ -23,8 +23,14 @@ public:
 		Node("px4_ros2_flight_mode_test"),
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
-        attitude_radians_{0.0f},
-        angular_rate_radians_{0.0f},
+	    
+        roll_radians_{0.0f},
+	    x_roll_angular_rate_radians_per_second_{0.0f},
+        pitch_radians_{0.0f},
+	    y_pitch_angular_rate_radians_per_second_{0.0f},
+        yaw_radians_{0.0f},
+	    z_yaw_angular_rate_radians_per_second_{0.0f},
+
         controller_output_servo_tilt_angle_publisher_{this->create_publisher<ControllerOutputServoTiltAngle>(
             CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC, qos_
         )},
@@ -34,13 +40,17 @@ public:
         controller_input_attitude_subscription_{this->create_subscription<ControllerInputAttitude>(
             CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_, 
             [this](const ControllerInputAttitude::SharedPtr msg) {
-                attitude_radians_.store(msg->attitude_radians);
+                roll_radians_.store(msg->roll_radians);
+                pitch_radians_.store(msg->pitch_radians);
+                yaw_radians_.store(msg->yaw_radians);
             }
         )},
         controller_input_angular_rate_subscription_{this->create_subscription<ControllerInputAngularRate>(
             CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_, 
             [this](const ControllerInputAngularRate::SharedPtr msg) {
-                angular_rate_radians_.store(msg->angular_rate_radians_per_second);
+                x_roll_angular_rate_radians_per_second_.store(msg->x_roll_angular_rate_radians_per_second);
+                y_pitch_angular_rate_radians_per_second_.store(msg->y_pitch_angular_rate_radians_per_second);
+                z_yaw_angular_rate_radians_per_second_.store(msg->z_yaw_angular_rate_radians_per_second);
             }
         )}
     {
@@ -56,10 +66,20 @@ public:
 
                 float servo_sin_wave = 0.5f * (sin(time / 10.0f));
 
-                publish_controller_output_servo_tilt_angle_(servo_sin_wave);
+                publish_controller_output_servo_tilt_angle_(servo_sin_wave, servo_sin_wave);
                 publish_controller_output_motor_thrust_(motor_sin_wave, motor_sin_wave);
-                RCLCPP_INFO(this->get_logger(), "attitude radians: %f", attitude_radians_.load());
-                RCLCPP_INFO(this->get_logger(), "angular rate radians: %f", angular_rate_radians_.load());
+                RCLCPP_INFO(this->get_logger(), 
+                    "roll: %f, pitch: %f, yaw: %f", 
+                    roll_radians_.load(),
+                    pitch_radians_.load(),
+                    yaw_radians_.load()
+                );
+                RCLCPP_INFO(this->get_logger(), 
+                    "ang rate pitch: %f, ang rate roll: %f, ang rate yaw: %f", 
+                    x_roll_angular_rate_radians_per_second_.load(),
+                    y_pitch_angular_rate_radians_per_second_.load(),
+                    z_yaw_angular_rate_radians_per_second_.load()
+                );
             }
 		);
     }
@@ -68,8 +88,14 @@ private:
 	rmw_qos_profile_t qos_profile_;
 	rclcpp::QoS qos_;
 
-	std::atomic<float> attitude_radians_;
-	std::atomic<float> angular_rate_radians_;
+	std::atomic<float> roll_radians_;
+	std::atomic<float> x_roll_angular_rate_radians_per_second_;
+
+    std::atomic<float> pitch_radians_;
+	std::atomic<float> y_pitch_angular_rate_radians_per_second_;
+
+    std::atomic<float> yaw_radians_;
+	std::atomic<float> z_yaw_angular_rate_radians_per_second_;
 
     rclcpp::Publisher<ControllerOutputServoTiltAngle>::SharedPtr controller_output_servo_tilt_angle_publisher_;
     rclcpp::Publisher<ControllerOutputMotorThrust>::SharedPtr controller_output_motor_thrust_publisher_;
@@ -78,13 +104,14 @@ private:
 
 	rclcpp::TimerBase::SharedPtr test_timer_;
 
-    void publish_controller_output_servo_tilt_angle_(float servo_tilt_angle_radians);
+    void publish_controller_output_servo_tilt_angle_(float outer_servo_tilt_angle_radians, float inner_servo_tilt_angle_radians);
     void publish_controller_output_motor_thrust_(float upwards_motor_thrust_percentage, float downwards_motor_thrust_percentage);
 };
 
-void Px4Ros2MessageMappingTest::publish_controller_output_servo_tilt_angle_(float servo_tilt_angle_radians) {
+void Px4Ros2MessageMappingTest::publish_controller_output_servo_tilt_angle_(float outer_servo_tilt_angle_radians, float inner_servo_tilt_angle_radians) {
     ControllerOutputServoTiltAngle msg {};
-    msg.servo_tilt_angle_radians = servo_tilt_angle_radians;
+    msg.outer_servo_tilt_angle_radians = outer_servo_tilt_angle_radians;
+    msg.inner_servo_tilt_angle_radians = inner_servo_tilt_angle_radians;
     msg.stamp = this->get_clock()->now();
     controller_output_servo_tilt_angle_publisher_->publish(msg);
 }

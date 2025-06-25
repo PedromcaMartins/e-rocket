@@ -76,7 +76,7 @@ private:
 
 	//!< Setpoint
 	rclcpp::Publisher<ControllerInputSetpoint>::SharedPtr setpoint_publisher_;
-    void publish_setpoint(float setpoint_radians);
+	void publish_setpoint(float roll_setpoint_radians, float pitch_setpoint_radians, float yaw_setpoint_radians);
 
     OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
     rcl_interfaces::msg::SetParametersResult parameter_callback(
@@ -131,19 +131,9 @@ void Mission::mission() {
         }
 
 		if (elapsed_time > 5s && elapsed_time <= 6s) {
-			publish_setpoint(0.5f);
-		}
-
-		else if (elapsed_time > 10s && elapsed_time <= 11s) {
-			publish_setpoint(0.0f);
-		}
-
-		else if (elapsed_time > 15s && elapsed_time <= 16s) {
-			publish_setpoint(-0.5f);
-		}
-
-		else if (elapsed_time > 20s && elapsed_time <= 21s) {
-			publish_setpoint(0.0f);
+			// TODO: get setpoint from parameter (init config)
+			auto new_setpoint = this->get_parameter(CONTROLLER_INPUT_SETPOINT_PARAM).as_double();
+			publish_setpoint(0.0f, new_setpoint, 0.0f);
 		}
 
         if (elapsed_time > 120s) {
@@ -154,11 +144,13 @@ void Mission::mission() {
     }
 }
 
-void Mission::publish_setpoint(float setpoint_radians)
+void Mission::publish_setpoint(float roll_setpoint_radians, float pitch_setpoint_radians, float yaw_setpoint_radians)
 {
     ControllerInputSetpoint msg{};
     msg.stamp = this->get_clock()->now();
-    msg.setpoint_radians = setpoint_radians;
+    msg.roll_setpoint_radians = roll_setpoint_radians;
+    msg.pitch_setpoint_radians = pitch_setpoint_radians;
+    msg.yaw_setpoint_radians = yaw_setpoint_radians;
     setpoint_publisher_->publish(msg);
 }
 
@@ -171,7 +163,8 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
     for (const auto &param : parameters) {
         if (param.get_name() == CONTROLLER_INPUT_SETPOINT_PARAM) {
             float new_setpoint_radians = param.as_double();
-            publish_setpoint(new_setpoint_radians);
+			// TODO!
+            publish_setpoint(0.0f, new_setpoint_radians, 0.0f);
             RCLCPP_INFO(this->get_logger(), "Updated setpoint to: %f", new_setpoint_radians);
         }
 		else if (param.get_name() == FLIGHT_MODE_PARAM) {

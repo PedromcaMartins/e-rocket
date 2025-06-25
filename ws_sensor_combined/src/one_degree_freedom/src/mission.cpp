@@ -12,6 +12,7 @@
 using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace one_degree_freedom::msg;
+using namespace one_degree_freedom::constants::mission;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
 using namespace one_degree_freedom::constants::px4_ros2_flight_mode;
@@ -47,7 +48,7 @@ public:
             std::bind(&Mission::flight_mode, this)
 		);
 
-        this->declare_parameter<float>(CONTROLLER_INPUT_SETPOINT_PARAM, 0.0f);
+        this->declare_parameter<float>(MISSION_SETPOINT_PARAM, 0.0f);
         this->declare_parameter<uint8_t>(FLIGHT_MODE_PARAM, FlightMode::INIT);
 
         parameter_callback_handle_ = this->add_on_set_parameters_callback(
@@ -132,7 +133,7 @@ void Mission::mission() {
 
 		if (elapsed_time > 5s && elapsed_time <= 6s) {
 			// TODO: get setpoint from parameter (init config)
-			auto new_setpoint = this->get_parameter(CONTROLLER_INPUT_SETPOINT_PARAM).as_double();
+			auto new_setpoint = this->get_parameter(MISSION_SETPOINT_PARAM).as_double();
 			publish_setpoint(0.0f, new_setpoint, 0.0f);
 		}
 
@@ -161,7 +162,7 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
     result.successful = true;
 
     for (const auto &param : parameters) {
-        if (param.get_name() == CONTROLLER_INPUT_SETPOINT_PARAM) {
+        if (param.get_name() == MISSION_SETPOINT_PARAM) {
             float new_setpoint_radians = param.as_double();
 			// TODO!
             publish_setpoint(0.0f, new_setpoint_radians, 0.0f);

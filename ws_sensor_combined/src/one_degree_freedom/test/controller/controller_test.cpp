@@ -7,6 +7,7 @@
 
 using namespace std::chrono;
 using namespace one_degree_freedom::msg;
+using namespace one_degree_freedom::constants::mission;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
 
@@ -26,7 +27,7 @@ public:
         );
 
         // Declare the setpoint parameter
-        this->declare_parameter<float>(CONTROLLER_INPUT_SETPOINT_PARAM, 0.0f);
+        this->declare_parameter<float>(MISSION_SETPOINT_PARAM, 0.0f);
 
         // Set up parameter callback
         param_callback_handle_ = this->add_on_set_parameters_callback(
@@ -81,7 +82,7 @@ rcl_interfaces::msg::SetParametersResult ControllerTestNode::parameter_callback(
     result.successful = true;
 
     for (const auto &param : parameters) {
-        if (param.get_name() == CONTROLLER_INPUT_SETPOINT_PARAM) {
+        if (param.get_name() == MISSION_SETPOINT_PARAM) {
             float new_setpoint_radians = param.as_double();
             publish_setpoint(new_setpoint_radians);
             RCLCPP_INFO(this->get_logger(), "Updated setpoint to: %f", new_setpoint_radians);

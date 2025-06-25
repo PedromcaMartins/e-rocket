@@ -17,7 +17,6 @@ namespace controller
     constexpr char CONTROLLER_DEBUG_TOPIC[] = "/offboard/controller/debug";
 
     //<! Parameters for the 1-degree-of-freedom controller
-    constexpr char CONTROLLER_INPUT_SETPOINT_PARAM[] = "offboard.controller.input.setpoint.radians";
     constexpr char CONTROLLER_K_P_PARAM[] = "offboard.controller.gains.k_p";
     constexpr char CONTROLLER_K_D_PARAM[] = "offboard.controller.gains.k_d";
     constexpr char CONTROLLER_K_I_PARAM[] = "offboard.controller.gains.k_i";
@@ -61,5 +60,13 @@ namespace px4_ros2_message_mapping
     constexpr char ANGULAR_RATE_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.input.angular_rate";
 
 } // namespace px4_ros2_message_mapping
+
+namespace mission
+{
+    
+    constexpr char MISSION_SETPOINT_PARAM[] = "offboard.mission.setpoint.radians";
+
+} // namespace mission
+
 } // namespace constants
 } // namespace one_degree_freedom

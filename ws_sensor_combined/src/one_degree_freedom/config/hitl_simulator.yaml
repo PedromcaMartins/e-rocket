@@ -2,9 +2,6 @@
   ros__parameters:
     offboard:
       controller:
-        input:
-          setpoint:
-            radians: 0.0
         gains:
           k_p: 0.3350 # Proportional gain
           k_d: 0.1616 # Derivative gain
@@ -16,3 +13,7 @@
         output:
           servos: true
           motors: false
+      mission:
+          setpoint:
+            radians: 0.0
+

@@ -4,6 +4,7 @@
 #include <one_degree_freedom/msg/controller_input_setpoint.hpp>
 #include <one_degree_freedom/msg/controller_output_servo_tilt_angle.hpp>
 #include <one_degree_freedom/msg/controller_output_motor_thrust.hpp>
+#include <one_degree_freedom/msg/controller_debug.hpp>
 #include <one_degree_freedom/msg/flight_mode.hpp>
 #include <one_degree_freedom/constants.hpp>
 
@@ -51,6 +52,9 @@ public:
     motor_thrust_publisher_{this->create_publisher<ControllerOutputMotorThrust>(
         CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC, qos_
     )},
+    controller_debug_publisher_{this->create_publisher<ControllerDebug>(
+        CONTROLLER_DEBUG_TOPIC, qos_
+    )},
     flight_mode_{FlightMode::INIT},
     flight_mode_get_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightMode>(
         FLIGHT_MODE_GET_TOPIC, qos_, 
@@ -90,6 +94,7 @@ private:
 	rclcpp::Subscription<ControllerInputSetpoint>::SharedPtr     setpoint_subscriber_;
 	rclcpp::Publisher<ControllerOutputServoTiltAngle>::SharedPtr servo_tilt_angle_publisher_;
     rclcpp::Publisher<ControllerOutputMotorThrust>::SharedPtr    motor_thrust_publisher_;
+    rclcpp::Publisher<ControllerDebug>::SharedPtr controller_debug_publisher_;
 
     // control algorithm variables
 	std::atomic<float> angle_radians_ = 0.0f;
@@ -104,7 +109,9 @@ private:
 	//!< Auxiliary functions
     void controller_callback();
     float controller(float angle_radians, float angular_velocity_radians_per_second, float angle_setpoint_radians, float dt_seconds);
-	void publish_servo_tilt_angle(float servo_tilt_angle_radians);
+    void publish_controller_debug(float pitch_angle, float angular_velocity, float pitch_angle_setpoint, float tilt_angle);
+
+    void publish_servo_tilt_angle(float servo_tilt_angle_radians);
 	void publish_motor_thrust(float upwards_motor_thrust_percentage, float downwards_motor_thrust_percentage);
 
     std::atomic<uint8_t> flight_mode_;
@@ -131,6 +138,7 @@ void Controller::controller_callback()
 
         // Call the controller function
         float delta_gamma = controller(delta_theta, delta_omega, delta_theta_desired, CONTROLLER_DT_SECONDS);
+        publish_controller_debug(delta_theta, delta_omega, delta_theta_desired, delta_gamma);
 
         // Publish the tilt angle output
         publish_servo_tilt_angle(delta_gamma);
@@ -159,6 +167,19 @@ float Controller::controller(float delta_theta, float delta_omega, float delta_t
     float delta_gamma = -dot_product + zeta_theta * k_i_;
 
     return delta_gamma;
+}
+
+void Controller::publish_controller_debug(float pitch_angle, float angular_velocity, float pitch_angle_setpoint, float tilt_angle) {
+    RCLCPP_INFO(this->get_logger(), "Pitch angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", pitch_angle, angular_velocity, pitch_angle_setpoint, tilt_angle);
+
+    ControllerDebug msg{};
+    msg.pitch_angle = pitch_angle;
+    msg.angular_velocity = angular_velocity;
+    msg.pitch_angle_setpoint = pitch_angle_setpoint;
+    msg.tilt_angle = tilt_angle;
+    msg.stamp = this->get_clock()->now();
+
+    controller_debug_publisher_->publish(msg);
 }
 
 void Controller::publish_servo_tilt_angle(float servo_tilt_angle_radians)

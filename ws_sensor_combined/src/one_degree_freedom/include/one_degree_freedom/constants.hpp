@@ -14,6 +14,7 @@ namespace controller
     constexpr char CONTROLLER_INPUT_SETPOINT_TOPIC[] = "offboard/controller/input/setpoint";
     constexpr char CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC[] = "offboard/controller/output/servo_tilt_angle";
     constexpr char CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC[] = "offboard/controller/output/motor_thrust";
+    constexpr char CONTROLLER_DEBUG_TOPIC[] = "/offboard/controller/debug";
 
     //<! Parameters for the 1-degree-of-freedom controller
     constexpr char CONTROLLER_INPUT_SETPOINT_PARAM[] = "offboard.controller.input.setpoint.radians";

@@ -14,12 +14,18 @@ namespace controller
     constexpr char CONTROLLER_INPUT_SETPOINT_TOPIC[] = "offboard/controller/input/setpoint";
     constexpr char CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC[] = "offboard/controller/output/servo_tilt_angle";
     constexpr char CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC[] = "offboard/controller/output/motor_thrust";
+
     constexpr char CONTROLLER_DEBUG_TOPIC[] = "/offboard/controller/debug";
 
-    //<! Parameters for the 1-degree-of-freedom controller
-    constexpr char CONTROLLER_K_P_PARAM[] = "offboard.controller.gains.k_p";
-    constexpr char CONTROLLER_K_D_PARAM[] = "offboard.controller.gains.k_d";
-    constexpr char CONTROLLER_K_I_PARAM[] = "offboard.controller.gains.k_i";
+    constexpr char CONTROLLER_ROLL_ACTIVE_PARAM[] = "offboard.controller.roll.active";
+    constexpr char CONTROLLER_ROLL_K_P_PARAM[] = "offboard.controller.roll.gains.k_p";
+    constexpr char CONTROLLER_ROLL_K_D_PARAM[] = "offboard.controller.roll.gains.k_d";
+    constexpr char CONTROLLER_ROLL_K_I_PARAM[] = "offboard.controller.roll.gains.k_i";
+
+    constexpr char CONTROLLER_PITCH_ACTIVE_PARAM[] = "offboard.controller.pitch.active";
+    constexpr char CONTROLLER_PITCH_K_P_PARAM[] = "offboard.controller.pitch.gains.k_p";
+    constexpr char CONTROLLER_PITCH_K_D_PARAM[] = "offboard.controller.pitch.gains.k_d";
+    constexpr char CONTROLLER_PITCH_K_I_PARAM[] = "offboard.controller.pitch.gains.k_i";
 
     //<! Constants for the 1-degree-of-freedom system
     constexpr float M = 2.0f; // mass of the system
@@ -63,7 +69,7 @@ namespace px4_ros2_message_mapping
 
 namespace mission
 {
-    
+
     constexpr char MISSION_SETPOINT_PARAM[] = "offboard.mission.setpoint.radians";
 
 } // namespace mission

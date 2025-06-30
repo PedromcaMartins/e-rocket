@@ -2,17 +2,25 @@
   ros__parameters:
     offboard:
       controller:
-        gains:
-          k_p: 0.3350 # Proportional gain
-          k_d: 0.1616 # Derivative gain
-          k_i: 0.3162 # Integral gain
+        roll: 
+          active: true
+          gains:
+            k_p: 0.3350
+            k_d: 0.1616
+            k_i: 0.3162
+        pitch: 
+          active: true
+          gains:
+            k_p: 0.3350
+            k_d: 0.1616
+            k_i: 0.3162
       px4_ros2_message_mapping:
         input:
           attitude: true
           angular_rate: true
         output:
           servos: true
-          motors: true
+          motors: false
       mission:
           setpoint:
             radians: 0.0

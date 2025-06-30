@@ -42,43 +42,62 @@ private:
 	rclcpp::Subscription<ControllerOutputServoTiltAngle>::SharedPtr  servo_tilt_angle_subscriber_;
 
     //!< State variables - to be updated by the simulator
-    float delta_theta_ = 0.0f; // pitch angle
-    float delta_omega_ = 0.0f; // angular position
+    float roll_delta_theta_ = 0.0f; // pitch angle
+    float roll_delta_omega_ = 0.0f; // angular position
+    float pitch_delta_theta_ = 0.0f; // pitch angle
+    float pitch_delta_omega_ = 0.0f; // angular position
 
 	//!< Auxiliary functions
-    void publish_attitude(float attitude_radians);
-    void publish_angular_rate(float angular_rate_radians_per_second);
+    void publish_attitude();
+    void publish_angular_rate();
     void controller_output_callback(const ControllerOutputServoTiltAngle::SharedPtr msg);
 };
 
-void ControllerSimulator::publish_attitude(float attitude_radians)
+void ControllerSimulator::publish_attitude()
 {
     ControllerInputAttitude msg{};
     msg.stamp = this->get_clock()->now();
-    msg.pitch_radians = attitude_radians;
+    msg.roll_radians = roll_delta_theta_;
+    msg.pitch_radians = pitch_delta_theta_;
     attitude_publisher_->publish(msg);
 }
 
-void ControllerSimulator::publish_angular_rate(float angular_rate_radians_per_second)
+void ControllerSimulator::publish_angular_rate()
 {
     ControllerInputAngularRate msg{};
     msg.stamp = this->get_clock()->now();
-    msg.y_pitch_angular_rate_radians_per_second = angular_rate_radians_per_second;
+    msg.x_roll_angular_rate_radians_per_second = roll_delta_omega_;
+    msg.y_pitch_angular_rate_radians_per_second = pitch_delta_omega_;
     angular_rate_publisher_->publish(msg);
 }
 
 void ControllerSimulator::controller_output_callback(const ControllerOutputServoTiltAngle::SharedPtr msg)
 {
-    float delta_gamma = msg->outer_servo_tilt_angle_radians;
+    float roll_delta_gamma = msg->inner_servo_tilt_angle_radians;
+    float pitch_delta_gamma = msg->outer_servo_tilt_angle_radians;
     float step = CONTROLLER_DT_SECONDS;
 
-    float a = delta_gamma * M * L * G / J;
-    delta_omega_ += a * step;
-    delta_theta_ += delta_omega_ * step;
+    //*********//
+    //* roll  *//
+    //*********//
+    {
+        float a = roll_delta_gamma * M * L * G / J;
+        roll_delta_omega_ += a * step;
+        roll_delta_theta_ += roll_delta_omega_ * step;
+    }
+
+    //*********//
+    //* pitch *//
+    //*********//
+    {
+        float a = pitch_delta_gamma * M * L * G / J;
+        pitch_delta_omega_ += a * step;
+        pitch_delta_theta_ += pitch_delta_omega_ * step;
+    }
 
     // Publish the new state variables
-    publish_attitude(delta_theta_);
-    publish_angular_rate(delta_omega_);
+    publish_attitude();
+    publish_angular_rate();
 }
 
 int main(int argc, char *argv[])

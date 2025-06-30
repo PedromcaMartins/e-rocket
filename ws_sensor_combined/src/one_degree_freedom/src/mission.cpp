@@ -134,7 +134,7 @@ void Mission::mission() {
 		if (elapsed_time > 5s && elapsed_time <= 6s) {
 			// TODO: get setpoint from parameter (init config)
 			auto new_setpoint = this->get_parameter(MISSION_SETPOINT_PARAM).as_double();
-			publish_setpoint(0.0f, new_setpoint, 0.0f);
+			publish_setpoint(new_setpoint, new_setpoint, 0.0f);
 		}
 
         if (elapsed_time > 120s) {
@@ -165,7 +165,7 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
         if (param.get_name() == MISSION_SETPOINT_PARAM) {
             float new_setpoint_radians = param.as_double();
 			// TODO!
-            publish_setpoint(0.0f, new_setpoint_radians, 0.0f);
+            publish_setpoint(new_setpoint_radians, new_setpoint_radians, 0.0f);
             RCLCPP_INFO(this->get_logger(), "Updated setpoint to: %f", new_setpoint_radians);
         }
 		else if (param.get_name() == FLIGHT_MODE_PARAM) {

@@ -33,6 +33,17 @@ public:
         angular_rate_publisher_ = this->create_publisher<ControllerInputAngularRate>(
             CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos
         );
+
+        this->declare_parameter<float>(CONTROLLER_PERIOD_SECONDS_PARAM);
+        time_step_seconds_ = this->get_parameter(CONTROLLER_PERIOD_SECONDS_PARAM).as_double();
+
+        // Safety check
+        if (time_step_seconds_ <= 0.0f || time_step_seconds_ == NAN) {
+            RCLCPP_ERROR(this->get_logger(), "Could not read controller time step correctly.");
+            throw std::runtime_error("Time step invalid");
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Controller period: %f seconds", time_step_seconds_);
 	}
 
 private:
@@ -46,6 +57,8 @@ private:
     float roll_delta_omega_ = 0.0f; // angular position
     float pitch_delta_theta_ = 0.0f; // pitch angle
     float pitch_delta_omega_ = 0.0f; // angular position
+
+    float time_step_seconds_;
 
 	//!< Auxiliary functions
     void publish_attitude();
@@ -75,7 +88,7 @@ void ControllerSimulator::controller_output_callback(const ControllerOutputServo
 {
     float roll_delta_gamma = msg->inner_servo_tilt_angle_radians;
     float pitch_delta_gamma = msg->outer_servo_tilt_angle_radians;
-    float step = CONTROLLER_DT_SECONDS;
+    float step = time_step_seconds_;
 
     //*********//
     //* roll  *//

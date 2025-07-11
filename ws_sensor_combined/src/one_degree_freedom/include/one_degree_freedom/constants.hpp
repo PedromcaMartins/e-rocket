@@ -27,14 +27,14 @@ namespace controller
     constexpr char CONTROLLER_PITCH_K_D_PARAM[] = "offboard.controller.pitch.gains.k_d";
     constexpr char CONTROLLER_PITCH_K_I_PARAM[] = "offboard.controller.pitch.gains.k_i";
 
+    constexpr char CONTROLLER_PERIOD_SECONDS_PARAM[] = "offboard.controller.time_step_seconds";
+    constexpr char CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM[] = "offboard.controller.motor_thrust_percentage";
+
     //<! Constants for the 1-degree-of-freedom system
     constexpr float M = 2.0f; // mass of the system
     constexpr float L = 0.5f; // length of the pendulum
     constexpr float G = 9.81f; // gravitational acceleration
     constexpr float J = 0.3750f; // moment of inertia
-
-    constexpr float CONTROLLER_DT_SECONDS = 0.02f; // 50 Hz
-    constexpr float CONTROLLER_MOTOR_THRUST_PERCENTAGE = 0.1f;
 
 } // namespace controller
 

@@ -44,6 +44,11 @@ public:
 		)},
 		vehicle_control_mode_publisher_{this->create_publisher<px4_msgs::msg::VehicleControlMode>("/fmu/in/vehicle_control_mode", 10)}
     {
+		while (!vehicle_command_client_->wait_for_service(1s)) {
+			RCLCPP_WARN(this->get_logger(), "Vehicle Command Service (PX4) is unavailable");
+		}
+
+		switch_to_manual_mode();
 	}
 
 private:
@@ -57,6 +62,7 @@ private:
 	void switch_to_manual_mode();
 	void arm();
 	void disarm();
+	void terminate_flight();
 
 	rclcpp::Client<px4_msgs::srv::VehicleCommand>::SharedPtr vehicle_command_client_;
 	void send_vehicle_command_request(
@@ -87,29 +93,35 @@ private:
 
 void Px4Ros2FlightMode::switch_to_offboard_mode() {
 	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
-	RCLCPP_INFO(this->get_logger(), "Offboard mode command send");
+	RCLCPP_INFO(this->get_logger(), "Offboard mode command sent");
 }
 
 void Px4Ros2FlightMode::switch_to_manual_mode() {
 	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 1);
-	RCLCPP_INFO(this->get_logger(), "Manual mode command send");
+	RCLCPP_INFO(this->get_logger(), "Manual mode command sent");
 }
 
 void Px4Ros2FlightMode::arm() {
 	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 1.0);
-	RCLCPP_INFO(this->get_logger(), "Arm command send");
+	RCLCPP_INFO(this->get_logger(), "Arm command sent");
 }
 
 void Px4Ros2FlightMode::disarm() {
 	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0);
-	RCLCPP_INFO(this->get_logger(), "Disarm command send");
+	RCLCPP_INFO(this->get_logger(), "Disarm command sent");
+}
+
+void Px4Ros2FlightMode::terminate_flight() {
+	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_DO_FLIGHTTERMINATION, 1);
+	RCLCPP_INFO(this->get_logger(), "Terminate Flight command sent");
 }
 
 void Px4Ros2FlightMode::handle_flight_mode_set(
 	const std::shared_ptr<one_degree_freedom::msg::FlightMode> flight_mode_set
 ) {
-	while (!vehicle_command_client_->wait_for_service(1s)) {
+	if (!vehicle_command_client_->wait_for_service(1s)) {
 		RCLCPP_WARN(this->get_logger(), "Vehicle Command Service (PX4) is unavailable");
+		return;
 	}
 
 	auto flight_mode_current = flight_mode_current_.load();
@@ -138,7 +150,7 @@ void Px4Ros2FlightMode::handle_flight_mode_set(
 	}
 	else if (flight_mode_requested == FlightMode::ABORT) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to ABORT");
-		disarm();
+		terminate_flight();
 	}
 	else if (flight_mode_current == FlightMode::ABORT) {
 		rclcpp::shutdown();
@@ -248,7 +260,7 @@ void Px4Ros2FlightMode::publish_vehicle_control_mode()
 	msg.source_id = 1;
 
 	vehicle_control_mode_publisher_->publish(msg);
-	RCLCPP_INFO(this->get_logger(), "Vehicle control mode command send");
+	RCLCPP_INFO(this->get_logger(), "Vehicle control mode command sent");
 }
 
 

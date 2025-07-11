@@ -25,10 +25,6 @@ public:
     qos_profile_{rmw_qos_profile_sensor_data},
     qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 
-    controller_timer_{this->create_wall_timer(
-        std::chrono::duration<float>(CONTROLLER_DT_SECONDS), 
-        std::bind(&ControllerInnerLoop::controller_callback, this)
-    )},
     attitude_subscriber_{this->create_subscription<ControllerInputAttitude>(
         CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_,
         [this](const ControllerInputAttitude::SharedPtr msg) {
@@ -74,10 +70,14 @@ public:
     )}
     {
         this->declare_parameter<bool>(CONTROLLER_ROLL_ACTIVE_PARAM);
-        roll_active_ = this->get_parameter(CONTROLLER_ROLL_ACTIVE_PARAM).as_bool();
-
         this->declare_parameter<bool>(CONTROLLER_PITCH_ACTIVE_PARAM);
+
+        roll_active_ = this->get_parameter(CONTROLLER_ROLL_ACTIVE_PARAM).as_bool();
         pitch_active_ = this->get_parameter(CONTROLLER_PITCH_ACTIVE_PARAM).as_bool();
+
+        RCLCPP_INFO(this->get_logger(), "Roll active: %s", roll_active_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "Pitch active: %s", pitch_active_ ? "true" : "false");
+
 
         this->declare_parameter<float>(CONTROLLER_ROLL_K_P_PARAM);
         this->declare_parameter<float>(CONTROLLER_ROLL_K_D_PARAM);
@@ -96,7 +96,7 @@ public:
         // Safety check
         if (roll_k_p_ == NAN || roll_k_d_ == NAN || roll_k_i_ == NAN || pitch_k_p_ == NAN || pitch_k_d_ == NAN || pitch_k_i_ == NAN) {
             RCLCPP_ERROR(this->get_logger(), "Could not read PID position controller inner loop gains correctly.");
-            throw std::runtime_error("Gains vector was empty");
+            throw std::runtime_error("Gains vector invalid");
         }
 
         // Print values
@@ -106,6 +106,32 @@ public:
         RCLCPP_INFO(this->get_logger(), "gains pitch k_p: %f", pitch_k_p_);
         RCLCPP_INFO(this->get_logger(), "gains pitch k_d: %f", pitch_k_d_);
         RCLCPP_INFO(this->get_logger(), "gains pitch k_i: %f", pitch_k_i_);
+
+
+        this->declare_parameter<float>(CONTROLLER_PERIOD_SECONDS_PARAM);
+        this->declare_parameter<float>(CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM);
+
+        time_step_seconds_ = this->get_parameter(CONTROLLER_PERIOD_SECONDS_PARAM).as_double();
+        motor_thrust_percentage_ = this->get_parameter(CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM).as_double();
+
+        // Safety check
+        if (time_step_seconds_ <= 0.0f || time_step_seconds_ == NAN) {
+            RCLCPP_ERROR(this->get_logger(), "Could not read controller time step correctly.");
+            throw std::runtime_error("Time step invalid");
+        }
+        if (motor_thrust_percentage_ < 0.0f || motor_thrust_percentage_ > 1.0f || motor_thrust_percentage_ == NAN) {
+            RCLCPP_ERROR(this->get_logger(), "Could not read motor thrust correctly.");
+            throw std::runtime_error("Motor thrust invalid");
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Controller period: %f seconds", time_step_seconds_);
+        RCLCPP_INFO(this->get_logger(), "Motor thrust percentage: %f", motor_thrust_percentage_);
+
+
+        controller_timer_ = this->create_wall_timer(
+            std::chrono::duration<float>(time_step_seconds_), 
+            std::bind(&ControllerInnerLoop::controller_callback, this)
+        );
 	}
 
 private:
@@ -142,6 +168,9 @@ private:
     float pitch_k_p_;
     float pitch_k_d_;
     float pitch_k_i_;
+
+    float time_step_seconds_;
+    float motor_thrust_percentage_;
 
 	//!< Auxiliary functions
     void controller_callback();
@@ -218,7 +247,7 @@ void ControllerInnerLoop::controller_callback()
             pitch_delta_omega, 
             pitch_delta_theta_desired,
             &pitch_delta_gamma,
-            CONTROLLER_DT_SECONDS
+            time_step_seconds_
         );
         publish_controller_debug(
             roll_delta_theta, 
@@ -237,7 +266,7 @@ void ControllerInnerLoop::controller_callback()
         publish_servo_tilt_angle(outer_servo_pwm, inner_servo_pwm);
 
         // Publish the motor thrust
-        publish_motor_thrust(CONTROLLER_MOTOR_THRUST_PERCENTAGE, CONTROLLER_MOTOR_THRUST_PERCENTAGE);
+        publish_motor_thrust(motor_thrust_percentage_, motor_thrust_percentage_);
     }
 }
 

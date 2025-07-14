@@ -14,7 +14,7 @@
             k_p: 0.3350
             k_d: 0.1616
             k_i: 0.3162
-        time_step_seconds: 0.02 # 50 Hz
+        frequency_hertz: 50.0
         motor_thrust_percentage: 0.1
       px4_ros2_message_mapping:
         input:

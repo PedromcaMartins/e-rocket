@@ -27,7 +27,7 @@ namespace controller
     constexpr char CONTROLLER_PITCH_K_D_PARAM[] = "offboard.controller.pitch.gains.k_d";
     constexpr char CONTROLLER_PITCH_K_I_PARAM[] = "offboard.controller.pitch.gains.k_i";
 
-    constexpr char CONTROLLER_PERIOD_SECONDS_PARAM[] = "offboard.controller.time_step_seconds";
+    constexpr char CONTROLLER_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.frequency_hertz";
     constexpr char CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM[] = "offboard.controller.motor_thrust_percentage";
 
     //<! Constants for the 1-degree-of-freedom system

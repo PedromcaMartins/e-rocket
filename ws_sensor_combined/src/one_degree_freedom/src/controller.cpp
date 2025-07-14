@@ -15,6 +15,51 @@ using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
 
+class PIDController
+{
+public:
+    PIDController(double k_p, double k_d, double k_i, double dt)
+        : k_p_(k_p), k_d_(k_d), k_i_(k_i),
+            integrated_error_(0.0f), dt_(dt) 
+            {
+                // Safety check
+                if (k_p == NAN || k_d == NAN || k_i == NAN) {
+                    RCLCPP_ERROR(rclcpp::get_logger("PIDController"), "Invalid PID gains provided.");
+                    throw std::runtime_error("Gains vector invalid");
+                }
+
+                // Safety check
+                if (dt <= 0.0f || dt == NAN) {
+                    RCLCPP_ERROR(rclcpp::get_logger("PIDController"), "Invalid time step provided.");
+                    throw std::runtime_error("Time step invalid");
+                }
+            }
+
+    /*
+        * @brief Compute the control input based on the PID controller formula
+        * @param theta Current measurement
+        * @param omega Current measurement derivative
+        * @param theta_desired Desired setpoint
+        * @return The computed control input
+    */
+    double compute(double theta, double omega, double theta_desired) {
+        // Update the integrated error
+        integrated_error_ = integrated_error_ + (theta_desired - theta) * dt_; 
+
+        // Compute control input
+        double dot_product = theta * k_p_ + omega * k_d_;
+        double gamma = -dot_product + integrated_error_ * k_i_;
+        return gamma;
+    }
+
+private:
+    const double k_p_;
+    const double k_d_;
+    const double k_i_;
+    double integrated_error_;
+    const double dt_;
+};
+
 /**
  * @brief Node that runs the controller for a 1-degree-of-freedom system
  */
@@ -70,67 +115,67 @@ public:
         std::bind(&ControllerInnerLoop::response_flight_mode_callback, this, std::placeholders::_1)
     )}
     {
-        this->declare_parameter<bool>(CONTROLLER_ROLL_ACTIVE_PARAM);
-        this->declare_parameter<bool>(CONTROLLER_PITCH_ACTIVE_PARAM);
-
-        roll_active_  = this->get_parameter(CONTROLLER_ROLL_ACTIVE_PARAM).as_bool();
-        pitch_active_ = this->get_parameter(CONTROLLER_PITCH_ACTIVE_PARAM).as_bool();
-
-        RCLCPP_INFO(this->get_logger(), "Roll  active: %s", roll_active_  ? "true" : "false");
-        RCLCPP_INFO(this->get_logger(), "Pitch active: %s", pitch_active_ ? "true" : "false");
+        this->declare_parameter<double>(CONTROLLER_FREQUENCY_HERTZ_PARAM);
+        double controllers_freq = this->get_parameter(CONTROLLER_FREQUENCY_HERTZ_PARAM).as_double();
+        RCLCPP_INFO(this->get_logger(), "Controllers freq: %f", controllers_freq);
+        double controllers_dt = 1.0 / controllers_freq;
 
 
-        this->declare_parameter<float>(CONTROLLER_ROLL_K_P_PARAM);
-        this->declare_parameter<float>(CONTROLLER_ROLL_K_D_PARAM);
-        this->declare_parameter<float>(CONTROLLER_ROLL_K_I_PARAM);
-        this->declare_parameter<float>(CONTROLLER_PITCH_K_P_PARAM);
-        this->declare_parameter<float>(CONTROLLER_PITCH_K_D_PARAM);
-        this->declare_parameter<float>(CONTROLLER_PITCH_K_I_PARAM);
-
-        roll_k_p_ = this->get_parameter(CONTROLLER_ROLL_K_P_PARAM).as_double();
-        roll_k_d_ = this->get_parameter(CONTROLLER_ROLL_K_D_PARAM).as_double();
-        roll_k_i_ = this->get_parameter(CONTROLLER_ROLL_K_I_PARAM).as_double();
-        pitch_k_p_ = this->get_parameter(CONTROLLER_PITCH_K_P_PARAM).as_double();
-        pitch_k_d_ = this->get_parameter(CONTROLLER_PITCH_K_D_PARAM).as_double();
-        pitch_k_i_ = this->get_parameter(CONTROLLER_PITCH_K_I_PARAM).as_double();
-
-        // Safety check
-        if (roll_k_p_ == NAN || roll_k_d_ == NAN || roll_k_i_ == NAN || pitch_k_p_ == NAN || pitch_k_d_ == NAN || pitch_k_i_ == NAN) {
-            RCLCPP_ERROR(this->get_logger(), "Could not read PID position controller inner loop gains correctly.");
-            throw std::runtime_error("Gains vector invalid");
-        }
-
-        // Print values
-        RCLCPP_INFO(this->get_logger(), "gains roll k_p: %f", roll_k_p_);
-        RCLCPP_INFO(this->get_logger(), "gains roll k_d: %f", roll_k_d_);
-        RCLCPP_INFO(this->get_logger(), "gains roll k_i: %f", roll_k_i_);
-        RCLCPP_INFO(this->get_logger(), "gains pitch k_p: %f", pitch_k_p_);
-        RCLCPP_INFO(this->get_logger(), "gains pitch k_d: %f", pitch_k_d_);
-        RCLCPP_INFO(this->get_logger(), "gains pitch k_i: %f", pitch_k_i_);
-
-
-        this->declare_parameter<float>(CONTROLLER_PERIOD_SECONDS_PARAM);
-        this->declare_parameter<float>(CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM);
-
-        time_step_seconds_ = this->get_parameter(CONTROLLER_PERIOD_SECONDS_PARAM).as_double();
+        this->declare_parameter<double>(CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM);
         motor_thrust_percentage_ = this->get_parameter(CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM).as_double();
-
-        // Safety check
-        if (time_step_seconds_ <= 0.0f || time_step_seconds_ == NAN) {
-            RCLCPP_ERROR(this->get_logger(), "Could not read controller time step correctly.");
-            throw std::runtime_error("Time step invalid");
-        }
         if (motor_thrust_percentage_ < 0.0f || motor_thrust_percentage_ > 1.0f || motor_thrust_percentage_ == NAN) {
             RCLCPP_ERROR(this->get_logger(), "Could not read motor thrust correctly.");
             throw std::runtime_error("Motor thrust invalid");
         }
-
-        RCLCPP_INFO(this->get_logger(), "Controller period: %f seconds", time_step_seconds_);
         RCLCPP_INFO(this->get_logger(), "Motor thrust percentage: %f", motor_thrust_percentage_);
 
 
+        this->declare_parameter<bool>(CONTROLLER_ROLL_ACTIVE_PARAM);
+        if (this->get_parameter(CONTROLLER_ROLL_ACTIVE_PARAM).as_bool()) {
+            RCLCPP_INFO(this->get_logger(), "Roll is active");
+            this->declare_parameter<double>(CONTROLLER_ROLL_K_P_PARAM);
+            this->declare_parameter<double>(CONTROLLER_ROLL_K_D_PARAM);
+            this->declare_parameter<double>(CONTROLLER_ROLL_K_I_PARAM);
+
+            double k_p = this->get_parameter(CONTROLLER_ROLL_K_P_PARAM).as_double();
+            double k_d = this->get_parameter(CONTROLLER_ROLL_K_D_PARAM).as_double();
+            double k_i = this->get_parameter(CONTROLLER_ROLL_K_I_PARAM).as_double();
+
+            roll_controller_.emplace(PIDController(k_p, k_d, k_i, controllers_dt));
+
+            RCLCPP_INFO(this->get_logger(), "gains k_p: %f", k_p);
+            RCLCPP_INFO(this->get_logger(), "gains k_d: %f", k_d);
+            RCLCPP_INFO(this->get_logger(), "gains k_i: %f", k_i);
+        } else {
+            RCLCPP_INFO(this->get_logger(), "Roll is not active");
+            roll_controller_ = std::nullopt;
+        }
+
+
+        this->declare_parameter<bool>(CONTROLLER_PITCH_ACTIVE_PARAM);
+        if (this->get_parameter(CONTROLLER_PITCH_ACTIVE_PARAM).as_bool()) {
+            RCLCPP_INFO(this->get_logger(), "Pitch is active");
+            this->declare_parameter<double>(CONTROLLER_PITCH_K_P_PARAM);
+            this->declare_parameter<double>(CONTROLLER_PITCH_K_D_PARAM);
+            this->declare_parameter<double>(CONTROLLER_PITCH_K_I_PARAM);
+
+            double k_p = this->get_parameter(CONTROLLER_PITCH_K_P_PARAM).as_double();
+            double k_d = this->get_parameter(CONTROLLER_PITCH_K_D_PARAM).as_double();
+            double k_i = this->get_parameter(CONTROLLER_PITCH_K_I_PARAM).as_double();
+
+            pitch_controller_.emplace(PIDController(k_p, k_d, k_i, controllers_dt));
+
+            RCLCPP_INFO(this->get_logger(), "gains k_p: %f", k_p);
+            RCLCPP_INFO(this->get_logger(), "gains k_d: %f", k_d);
+            RCLCPP_INFO(this->get_logger(), "gains k_i: %f", k_i);
+        } else {
+            RCLCPP_INFO(this->get_logger(), "Pitch is not active");
+            pitch_controller_ = std::nullopt;
+        }
+
+
         controller_timer_ = this->create_wall_timer(
-            std::chrono::duration<float>(time_step_seconds_), 
+            std::chrono::duration<float>(controllers_dt), 
             std::bind(&ControllerInnerLoop::controller_callback, this)
         );
 	}
@@ -154,40 +199,17 @@ private:
 	std::atomic<float> roll_radians_;
 	std::atomic<float> x_roll_angular_rate_radians_per_second_;
 	std::atomic<float> roll_setpoint_radians_;
+    std::optional<PIDController> roll_controller_;
 
 	std::atomic<float> pitch_radians_;
 	std::atomic<float> y_pitch_angular_rate_radians_per_second_;
 	std::atomic<float> pitch_setpoint_radians_;
+    std::optional<PIDController> pitch_controller_;
 
-    bool roll_active_;
-    bool pitch_active_;
-
-    // //!< Control algorithm parameters
-    float roll_k_p_;
-    float roll_k_d_;
-    float roll_k_i_;
-
-    float pitch_k_p_;
-    float pitch_k_d_;
-    float pitch_k_i_;
-
-    float time_step_seconds_;
     float motor_thrust_percentage_;
 
 	//!< Auxiliary functions
     void controller_callback();
-    void controller(
-        const float roll_radians, 
-        const float x_roll_angular_rate_radians_per_second, 
-        const float roll_setpoint_radians, 
-        float* inner_servo_tilt_angle,
-
-        const float pitch_radians, 
-        const float y_pitch_angular_rate_radians_per_second, 
-        const float pitch_setpoint_radians, 
-        float* outer_servo_tilt_angle,
-        const float dt_seconds
-    );
     void publish_controller_debug(
         const float roll_angle, 
         const float roll_angular_velocity, 
@@ -223,6 +245,16 @@ float limit_range_servo_tilt(float servo_pwm) {
     return servo_pwm;
 }
 
+float limit_range_motor_thrust(float motor_pwm) {
+    if (motor_pwm > 1.0f) {
+        motor_pwm = 1.0f;
+    } else if (motor_pwm < 0.0f) {
+        motor_pwm = 0.0f;
+    }
+
+    return motor_pwm;
+}
+
 /**
  * @brief Callback function for the controller
  */
@@ -230,104 +262,60 @@ void ControllerInnerLoop::controller_callback()
 {
     // only run controller when in mission
     if (flight_mode_.load() == FlightMode::IN_MISSION) {
-        // Read the sensor data and setpoint
-        float roll_delta_theta = roll_radians_.load();
-        float roll_delta_omega = x_roll_angular_rate_radians_per_second_.load();
-        float roll_delta_theta_desired = roll_setpoint_radians_.load();
-        float roll_delta_gamma = 0.0f;
+        float outer_servo_pwm = 0.0f;
+        float inner_servo_pwm = 0.0f;
+        float upwards_motor_thrust_percentage = motor_thrust_percentage_;
+        float downwards_motor_thrust_percentage = motor_thrust_percentage_;
 
-        float pitch_delta_theta = pitch_radians_.load();
-        float pitch_delta_omega = y_pitch_angular_rate_radians_per_second_.load();
-        float pitch_delta_theta_desired = pitch_setpoint_radians_.load();
-        float pitch_delta_gamma = 0.0f;
+        float roll_angle = roll_radians_.load();
+        float roll_angular_velocity = x_roll_angular_rate_radians_per_second_.load();
+        float roll_angle_setpoint = roll_setpoint_radians_.load();
+        if (roll_controller_.has_value()) {
+            // Compute the control input for roll
+            inner_servo_pwm = roll_controller_->compute(
+                roll_angle, 
+                roll_angular_velocity, 
+                roll_angle_setpoint
+            );
+        }
 
-        // Call the controller function
-        controller(
-            roll_delta_theta, 
-            roll_delta_omega, 
-            roll_delta_theta_desired, 
-            &roll_delta_gamma,
-
-            pitch_delta_theta, 
-            pitch_delta_omega, 
-            pitch_delta_theta_desired,
-            &pitch_delta_gamma,
-
-            time_step_seconds_
-        );
-        publish_controller_debug(
-            roll_delta_theta, 
-            roll_delta_omega, 
-            roll_delta_theta_desired, 
-            roll_delta_gamma,
-
-            pitch_delta_theta, 
-            pitch_delta_omega, 
-            pitch_delta_theta_desired,
-            pitch_delta_gamma
-        );
+        float pitch_angle = pitch_radians_.load();
+        float pitch_angular_velocity = y_pitch_angular_rate_radians_per_second_.load();
+        float pitch_angle_setpoint = pitch_setpoint_radians_.load();
+        if (pitch_controller_.has_value()) {
+            // Compute the control input for pitch
+            outer_servo_pwm = pitch_controller_->compute(
+                pitch_angle, 
+                pitch_angular_velocity, 
+                pitch_angle_setpoint
+            );
+        }
 
         // Publish the tilt angle output
-        float inner_servo_pwm = limit_range_servo_tilt(roll_delta_gamma);
-        float outer_servo_pwm = limit_range_servo_tilt(pitch_delta_gamma);
-        publish_servo_tilt_angle(outer_servo_pwm, inner_servo_pwm);
+        publish_servo_tilt_angle(
+            limit_range_servo_tilt(outer_servo_pwm), 
+            limit_range_servo_tilt(inner_servo_pwm)
+        );
 
         // Publish the motor thrust
-        // limit_range_motor_thrust()
-        publish_motor_thrust(motor_thrust_percentage_, motor_thrust_percentage_);
-    }
-}
+        publish_motor_thrust(
+            limit_range_motor_thrust(upwards_motor_thrust_percentage), 
+            limit_range_motor_thrust(downwards_motor_thrust_percentage)
+        );
 
-/**
- * @brief ControllerInnerLoop function
- * @param delta_theta Current angle (in radians)
- * @param delta_omega Current angular velocity (in radians per second)
- * @param delta_theta_desired Desired angle setpoint (in radians)
- * @param dt Time step for the controller (in seconds)
- * @return Tilt angle for the servo
- */
-void ControllerInnerLoop::controller(
-    const float roll_delta_theta, 
-    const float roll_delta_omega, 
-    const float roll_delta_theta_desired, 
-    float* roll_delta_gamma,
 
-    const float pitch_delta_theta, 
-    const float pitch_delta_omega, 
-    const float pitch_delta_theta_desired, 
-    float* pitch_delta_gamma,
+        // Publish the controller debug information
+        publish_controller_debug(
+            roll_angle, 
+            roll_angular_velocity, 
+            roll_angle_setpoint, 
+            inner_servo_pwm,
 
-    const float dt
-)
-{
-    //*********//
-    //* roll  *//
-    //*********//
-    if (roll_active_) {
-        // Update the integrated error
-        static float zeta_theta = 0.0f;
-        zeta_theta = zeta_theta + (roll_delta_theta_desired - roll_delta_theta) * dt; 
-
-        // Compute control input
-        float dot_product = roll_delta_theta * roll_k_p_ + roll_delta_omega * roll_k_d_;
-        *roll_delta_gamma = -dot_product + zeta_theta * roll_k_i_;
-    } else {
-        *roll_delta_gamma = 0.0f; // If roll control is not active, center servo 
-    }
-
-    //*********//
-    //* pitch *//
-    //*********//
-    if (pitch_active_) {
-        // Update the integrated error
-        static float zeta_theta = 0.0f;
-        zeta_theta = zeta_theta + (pitch_delta_theta_desired - pitch_delta_theta) * dt; 
-
-        // Compute control input
-        float dot_product = pitch_delta_theta * pitch_k_p_ + pitch_delta_omega * pitch_k_d_;
-        *pitch_delta_gamma = -dot_product + zeta_theta * pitch_k_i_;
-    } else {
-        *pitch_delta_gamma = 0.0f; // If pitch control is not active, center servo 
+            pitch_angle,
+            pitch_angular_velocity,
+            pitch_angle_setpoint,
+            outer_servo_pwm
+        );
     }
 }
 

@@ -34,8 +34,9 @@ public:
             CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos
         );
 
-        this->declare_parameter<float>(CONTROLLER_PERIOD_SECONDS_PARAM);
-        time_step_seconds_ = this->get_parameter(CONTROLLER_PERIOD_SECONDS_PARAM).as_double();
+        this->declare_parameter<float>(CONTROLLER_FREQUENCY_HERTZ_PARAM);
+        auto controllers_freq = this->get_parameter(CONTROLLER_FREQUENCY_HERTZ_PARAM).as_double();
+        time_step_seconds_ = 1.0 / controllers_freq;
 
         // Safety check
         if (time_step_seconds_ <= 0.0f || time_step_seconds_ == NAN) {

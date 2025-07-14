@@ -59,6 +59,7 @@ public:
     roll_radians_{0.0f},
     x_roll_angular_rate_radians_per_second_{0.0f},
     roll_setpoint_radians_{0.0f},
+
     pitch_radians_{0.0f},
     y_pitch_angular_rate_radians_per_second_{0.0f},
     pitch_setpoint_radians_{0.0f},
@@ -72,10 +73,10 @@ public:
         this->declare_parameter<bool>(CONTROLLER_ROLL_ACTIVE_PARAM);
         this->declare_parameter<bool>(CONTROLLER_PITCH_ACTIVE_PARAM);
 
-        roll_active_ = this->get_parameter(CONTROLLER_ROLL_ACTIVE_PARAM).as_bool();
+        roll_active_  = this->get_parameter(CONTROLLER_ROLL_ACTIVE_PARAM).as_bool();
         pitch_active_ = this->get_parameter(CONTROLLER_PITCH_ACTIVE_PARAM).as_bool();
 
-        RCLCPP_INFO(this->get_logger(), "Roll active: %s", roll_active_ ? "true" : "false");
+        RCLCPP_INFO(this->get_logger(), "Roll  active: %s", roll_active_  ? "true" : "false");
         RCLCPP_INFO(this->get_logger(), "Pitch active: %s", pitch_active_ ? "true" : "false");
 
 
@@ -147,7 +148,7 @@ private:
 	rclcpp::Subscription<ControllerInputSetpoint>::SharedPtr     setpoint_subscriber_;
 	rclcpp::Publisher<ControllerOutputServoTiltAngle>::SharedPtr servo_tilt_angle_publisher_;
     rclcpp::Publisher<ControllerOutputMotorThrust>::SharedPtr    motor_thrust_publisher_;
-    rclcpp::Publisher<ControllerDebug>::SharedPtr controller_debug_publisher_;
+    rclcpp::Publisher<ControllerDebug>::SharedPtr                controller_debug_publisher_;
 
     // control algorithm variables
 	std::atomic<float> roll_radians_;
@@ -165,6 +166,7 @@ private:
     float roll_k_p_;
     float roll_k_d_;
     float roll_k_i_;
+
     float pitch_k_p_;
     float pitch_k_d_;
     float pitch_k_i_;
@@ -179,6 +181,7 @@ private:
         const float x_roll_angular_rate_radians_per_second, 
         const float roll_setpoint_radians, 
         float* inner_servo_tilt_angle,
+
         const float pitch_radians, 
         const float y_pitch_angular_rate_radians_per_second, 
         const float pitch_setpoint_radians, 
@@ -190,6 +193,7 @@ private:
         const float roll_angular_velocity, 
         const float roll_angle_setpoint, 
         const float roll_tilt_angle,
+
         const float pitch_angle, 
         const float pitch_angular_velocity, 
         const float pitch_angle_setpoint, 
@@ -243,10 +247,12 @@ void ControllerInnerLoop::controller_callback()
             roll_delta_omega, 
             roll_delta_theta_desired, 
             &roll_delta_gamma,
+
             pitch_delta_theta, 
             pitch_delta_omega, 
             pitch_delta_theta_desired,
             &pitch_delta_gamma,
+
             time_step_seconds_
         );
         publish_controller_debug(
@@ -254,6 +260,7 @@ void ControllerInnerLoop::controller_callback()
             roll_delta_omega, 
             roll_delta_theta_desired, 
             roll_delta_gamma,
+
             pitch_delta_theta, 
             pitch_delta_omega, 
             pitch_delta_theta_desired,
@@ -266,6 +273,7 @@ void ControllerInnerLoop::controller_callback()
         publish_servo_tilt_angle(outer_servo_pwm, inner_servo_pwm);
 
         // Publish the motor thrust
+        // limit_range_motor_thrust()
         publish_motor_thrust(motor_thrust_percentage_, motor_thrust_percentage_);
     }
 }
@@ -283,10 +291,12 @@ void ControllerInnerLoop::controller(
     const float roll_delta_omega, 
     const float roll_delta_theta_desired, 
     float* roll_delta_gamma,
+
     const float pitch_delta_theta, 
     const float pitch_delta_omega, 
     const float pitch_delta_theta_desired, 
     float* pitch_delta_gamma,
+
     const float dt
 )
 {
@@ -301,6 +311,8 @@ void ControllerInnerLoop::controller(
         // Compute control input
         float dot_product = roll_delta_theta * roll_k_p_ + roll_delta_omega * roll_k_d_;
         *roll_delta_gamma = -dot_product + zeta_theta * roll_k_i_;
+    } else {
+        *roll_delta_gamma = 0.0f; // If roll control is not active, center servo 
     }
 
     //*********//
@@ -314,6 +326,8 @@ void ControllerInnerLoop::controller(
         // Compute control input
         float dot_product = pitch_delta_theta * pitch_k_p_ + pitch_delta_omega * pitch_k_d_;
         *pitch_delta_gamma = -dot_product + zeta_theta * pitch_k_i_;
+    } else {
+        *pitch_delta_gamma = 0.0f; // If pitch control is not active, center servo 
     }
 }
 
@@ -328,20 +342,37 @@ void ControllerInnerLoop::publish_controller_debug(
     const float pitch_angle_setpoint, 
     const float outer_servo_tilt_angle
 ) {
-    RCLCPP_INFO(this->get_logger(), "Roll  angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", roll_angle, roll_angular_velocity, roll_angle_setpoint, inner_servo_tilt_angle);
-    RCLCPP_INFO(this->get_logger(), "Pitch angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", pitch_angle, pitch_angular_velocity, pitch_angle_setpoint, outer_servo_tilt_angle);
+    auto to_degrees = [](float radians) {
+        return radians * (180.0f / M_PI);
+    };
+
+    float roll_angle_degrees = to_degrees(roll_angle);
+    float roll_angular_velocity_degrees_per_second = to_degrees(roll_angular_velocity);
+    float roll_angle_setpoint_degrees = to_degrees(roll_angle_setpoint);
+    float inner_servo_tilt_angle_degrees = to_degrees(inner_servo_tilt_angle);
+
+    float pitch_angle_degrees = to_degrees(pitch_angle);
+    float pitch_angular_velocity_degrees_per_second = to_degrees(pitch_angular_velocity);
+    float pitch_angle_setpoint_degrees = to_degrees(pitch_angle_setpoint);
+    float outer_servo_tilt_angle_degrees = to_degrees(outer_servo_tilt_angle);
+
+
+    RCLCPP_INFO(this->get_logger(), "Roll  angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", roll_angle_degrees, roll_angular_velocity_degrees_per_second, roll_angle_setpoint_degrees, inner_servo_tilt_angle_degrees);
+    RCLCPP_INFO(this->get_logger(), "Pitch angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", pitch_angle_degrees, pitch_angular_velocity_degrees_per_second, pitch_angle_setpoint_degrees, outer_servo_tilt_angle_degrees);
+
 
     ControllerDebug msg{};
-    msg.roll_angle = roll_angle;
-    msg.roll_angular_velocity = roll_angular_velocity;
-    msg.roll_angle_setpoint = roll_angle_setpoint;
-    msg.pitch_angle = pitch_angle;
-    msg.pitch_angular_velocity = pitch_angular_velocity;
-    msg.pitch_angle_setpoint = pitch_angle_setpoint;
-    msg.inner_servo_tilt_angle = inner_servo_tilt_angle;
-    msg.outer_servo_tilt_angle = outer_servo_tilt_angle;
-    msg.stamp = this->get_clock()->now();
+    msg.roll_angle = roll_angle_degrees;
+    msg.roll_angular_velocity = roll_angular_velocity_degrees_per_second;
+    msg.roll_angle_setpoint = roll_angle_setpoint_degrees;
+    msg.inner_servo_tilt_angle = inner_servo_tilt_angle_degrees;
 
+    msg.pitch_angle = pitch_angle_degrees;
+    msg.pitch_angular_velocity = pitch_angular_velocity_degrees_per_second;
+    msg.pitch_angle_setpoint = pitch_angle_setpoint_degrees;
+    msg.outer_servo_tilt_angle = outer_servo_tilt_angle_degrees;
+
+    msg.stamp = this->get_clock()->now();
     controller_debug_publisher_->publish(msg);
 }
 

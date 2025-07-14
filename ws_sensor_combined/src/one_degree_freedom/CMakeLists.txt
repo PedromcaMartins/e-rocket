@@ -116,15 +116,15 @@ install(TARGETS px4_ros2_message_mapping DESTINATION lib/${PROJECT_NAME})
 ##############################
 
 # controller simulator (for testing / development)
-add_executable(controller_simulator test/controller/controller_simulator.cpp)
-ament_target_dependencies(controller_simulator rclcpp px4_msgs)
+add_executable(simulator test/simulator/simulator.cpp)
+ament_target_dependencies(simulator rclcpp px4_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(controller_simulator ${cpp_typesupport_target})
-target_include_directories(controller_simulator PUBLIC
+target_link_libraries(simulator ${cpp_typesupport_target})
+target_include_directories(simulator PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-install(TARGETS controller_simulator DESTINATION lib/${PROJECT_NAME})
+install(TARGETS simulator DESTINATION lib/${PROJECT_NAME})
 
 # mock flight mode node (for testing / development)
 add_executable(mock_flight_mode test/sitl/mock_flight_mode.cpp)

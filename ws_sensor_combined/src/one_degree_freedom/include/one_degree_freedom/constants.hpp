@@ -35,13 +35,17 @@ namespace controller
     constexpr char CONTROLLER_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.frequency_hertz";
     constexpr char CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM[] = "offboard.controller.motor_thrust_percentage";
 
-    //<! Constants for the 1-degree-of-freedom system
-    constexpr float M = 2.0f; // mass of the system
-    constexpr float L = 0.5f; // length of the pendulum
-    constexpr float G = 9.81f; // gravitational acceleration
-    constexpr float J = 0.3750f; // moment of inertia
-
 } // namespace controller
+
+namespace simulator
+{
+
+    constexpr char MASS_OF_SYSTEM[]             = "offboard.simulator.mass_of_system";
+    constexpr char LENGTH_OF_PENDULUM[]         = "offboard.simulator.length_of_pendulum";
+    constexpr char GRAVITATIONAL_ACCELERATION[] = "offboard.simulator.gravitational_acceleration";
+    constexpr char MOMENT_OF_INERTIA[]          = "offboard.simulator.moment_of_inertia";
+    
+}
 
 namespace flight_mode
 {

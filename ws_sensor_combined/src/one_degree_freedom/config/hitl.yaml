@@ -30,5 +30,9 @@
           servos: true
           motors: false
       mission:
-          setpoint: [0.0, 0.0, 0.0]
-
+        setpoint: [0.0, 0.0, 0.0]
+      simulator:
+        mass_of_system: 2.0
+        length_of_pendulum: 0.5
+        gravitational_acceleration: 9.81
+        moment_of_inertia: 0.3750

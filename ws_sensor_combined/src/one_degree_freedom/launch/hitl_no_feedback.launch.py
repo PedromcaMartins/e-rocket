@@ -28,9 +28,9 @@ def generate_launch_description():
         ],
     )
 
-    controller_simulator_node = Node(
+    simulator_node = Node(
         package='one_degree_freedom',
-        executable='controller_simulator',
+        executable='simulator',
         output='screen',
         shell=True,
         parameters=[
@@ -76,7 +76,7 @@ def generate_launch_description():
     return LaunchDescription([
         #micro_ros_agent,
         controller_node,
-        controller_simulator_node,
+        simulator_node,
         px4_ros2_flight_mode_node,
         px4_ros2_message_mapping_node,
         mission_node,

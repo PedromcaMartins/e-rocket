@@ -30,4 +30,4 @@
           servos: true
           motors: false
       mission:
-          setpoint: [0.0, 0.0, 0.0]
+        setpoint: [0.0, 0.0, 0.0]

@@ -21,9 +21,9 @@ def generate_launch_description():
         ],
     )
 
-    controller_simulator_node = Node(
+    simulator_node = Node(
         package='one_degree_freedom',
-        executable='controller_simulator',
+        executable='simulator',
         output='screen',
         shell=True,
         parameters=[
@@ -59,6 +59,6 @@ def generate_launch_description():
     return LaunchDescription([
         controller_node,
         mission_node,
-        controller_simulator_node,
+        simulator_node,
         mock_flight_mode_node,
     ])

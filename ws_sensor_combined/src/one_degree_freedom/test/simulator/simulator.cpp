@@ -9,21 +9,22 @@
 using namespace std::chrono;
 using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::controller;
+using namespace one_degree_freedom::constants::simulator;
 
 /**
  * @brief Node that simulates the effects of the controller on the environment. It is used for testing the controller
  */
-class ControllerSimulator : public rclcpp::Node
+class Simulator : public rclcpp::Node
 {
 public:
-	explicit ControllerSimulator() : Node("controller_simulator")
+	explicit Simulator() : Node("simulator")
 	{
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
         servo_tilt_angle_subscriber_ = this->create_subscription<ControllerOutputServoTiltAngle>(
             CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC, qos,
-            std::bind(&ControllerSimulator::controller_output_callback, this, std::placeholders::_1)
+            std::bind(&Simulator::controller_output_callback, this, std::placeholders::_1)
         );
 
         attitude_publisher_ = this->create_publisher<ControllerInputAttitude>(
@@ -43,8 +44,25 @@ public:
             RCLCPP_ERROR(this->get_logger(), "Could not read controller time step correctly.");
             throw std::runtime_error("Time step invalid");
         }
-
         RCLCPP_INFO(this->get_logger(), "Controller period: %f seconds", time_step_seconds_);
+
+        this->declare_parameter<float>(MASS_OF_SYSTEM);
+        this->declare_parameter<float>(LENGTH_OF_PENDULUM);
+        this->declare_parameter<float>(GRAVITATIONAL_ACCELERATION);
+        this->declare_parameter<float>(MOMENT_OF_INERTIA);
+
+        m_ = this->get_parameter(MASS_OF_SYSTEM).as_double();
+        l_ = this->get_parameter(LENGTH_OF_PENDULUM).as_double();
+        g_ = this->get_parameter(GRAVITATIONAL_ACCELERATION).as_double();
+        j_ = this->get_parameter(MOMENT_OF_INERTIA).as_double();
+
+        // Safety check
+        if (m_ <= 0.0f || l_ <= 0.0f || g_ <= 0.0f || j_ <= 0.0f || m_ == NAN || l_ == NAN || g_ == NAN || j_ == NAN) {
+            RCLCPP_ERROR(this->get_logger(), "Could not read simulator parameters correctly.");
+            throw std::runtime_error("Simulator parameters invalid");
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Simulator parameters: m = %f, l = %f, g = %f, j = %f", m_, l_, g_, j_);
 	}
 
 private:
@@ -59,6 +77,11 @@ private:
     float pitch_delta_theta_ = 0.0f; // pitch angle
     float pitch_delta_omega_ = 0.0f; // angular position
 
+    float m_;
+    float l_;
+    float g_;
+    float j_;
+
     float time_step_seconds_;
 
 	//!< Auxiliary functions
@@ -67,7 +90,7 @@ private:
     void controller_output_callback(const ControllerOutputServoTiltAngle::SharedPtr msg);
 };
 
-void ControllerSimulator::publish_attitude()
+void Simulator::publish_attitude()
 {
     ControllerInputAttitude msg{};
     msg.stamp = this->get_clock()->now();
@@ -76,7 +99,7 @@ void ControllerSimulator::publish_attitude()
     attitude_publisher_->publish(msg);
 }
 
-void ControllerSimulator::publish_angular_rate()
+void Simulator::publish_angular_rate()
 {
     ControllerInputAngularRate msg{};
     msg.stamp = this->get_clock()->now();
@@ -85,7 +108,7 @@ void ControllerSimulator::publish_angular_rate()
     angular_rate_publisher_->publish(msg);
 }
 
-void ControllerSimulator::controller_output_callback(const ControllerOutputServoTiltAngle::SharedPtr msg)
+void Simulator::controller_output_callback(const ControllerOutputServoTiltAngle::SharedPtr msg)
 {
     float roll_delta_gamma = msg->inner_servo_tilt_angle_radians;
     float pitch_delta_gamma = msg->outer_servo_tilt_angle_radians;
@@ -95,7 +118,7 @@ void ControllerSimulator::controller_output_callback(const ControllerOutputServo
     //* roll  *//
     //*********//
     {
-        float a = roll_delta_gamma * M * L * G / J;
+        float a = roll_delta_gamma * m_ * l_ * g_ / j_;
         roll_delta_omega_ += a * step;
         roll_delta_theta_ += roll_delta_omega_ * step;
     }
@@ -104,7 +127,7 @@ void ControllerSimulator::controller_output_callback(const ControllerOutputServo
     //* pitch *//
     //*********//
     {
-        float a = pitch_delta_gamma * M * L * G / J;
+        float a = pitch_delta_gamma * m_ * l_ * g_ / j_;
         pitch_delta_omega_ += a * step;
         pitch_delta_theta_ += pitch_delta_omega_ * step;
     }
@@ -116,10 +139,10 @@ void ControllerSimulator::controller_output_callback(const ControllerOutputServo
 
 int main(int argc, char *argv[])
 {
-	std::cout << "Starting controller simulator..." << std::endl;
+	std::cout << "Starting simulator..." << std::endl;
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	rclcpp::init(argc, argv);
-	rclcpp::spin(std::make_shared<ControllerSimulator>());
+	rclcpp::spin(std::make_shared<Simulator>());
 
 	rclcpp::shutdown();
 	return 0;

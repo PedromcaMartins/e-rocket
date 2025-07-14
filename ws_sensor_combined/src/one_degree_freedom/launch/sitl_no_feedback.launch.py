@@ -10,13 +10,6 @@ from launch_ros.substitutions import FindPackageShare
 
 def generate_launch_description():
 
-    micro_ros_agent = ExecuteProcess(
-        cmd=[[
-            'micro-ros-agent udp4 --port 8888 -v '
-        ]],
-        shell=True
-    )
-
     controller_node = Node(
         package='one_degree_freedom',
         executable='controller',
@@ -24,18 +17,7 @@ def generate_launch_description():
         shell=True,
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
-        ],
-    )
-
-    controller_test_node = Node(
-        package='one_degree_freedom',
-        executable='controller_test',
-        output='screen',
-        shell=True,
-        parameters=[
-            PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'sitl.yaml']),
         ],
     )
 
@@ -46,13 +28,37 @@ def generate_launch_description():
         shell=True,
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'offboard.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'sitl.yaml']),
         ],
     )
 
+    mission_node = Node(
+        package='one_degree_freedom',
+        executable='mission',
+        output='screen',
+        shell=True,
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('one_degree_freedom'), 'config', 'sitl.yaml']),
+        ],
+    )
+
+    mock_flight_mode_node = Node(
+        package='one_degree_freedom',
+        executable='mock_flight_mode',
+        output='screen',
+        shell=True,
+        arguments=['--ros-args', '--log-level', 'warn'],
+        parameters=[
+            PathJoinSubstitution([
+                FindPackageShare('one_degree_freedom'), 'config', 'sitl.yaml']),
+        ],
+    )
+
+
     return LaunchDescription([
-        #micro_ros_agent,
         controller_node,
-        controller_test_node,
-        controller_simulator_node
+        mission_node,
+        controller_simulator_node,
+        mock_flight_mode_node,
     ])

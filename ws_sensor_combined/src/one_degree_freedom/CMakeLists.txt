@@ -126,16 +126,16 @@ target_include_directories(controller_simulator PUBLIC
 )
 install(TARGETS controller_simulator DESTINATION lib/${PROJECT_NAME})
 
-# controller test node (for testing / development)
-add_executable(controller_test test/controller/controller_test.cpp)
-ament_target_dependencies(controller_test rclcpp px4_msgs)
+# mock flight mode node (for testing / development)
+add_executable(mock_flight_mode test/sitl/mock_flight_mode.cpp)
+ament_target_dependencies(mock_flight_mode rclcpp px4_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(controller_test ${cpp_typesupport_target})
-target_include_directories(controller_test PUBLIC
+target_link_libraries(mock_flight_mode ${cpp_typesupport_target})
+target_include_directories(mock_flight_mode PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-install(TARGETS controller_test DESTINATION lib/${PROJECT_NAME})
+install(TARGETS mock_flight_mode DESTINATION lib/${PROJECT_NAME})
 
 # px4_ros2_flight_mode test node (for testing / development)
 add_executable(px4_ros2_flight_mode_test test/px4_ros2_communication/px4_ros2_flight_mode_test.cpp)

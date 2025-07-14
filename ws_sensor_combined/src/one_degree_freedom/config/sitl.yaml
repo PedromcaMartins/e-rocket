@@ -1,0 +1,33 @@
+/**:
+  ros__parameters:
+    offboard:
+      controller:
+        roll: 
+          active: true
+          gains:
+            k_p: 0.3350
+            k_d: 0.1616
+            k_i: 0.3162
+        pitch: 
+          active: true
+          gains:
+            k_p: 0.3350
+            k_d: 0.1616
+            k_i: 0.3162
+        yaw: 
+          active: true
+          gains:
+            k_p: 0.3350
+            k_d: 0.1616
+            k_i: 0.3162
+        frequency_hertz: 50.0
+        motor_thrust_percentage: 0.1
+      px4_ros2_message_mapping:
+        input: 
+          attitude: false
+          angular_rate: false
+        output:
+          servos: false
+          motors: false
+      mission:
+          setpoint: [0.0, 0.0, 0.0]

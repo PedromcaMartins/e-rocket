@@ -24,7 +24,7 @@ def generate_launch_description():
         shell=True,
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'hitl_simulator.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'hitl.yaml']),
         ],
     )
 
@@ -35,7 +35,7 @@ def generate_launch_description():
         shell=True,
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'hitl_simulator.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'hitl.yaml']),
         ],
     )
 
@@ -47,7 +47,7 @@ def generate_launch_description():
         arguments=['--ros-args', '--log-level', 'warn'],
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'hitl_simulator.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'hitl.yaml']),
         ],
     )
 
@@ -58,7 +58,7 @@ def generate_launch_description():
         shell=True,
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'hitl_simulator.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'hitl.yaml']),
         ],
     )
 
@@ -69,7 +69,7 @@ def generate_launch_description():
         shell=True,
         parameters=[
             PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'hitl_simulator.yaml']),
+                FindPackageShare('one_degree_freedom'), 'config', 'hitl.yaml']),
         ],
     )
 

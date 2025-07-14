@@ -22,7 +22,7 @@ using namespace std::chrono_literals;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::px4_ros2_message_mapping;
 
-struct Euler {
+struct EulerAngle {
     float roll, pitch, yaw;
 };
 
@@ -117,11 +117,11 @@ private:
 };
 
 /**
- * @brief Convert quaternion to Euler angles (radiands)
+ * @brief Convert quaternion to EulerAngle (radiands)
  * @param q Quaternion
- * @return Euler angles (roll, pitch, yaw)
+ * @return EulerAngle (roll, pitch, yaw)
  */
-Euler quaternionToEulerRadians(const Eigen::Quaternionf q) {
+EulerAngle quaternionToEulerRadians(const Eigen::Quaterniond q) {
     auto w = q.w();
     auto x = q.x();
     auto y = q.y();
@@ -131,14 +131,11 @@ Euler quaternionToEulerRadians(const Eigen::Quaternionf q) {
     float sinr_cosp = 2 * (w * x + y * z);
     float cosr_cosp = 1 - 2 * (x * x + y * y);
     float roll = std::atan2(sinr_cosp, cosr_cosp);
-    float pitch = 0.0;
 
     // Pitch (y-axis rotation)
-    float sinp = 2 * (w * y - z * x);
-    if (std::abs(sinp) >= 1)
-        pitch = std::copysign(90.0, sinp); // Use 90 degrees if out of range
-    else
-        pitch = std::asin(sinp);
+    double sinp = std::sqrt(1 + 2 * (w * y - x * z));
+    double cosp = std::sqrt(1 - 2 * (w * y - x * z));
+    float pitch = 2 * std::atan2(sinp, cosp) - M_PI / 2;
 
     // Yaw (z-axis rotation)
     float siny_cosp = 2 * (w * z + x * y);
@@ -165,7 +162,7 @@ void Px4Ros2MessageMapping::controller_output_motor_thrust_callback(const one_de
 }
 
 void Px4Ros2MessageMapping::vehicle_attitude_callback(const px4_msgs::msg::VehicleAttitude::SharedPtr px4_msg) {
-    auto q = Eigen::Quaternionf(px4_msg->q[0], px4_msg->q[1], px4_msg->q[2], px4_msg->q[3]);
+    auto q = Eigen::Quaterniond(px4_msg->q[0], px4_msg->q[1], px4_msg->q[2], px4_msg->q[3]);
     auto euler = quaternionToEulerRadians(q);
 
     one_degree_freedom::msg::ControllerInputAttitude ros2_msg {};

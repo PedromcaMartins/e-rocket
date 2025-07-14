@@ -107,7 +107,7 @@ void Px4Ros2FlightMode::arm() {
 }
 
 void Px4Ros2FlightMode::disarm() {
-	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0);
+	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0, 21196);
 	RCLCPP_INFO(this->get_logger(), "Disarm command sent");
 }
 
@@ -151,6 +151,7 @@ void Px4Ros2FlightMode::handle_flight_mode_set(
 	else if (flight_mode_requested == FlightMode::ABORT) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to ABORT");
 		terminate_flight();
+		switch_to_manual_mode();
 	}
 	else if (flight_mode_current == FlightMode::ABORT) {
 		rclcpp::shutdown();

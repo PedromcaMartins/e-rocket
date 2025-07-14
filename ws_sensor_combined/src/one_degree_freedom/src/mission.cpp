@@ -48,7 +48,11 @@ public:
             std::bind(&Mission::flight_mode, this)
 		);
 
-        this->declare_parameter<float>(MISSION_SETPOINT_PARAM, 0.0f);
+        // Declare the setpoint parameter as array of 3 floats [roll, pitch, yaw]
+        this->declare_parameter<std::vector<double>>(
+            MISSION_SETPOINT_PARAM, 
+            std::vector<double>{0.0, 0.0, 0.0}
+        );
         this->declare_parameter<uint8_t>(FLIGHT_MODE_PARAM, FlightMode::INIT);
 
         parameter_callback_handle_ = this->add_on_set_parameters_callback(
@@ -132,9 +136,9 @@ void Mission::mission() {
         }
 
 		if (elapsed_time > 5s && elapsed_time <= 6s) {
-			// TODO: get setpoint from parameter (init config)
-			auto new_setpoint = this->get_parameter(MISSION_SETPOINT_PARAM).as_double();
-			publish_setpoint(new_setpoint, new_setpoint, 0.0f);
+			// Get setpoint from parameter (init config)
+			auto setpoint_array = this->get_parameter(MISSION_SETPOINT_PARAM).as_double_array();
+			publish_setpoint(setpoint_array[0], setpoint_array[1], setpoint_array[2]);
 		}
 
         if (elapsed_time > 120s) {
@@ -163,10 +167,32 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
 
     for (const auto &param : parameters) {
         if (param.get_name() == MISSION_SETPOINT_PARAM) {
-            float new_setpoint_radians = param.as_double();
-			// TODO!
-            publish_setpoint(new_setpoint_radians, new_setpoint_radians, 0.0f);
-            RCLCPP_INFO(this->get_logger(), "Updated setpoint to: %f", new_setpoint_radians);
+            std::vector<double> new_setpoint_radians = param.as_double_array();
+
+            if (
+                new_setpoint_radians.size() != 3 || 
+                new_setpoint_radians[0] == NAN ||
+                new_setpoint_radians[1] == NAN || 
+                new_setpoint_radians[2] == NAN
+            ) {
+                RCLCPP_ERROR(this->get_logger(), "Invalid setpoint values.");
+                result.successful = false;
+                result.reason = "Invalid setpoint values";
+                return result;
+            }
+
+            publish_setpoint(
+				new_setpoint_radians[0],
+				new_setpoint_radians[1],
+				new_setpoint_radians[2]
+			);
+
+            RCLCPP_INFO(this->get_logger(), 
+                "Updated setpoint to: [%f, %f, %f]",
+                new_setpoint_radians[0],
+                new_setpoint_radians[1],
+                new_setpoint_radians[2]
+            );
         }
 		else if (param.get_name() == FLIGHT_MODE_PARAM) {
             uint8_t new_flight_mode = param.as_int();

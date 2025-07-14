@@ -26,8 +26,11 @@ public:
             CONTROLLER_INPUT_SETPOINT_TOPIC, qos
         );
 
-        // Declare the setpoint parameter
-        this->declare_parameter<float>(MISSION_SETPOINT_PARAM, 0.0f);
+        // Declare the setpoint parameter as array of 3 floats [roll, pitch, yaw]
+        this->declare_parameter<std::vector<double>>(
+            MISSION_SETPOINT_PARAM, 
+            std::vector<double>{0.0, 0.0, 0.0}
+        );
 
         // Set up parameter callback
         param_callback_handle_ = this->add_on_set_parameters_callback(
@@ -57,7 +60,7 @@ private:
     rclcpp::TimerBase::SharedPtr flight_mode_timer_;
 
 	//!< Auxiliary functions
-    void publish_setpoint(float setpoint_radians);
+    void publish_setpoint(float roll_setpoint_radians, float pitch_setpoint_radians, float yaw_setpoint_radians);
 
     //!< Setpoint variable
     OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
@@ -67,12 +70,13 @@ private:
         const std::vector<rclcpp::Parameter> &parameters);
 };
 
-void ControllerTestNode::publish_setpoint(float setpoint_radians)
+void ControllerTestNode::publish_setpoint(float roll_setpoint_radians, float pitch_setpoint_radians, float yaw_setpoint_radians)
 {
     ControllerInputSetpoint msg{};
     msg.stamp = this->get_clock()->now();
-    msg.roll_setpoint_radians = setpoint_radians;
-    msg.pitch_setpoint_radians = -setpoint_radians;
+    msg.roll_setpoint_radians = roll_setpoint_radians;
+    msg.pitch_setpoint_radians = pitch_setpoint_radians;
+    msg.yaw_setpoint_radians = yaw_setpoint_radians;
     setpoint_publisher_->publish(msg);
 }
 
@@ -84,9 +88,32 @@ rcl_interfaces::msg::SetParametersResult ControllerTestNode::parameter_callback(
 
     for (const auto &param : parameters) {
         if (param.get_name() == MISSION_SETPOINT_PARAM) {
-            float new_setpoint_radians = param.as_double();
-            publish_setpoint(new_setpoint_radians);
-            RCLCPP_INFO(this->get_logger(), "Updated setpoint to: %f", new_setpoint_radians);
+            std::vector<double> new_setpoint_radians = param.as_double_array();
+
+            if (
+                new_setpoint_radians.size() != 3 || 
+                new_setpoint_radians[0] == NAN ||
+                new_setpoint_radians[1] == NAN || 
+                new_setpoint_radians[2] == NAN
+            ) {
+                RCLCPP_ERROR(this->get_logger(), "Invalid setpoint values, must be finite numbers.");
+                result.successful = false;
+                result.reason = "Invalid setpoint values";
+                return result;
+            }
+
+            publish_setpoint(
+                new_setpoint_radians[0],
+                new_setpoint_radians[1],
+                new_setpoint_radians[2]
+            );
+
+            RCLCPP_INFO(this->get_logger(), 
+                "Updated setpoint to: [%f, %f, %f]",
+                new_setpoint_radians[0],
+                new_setpoint_radians[1],
+                new_setpoint_radians[2]
+            );
         }
     }
 

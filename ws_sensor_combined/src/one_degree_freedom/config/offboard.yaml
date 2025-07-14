@@ -30,5 +30,4 @@
           servos: true
           motors: false
       mission:
-          setpoint:
-            radians: 0.0
+          setpoint: [0.0, 0.0, 0.0]

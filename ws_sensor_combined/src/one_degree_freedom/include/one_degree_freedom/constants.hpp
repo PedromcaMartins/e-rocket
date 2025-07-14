@@ -75,7 +75,7 @@ namespace px4_ros2_message_mapping
 namespace mission
 {
 
-    constexpr char MISSION_SETPOINT_PARAM[] = "offboard.mission.setpoint.radians";
+    constexpr char MISSION_SETPOINT_PARAM[] = "offboard.mission.setpoint";
 
 } // namespace mission
 

@@ -4,10 +4,14 @@ builtin_interfaces/Time stamp
 float32 roll_angle
 float32 roll_angular_velocity
 float32 roll_angle_setpoint
+float32 inner_servo_tilt_angle
 
 float32 pitch_angle
 float32 pitch_angular_velocity
 float32 pitch_angle_setpoint
-
 float32 outer_servo_tilt_angle
-float32 inner_servo_tilt_angle
+
+float32 yaw_angle
+float32 yaw_angular_velocity
+float32 yaw_angle_setpoint
+float32 differential_motor_thrust_percentage

@@ -75,6 +75,7 @@ public:
         [this](const ControllerInputAttitude::SharedPtr msg) {
             roll_radians_.store(msg->roll_radians);
             pitch_radians_.store(msg->pitch_radians);
+            yaw_radians_.store(msg->yaw_radians);
         }
     )},
     angular_rate_subscriber_{this->create_subscription<ControllerInputAngularRate>(
@@ -82,6 +83,7 @@ public:
         [this](const ControllerInputAngularRate::SharedPtr msg) {
             x_roll_angular_rate_radians_per_second_.store(msg->x_roll_angular_rate_radians_per_second);
             y_pitch_angular_rate_radians_per_second_.store(msg->y_pitch_angular_rate_radians_per_second);
+            z_yaw_angular_rate_radians_per_second_.store(msg->z_yaw_angular_rate_radians_per_second);
         }
     )},
     setpoint_subscriber_{this->create_subscription<ControllerInputSetpoint>(
@@ -89,6 +91,7 @@ public:
         [this](const ControllerInputSetpoint::SharedPtr msg) {
             roll_setpoint_radians_.store(msg->roll_setpoint_radians);
             pitch_setpoint_radians_.store(msg->pitch_setpoint_radians);
+            yaw_setpoint_radians_.store(msg->yaw_setpoint_radians);
         }
     )},
     servo_tilt_angle_publisher_{this->create_publisher<ControllerOutputServoTiltAngle>(
@@ -108,6 +111,10 @@ public:
     pitch_radians_{0.0f},
     y_pitch_angular_rate_radians_per_second_{0.0f},
     pitch_setpoint_radians_{0.0f},
+
+    yaw_radians_{0.0f},
+    z_yaw_angular_rate_radians_per_second_{0.0f},
+    yaw_setpoint_radians_{0.0f},
 
     flight_mode_{FlightMode::INIT},
     flight_mode_get_subscriber_{this->create_subscription<FlightMode>(
@@ -174,6 +181,28 @@ public:
         }
 
 
+        this->declare_parameter<bool>(CONTROLLER_YAW_ACTIVE_PARAM);
+        if (this->get_parameter(CONTROLLER_YAW_ACTIVE_PARAM).as_bool()) {
+            RCLCPP_INFO(this->get_logger(), "Yaw is active");
+            this->declare_parameter<double>(CONTROLLER_YAW_K_P_PARAM);
+            this->declare_parameter<double>(CONTROLLER_YAW_K_D_PARAM);
+            this->declare_parameter<double>(CONTROLLER_YAW_K_I_PARAM);
+
+            double k_p = this->get_parameter(CONTROLLER_YAW_K_P_PARAM).as_double();
+            double k_d = this->get_parameter(CONTROLLER_YAW_K_D_PARAM).as_double();
+            double k_i = this->get_parameter(CONTROLLER_YAW_K_I_PARAM).as_double();
+
+            yaw_controller_.emplace(PIDController(k_p, k_d, k_i, controllers_dt));
+
+            RCLCPP_INFO(this->get_logger(), "gains k_p: %f", k_p);
+            RCLCPP_INFO(this->get_logger(), "gains k_d: %f", k_d);
+            RCLCPP_INFO(this->get_logger(), "gains k_i: %f", k_i);
+        } else {
+            RCLCPP_INFO(this->get_logger(), "Yaw is not active");
+            yaw_controller_ = std::nullopt;
+        }
+
+
         controller_timer_ = this->create_wall_timer(
             std::chrono::duration<float>(controllers_dt), 
             std::bind(&ControllerInnerLoop::controller_callback, this)
@@ -206,6 +235,11 @@ private:
 	std::atomic<float> pitch_setpoint_radians_;
     std::optional<PIDController> pitch_controller_;
 
+	std::atomic<float> yaw_radians_;
+	std::atomic<float> z_yaw_angular_rate_radians_per_second_;
+	std::atomic<float> yaw_setpoint_radians_;
+    std::optional<PIDController> yaw_controller_;
+
     float motor_thrust_percentage_;
 
 	//!< Auxiliary functions
@@ -219,7 +253,12 @@ private:
         const float pitch_angle, 
         const float pitch_angular_velocity, 
         const float pitch_angle_setpoint, 
-        const float pitch_tilt_angle
+        const float pitch_tilt_angle,
+
+        const float yaw_radians, 
+        const float yaw_angular_velocity, 
+        const float yaw_setpoint_radians, 
+        const float differential_motor_thrust_percentage
     );
 
     void publish_servo_tilt_angle(const float outer_servo_tilt_angle_radians, const float inner_servo_tilt_angle_radians);
@@ -264,6 +303,7 @@ void ControllerInnerLoop::controller_callback()
     if (flight_mode_.load() == FlightMode::IN_MISSION) {
         float outer_servo_pwm = 0.0f;
         float inner_servo_pwm = 0.0f;
+        float differential_motor_thrust_percentage = 0.0f;
         float upwards_motor_thrust_percentage = motor_thrust_percentage_;
         float downwards_motor_thrust_percentage = motor_thrust_percentage_;
 
@@ -291,6 +331,18 @@ void ControllerInnerLoop::controller_callback()
             );
         }
 
+        float yaw_angle = yaw_radians_.load();
+        float yaw_angular_velocity = z_yaw_angular_rate_radians_per_second_.load();
+        float yaw_angle_setpoint = yaw_setpoint_radians_.load();
+        if (yaw_controller_.has_value()) {
+            // Compute the control input for yaw
+            differential_motor_thrust_percentage = yaw_controller_->compute(
+                yaw_angle, 
+                yaw_angular_velocity, 
+                yaw_angle_setpoint
+            );
+        }
+
         // Publish the tilt angle output
         publish_servo_tilt_angle(
             limit_range_servo_tilt(outer_servo_pwm), 
@@ -314,7 +366,12 @@ void ControllerInnerLoop::controller_callback()
             pitch_angle,
             pitch_angular_velocity,
             pitch_angle_setpoint,
-            outer_servo_pwm
+            outer_servo_pwm,
+
+            yaw_angle,
+            yaw_angular_velocity,
+            yaw_angle_setpoint,
+            differential_motor_thrust_percentage
         );
     }
 }
@@ -328,7 +385,12 @@ void ControllerInnerLoop::publish_controller_debug(
     const float pitch_angle, 
     const float pitch_angular_velocity, 
     const float pitch_angle_setpoint, 
-    const float outer_servo_tilt_angle
+    const float outer_servo_tilt_angle,
+
+    const float yaw_angle, 
+    const float yaw_angular_velocity, 
+    const float yaw_angle_setpoint, 
+    const float differential_motor_thrust_percentage
 ) {
     auto to_degrees = [](float radians) {
         return radians * (180.0f / M_PI);
@@ -344,9 +406,14 @@ void ControllerInnerLoop::publish_controller_debug(
     float pitch_angle_setpoint_degrees = to_degrees(pitch_angle_setpoint);
     float outer_servo_tilt_angle_degrees = to_degrees(outer_servo_tilt_angle);
 
+    float yaw_angle_degrees = to_degrees(yaw_angle);
+    float yaw_angular_velocity_degrees_per_second = to_degrees(yaw_angular_velocity);
+    float yaw_angle_setpoint_degrees = to_degrees(yaw_angle_setpoint);
+
 
     RCLCPP_INFO(this->get_logger(), "Roll  angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", roll_angle_degrees, roll_angular_velocity_degrees_per_second, roll_angle_setpoint_degrees, inner_servo_tilt_angle_degrees);
     RCLCPP_INFO(this->get_logger(), "Pitch angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", pitch_angle_degrees, pitch_angular_velocity_degrees_per_second, pitch_angle_setpoint_degrees, outer_servo_tilt_angle_degrees);
+    RCLCPP_INFO(this->get_logger(), "Yaw   angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", yaw_angle_degrees, yaw_angular_velocity_degrees_per_second, yaw_angle_setpoint_degrees, differential_motor_thrust_percentage);
 
 
     ControllerDebug msg{};
@@ -359,6 +426,11 @@ void ControllerInnerLoop::publish_controller_debug(
     msg.pitch_angular_velocity = pitch_angular_velocity_degrees_per_second;
     msg.pitch_angle_setpoint = pitch_angle_setpoint_degrees;
     msg.outer_servo_tilt_angle = outer_servo_tilt_angle_degrees;
+
+    msg.yaw_angle = yaw_angle_degrees;
+    msg.yaw_angular_velocity = yaw_angular_velocity_degrees_per_second;
+    msg.yaw_angle_setpoint = yaw_angle_setpoint_degrees;
+    msg.differential_motor_thrust_percentage = differential_motor_thrust_percentage;
 
     msg.stamp = this->get_clock()->now();
     controller_debug_publisher_->publish(msg);

@@ -27,6 +27,11 @@ namespace controller
     constexpr char CONTROLLER_PITCH_K_D_PARAM[] = "offboard.controller.pitch.gains.k_d";
     constexpr char CONTROLLER_PITCH_K_I_PARAM[] = "offboard.controller.pitch.gains.k_i";
 
+    constexpr char CONTROLLER_YAW_ACTIVE_PARAM[] = "offboard.controller.yaw.active";
+    constexpr char CONTROLLER_YAW_K_P_PARAM[] = "offboard.controller.yaw.gains.k_p";
+    constexpr char CONTROLLER_YAW_K_D_PARAM[] = "offboard.controller.yaw.gains.k_d";
+    constexpr char CONTROLLER_YAW_K_I_PARAM[] = "offboard.controller.yaw.gains.k_i";
+
     constexpr char CONTROLLER_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.frequency_hertz";
     constexpr char CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM[] = "offboard.controller.motor_thrust_percentage";
 

@@ -7,6 +7,7 @@
 #include <one_degree_freedom/msg/controller_debug.hpp>
 #include <one_degree_freedom/msg/flight_mode.hpp>
 #include <one_degree_freedom/constants.hpp>
+#include <one_degree_freedom/frame_transforms.h>
 
 #include <chrono>
 
@@ -15,6 +16,7 @@ using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
 using namespace one_degree_freedom::constants::simulator;
+using namespace one_degree_freedom::frame_transforms;
 
 struct MotorAllocationOutput
 {
@@ -25,9 +27,15 @@ struct MotorAllocationOutput
 class PIDController
 {
 public:
+    // updated asyncronously by the caller
+    std::atomic<double> measurement_;
+    std::atomic<double> measurement_derivative_;
+    std::atomic<double> desired_setpoint_;
+    double computed_output_;
+
     PIDController(double k_p, double k_d, double k_i, double dt)
-        : k_p_(k_p), k_d_(k_d), k_i_(k_i),
-            integrated_error_(0.0f), dt_(dt) 
+        : measurement_{0.0f}, measurement_derivative_{0.0f}, desired_setpoint_{0.0f}, computed_output_(0.0f), 
+            k_p_(k_p), k_d_(k_d), k_i_(k_i), integrated_error_(0.0f), dt_(dt)
             {
                 // Safety check
                 if (k_p == NAN || k_d == NAN || k_i == NAN) {
@@ -44,19 +52,16 @@ public:
 
     /*
         * @brief Compute the control input based on the PID controller formula
-        * @param theta Current measurement
-        * @param omega Current measurement derivative
-        * @param theta_desired Desired setpoint
         * @return The computed control input
     */
-    double compute(double theta, double omega, double theta_desired) {
+    double compute() {
         // Update the integrated error
-        integrated_error_ = integrated_error_ + (theta_desired - theta) * dt_; 
+        integrated_error_ = integrated_error_ + (desired_setpoint_ - measurement_) * dt_; 
 
         // Compute control input
-        double dot_product = theta * k_p_ + omega * k_d_;
-        double gamma = -dot_product + integrated_error_ * k_i_;
-        return gamma;
+        double dot_product = measurement_ * k_p_ + measurement_derivative_ * k_d_;
+        computed_output_ = -dot_product + integrated_error_ * k_i_;
+        return computed_output_;
     }
 
 private:
@@ -80,25 +85,25 @@ public:
     attitude_subscriber_{this->create_subscription<ControllerInputAttitude>(
         CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_,
         [this](const ControllerInputAttitude::SharedPtr msg) {
-            roll_radians_.store(msg->roll_radians);
-            pitch_radians_.store(msg->pitch_radians);
-            yaw_radians_.store(msg->yaw_radians);
+            if (roll_controller_) roll_controller_->measurement_.store(msg->roll_radians);
+            if (pitch_controller_) pitch_controller_->measurement_.store(msg->pitch_radians);
+            if (yaw_controller_) yaw_controller_->measurement_.store(msg->yaw_radians);
         }
     )},
     angular_rate_subscriber_{this->create_subscription<ControllerInputAngularRate>(
         CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_,
         [this](const ControllerInputAngularRate::SharedPtr msg) {
-            x_roll_angular_rate_radians_per_second_.store(msg->x_roll_angular_rate_radians_per_second);
-            y_pitch_angular_rate_radians_per_second_.store(msg->y_pitch_angular_rate_radians_per_second);
-            z_yaw_angular_rate_radians_per_second_.store(msg->z_yaw_angular_rate_radians_per_second);
+            if (roll_controller_) roll_controller_->measurement_derivative_.store(msg->x_roll_angular_rate_radians_per_second);
+            if (pitch_controller_) pitch_controller_->measurement_derivative_.store(msg->y_pitch_angular_rate_radians_per_second);
+            if (yaw_controller_) yaw_controller_->measurement_derivative_.store(msg->z_yaw_angular_rate_radians_per_second);
         }
     )},
     setpoint_subscriber_{this->create_subscription<ControllerInputSetpoint>(
         CONTROLLER_INPUT_SETPOINT_TOPIC, qos_,
         [this](const ControllerInputSetpoint::SharedPtr msg) {
-            roll_setpoint_radians_.store(msg->roll_setpoint_radians);
-            pitch_setpoint_radians_.store(msg->pitch_setpoint_radians);
-            yaw_setpoint_radians_.store(msg->yaw_setpoint_radians);
+            if (roll_controller_) roll_controller_->desired_setpoint_.store(msg->roll_setpoint_radians);
+            if (pitch_controller_) pitch_controller_->desired_setpoint_.store(msg->pitch_setpoint_radians);
+            if (yaw_controller_) yaw_controller_->desired_setpoint_.store(msg->yaw_setpoint_radians);
         }
     )},
     servo_tilt_angle_publisher_{this->create_publisher<ControllerOutputServoTiltAngle>(
@@ -110,18 +115,6 @@ public:
     controller_debug_publisher_{this->create_publisher<ControllerDebug>(
         CONTROLLER_DEBUG_TOPIC, qos_
     )},
-
-    roll_radians_{0.0f},
-    x_roll_angular_rate_radians_per_second_{0.0f},
-    roll_setpoint_radians_{0.0f},
-
-    pitch_radians_{0.0f},
-    y_pitch_angular_rate_radians_per_second_{0.0f},
-    pitch_setpoint_radians_{0.0f},
-
-    yaw_radians_{0.0f},
-    z_yaw_angular_rate_radians_per_second_{0.0f},
-    yaw_setpoint_radians_{0.0f},
 
     flight_mode_{FlightMode::INIT},
     flight_mode_get_subscriber_{this->create_subscription<FlightMode>(
@@ -172,7 +165,7 @@ public:
             double k_d = this->get_parameter(CONTROLLER_ROLL_K_D_PARAM).as_double();
             double k_i = this->get_parameter(CONTROLLER_ROLL_K_I_PARAM).as_double();
 
-            roll_controller_.emplace(PIDController(k_p, k_d, k_i, controllers_dt));
+            roll_controller_.emplace(k_p, k_d, k_i, controllers_dt);
 
             RCLCPP_INFO(this->get_logger(), "gains k_p: %f", k_p);
             RCLCPP_INFO(this->get_logger(), "gains k_d: %f", k_d);
@@ -194,7 +187,7 @@ public:
             double k_d = this->get_parameter(CONTROLLER_PITCH_K_D_PARAM).as_double();
             double k_i = this->get_parameter(CONTROLLER_PITCH_K_I_PARAM).as_double();
 
-            pitch_controller_.emplace(PIDController(k_p, k_d, k_i, controllers_dt));
+            pitch_controller_.emplace(k_p, k_d, k_i, controllers_dt);
 
             RCLCPP_INFO(this->get_logger(), "gains k_p: %f", k_p);
             RCLCPP_INFO(this->get_logger(), "gains k_d: %f", k_d);
@@ -216,7 +209,7 @@ public:
             double k_d = this->get_parameter(CONTROLLER_YAW_K_D_PARAM).as_double();
             double k_i = this->get_parameter(CONTROLLER_YAW_K_I_PARAM).as_double();
 
-            yaw_controller_.emplace(PIDController(k_p, k_d, k_i, controllers_dt));
+            yaw_controller_.emplace(k_p, k_d, k_i, controllers_dt);
 
             RCLCPP_INFO(this->get_logger(), "gains k_p: %f", k_p);
             RCLCPP_INFO(this->get_logger(), "gains k_d: %f", k_d);
@@ -249,19 +242,9 @@ private:
     rclcpp::Publisher<ControllerDebug>::SharedPtr                controller_debug_publisher_;
 
     // control algorithm variables
-	std::atomic<float> roll_radians_;
-	std::atomic<float> x_roll_angular_rate_radians_per_second_;
-	std::atomic<float> roll_setpoint_radians_;
+    // radians, radians per second
     std::optional<PIDController> roll_controller_;
-
-	std::atomic<float> pitch_radians_;
-	std::atomic<float> y_pitch_angular_rate_radians_per_second_;
-	std::atomic<float> pitch_setpoint_radians_;
     std::optional<PIDController> pitch_controller_;
-
-	std::atomic<float> yaw_radians_;
-	std::atomic<float> z_yaw_angular_rate_radians_per_second_;
-	std::atomic<float> yaw_setpoint_radians_;
     std::optional<PIDController> yaw_controller_;
 
     float default_motor_thrust_newtons_;
@@ -277,26 +260,21 @@ private:
 	//!< Auxiliary functions
     void controller_callback();
     void publish_controller_debug(
-        const float roll_angle, 
-        const float roll_angular_velocity, 
-        const float roll_angle_setpoint, 
-        const float roll_tilt_angle,
-
-        const float pitch_angle, 
-        const float pitch_angular_velocity, 
-        const float pitch_angle_setpoint, 
-        const float pitch_tilt_angle,
-
-        const float yaw_radians, 
-        const float yaw_angular_velocity, 
-        const float yaw_setpoint_radians, 
-        const float delta_thrust_percentage,
-
-        const float reference_motor_thrust_newtons,
-
+        const float reference_motor_thrust_percentage,
         const float upwards_motor_thrust_percentage,
         const float downwards_motor_thrust_percentage
     );
+    // void publish_allocator_debug(
+    //     const float inner_tilt_angle,
+    //     const float outer_tilt_angle,
+    //     const float inner_servo_pwm,
+    //     const float outer_servo_pwm,
+
+    //     const float delta_thrust_percentage,
+    //     const float average_motor_thrust_newtons,
+    //     const float upwards_motor_pwm,
+    //     const float downwards_motor_pwm
+    // );
 
     void publish_servo_tilt_angle(const float outer_servo_tilt_angle_radians, const float inner_servo_tilt_angle_radians);
 	void publish_motor_thrust(const float upwards_motor_thrust_percentage, const float downwards_motor_thrust_percentage);
@@ -359,46 +337,10 @@ void ControllerInnerLoop::controller_callback()
 {
     // only run controller when in mission
     if (flight_mode_.load() == FlightMode::IN_MISSION) {
-        float outer_servo_pwm = 0.0f;
-        float inner_servo_pwm = 0.0f;
-        float delta_thrust_percentage = 0.00f;
+        float inner_servo_pwm = (roll_controller_)  ? roll_controller_->compute() : 0.0f;
+        float outer_servo_pwm = (pitch_controller_) ? pitch_controller_->compute() : 0.0f;
+        float delta_thrust_percentage = (yaw_controller_) ? yaw_controller_->compute() : 0.0f;
         float reference_motor_thrust_newtons = default_motor_thrust_newtons_;
-
-        float roll_angle = roll_radians_.load();
-        float roll_angular_velocity = x_roll_angular_rate_radians_per_second_.load();
-        float roll_angle_setpoint = roll_setpoint_radians_.load();
-        if (roll_controller_.has_value()) {
-            // Compute the control input for roll
-            inner_servo_pwm = roll_controller_->compute(
-                roll_angle, 
-                roll_angular_velocity, 
-                roll_angle_setpoint
-            );
-        }
-
-        float pitch_angle = pitch_radians_.load();
-        float pitch_angular_velocity = y_pitch_angular_rate_radians_per_second_.load();
-        float pitch_angle_setpoint = pitch_setpoint_radians_.load();
-        if (pitch_controller_.has_value()) {
-            // Compute the control input for pitch
-            outer_servo_pwm = pitch_controller_->compute(
-                pitch_angle, 
-                pitch_angular_velocity, 
-                pitch_angle_setpoint
-            );
-        }
-
-        float yaw_angle = yaw_radians_.load();
-        float yaw_angular_velocity = z_yaw_angular_rate_radians_per_second_.load();
-        float yaw_angle_setpoint = yaw_setpoint_radians_.load();
-        if (yaw_controller_.has_value()) {
-            // Compute the control input for yaw
-            delta_thrust_percentage = yaw_controller_->compute(
-                yaw_angle, 
-                yaw_angular_velocity, 
-                yaw_angle_setpoint
-            );
-        }
 
         // Publish the tilt angle output
         publish_servo_tilt_angle(
@@ -424,23 +366,7 @@ void ControllerInnerLoop::controller_callback()
 
         // Publish the controller debug information
         publish_controller_debug(
-            roll_angle, 
-            roll_angular_velocity, 
-            roll_angle_setpoint, 
-            inner_servo_pwm,
-
-            pitch_angle,
-            pitch_angular_velocity,
-            pitch_angle_setpoint,
-            outer_servo_pwm,
-
-            yaw_angle,
-            yaw_angular_velocity,
-            yaw_angle_setpoint,
-            delta_thrust_percentage,
-
-            reference_motor_thrust_newtons,
-
+            thrust_curve_newtons_to_percentage(reference_motor_thrust_newtons),
             upwards_motor_thrust_percentage,
             downwards_motor_thrust_percentage
         );
@@ -448,75 +374,32 @@ void ControllerInnerLoop::controller_callback()
 }
 
 void ControllerInnerLoop::publish_controller_debug(
-    const float roll_angle, 
-    const float roll_angular_velocity, 
-    const float roll_angle_setpoint, 
-    const float inner_servo_tilt_angle,
-
-    const float pitch_angle, 
-    const float pitch_angular_velocity, 
-    const float pitch_angle_setpoint, 
-    const float outer_servo_tilt_angle,
-
-    const float yaw_angle, 
-    const float yaw_angular_velocity, 
-    const float yaw_angle_setpoint, 
-    const float delta_thrust_percentage,
-
-    const float reference_motor_thrust_newtons,
-
+    const float reference_motor_thrust_percentage,
     const float upwards_motor_thrust_percentage,
     const float downwards_motor_thrust_percentage
 ) {
-    auto to_degrees = [](float radians) {
-        return radians * (180.0f / M_PI);
-    };
-
-    float roll_angle_degrees = to_degrees(roll_angle);
-    float roll_angular_velocity_degrees_per_second = to_degrees(roll_angular_velocity);
-    float roll_angle_setpoint_degrees = to_degrees(roll_angle_setpoint);
-    float inner_servo_tilt_angle_degrees = to_degrees(inner_servo_tilt_angle);
-
-    float pitch_angle_degrees = to_degrees(pitch_angle);
-    float pitch_angular_velocity_degrees_per_second = to_degrees(pitch_angular_velocity);
-    float pitch_angle_setpoint_degrees = to_degrees(pitch_angle_setpoint);
-    float outer_servo_tilt_angle_degrees = to_degrees(outer_servo_tilt_angle);
-
-    float yaw_angle_degrees = to_degrees(yaw_angle);
-    float yaw_angular_velocity_degrees_per_second = to_degrees(yaw_angular_velocity);
-    float yaw_angle_setpoint_degrees = to_degrees(yaw_angle_setpoint);
-
-    float reference_motor_thrust_percentage = thrust_curve_newtons_to_percentage(reference_motor_thrust_newtons);
-
-
-    if (roll_controller_.has_value()) {
-    RCLCPP_INFO(this->get_logger(), "Roll  angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", roll_angle_degrees, roll_angular_velocity_degrees_per_second, roll_angle_setpoint_degrees, inner_servo_tilt_angle_degrees);
-    }
-    if (pitch_controller_.has_value()) {
-    RCLCPP_INFO(this->get_logger(), "Pitch angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", pitch_angle_degrees, pitch_angular_velocity_degrees_per_second, pitch_angle_setpoint_degrees, outer_servo_tilt_angle_degrees);
-    }
-    if (yaw_controller_.has_value()) {
-    RCLCPP_INFO(this->get_logger(), "Yaw   angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", yaw_angle_degrees, yaw_angular_velocity_degrees_per_second, yaw_angle_setpoint_degrees, delta_thrust_percentage);
-    }
-    RCLCPP_INFO(this->get_logger(), "Reference motor thrust percentage: %f", reference_motor_thrust_percentage);
-    RCLCPP_INFO(this->get_logger(), "Upwards motor thrust percentage: %f, Downwards motor thrust percentage: %f", upwards_motor_thrust_percentage, downwards_motor_thrust_percentage);
-
-
     ControllerDebug msg{};
-    msg.roll_angle = roll_angle_degrees;
-    msg.roll_angular_velocity = roll_angular_velocity_degrees_per_second;
-    msg.roll_angle_setpoint = roll_angle_setpoint_degrees;
-    msg.inner_servo_tilt_angle = inner_servo_tilt_angle_degrees;
 
-    msg.pitch_angle = pitch_angle_degrees;
-    msg.pitch_angular_velocity = pitch_angular_velocity_degrees_per_second;
-    msg.pitch_angle_setpoint = pitch_angle_setpoint_degrees;
-    msg.outer_servo_tilt_angle = outer_servo_tilt_angle_degrees;
+    if (roll_controller_) {
+        msg.roll_angle = radians_to_degrees(roll_controller_->measurement_);
+        msg.roll_angular_velocity = radians_to_degrees(roll_controller_->measurement_derivative_);
+        msg.roll_angle_setpoint = radians_to_degrees(roll_controller_->desired_setpoint_);
+        msg.inner_servo_tilt_angle = radians_to_degrees(roll_controller_->computed_output_);
+    }
 
-    msg.yaw_angle = yaw_angle_degrees;
-    msg.yaw_angular_velocity = yaw_angular_velocity_degrees_per_second;
-    msg.yaw_angle_setpoint = yaw_angle_setpoint_degrees;
-    msg.delta_thrust_percentage = delta_thrust_percentage;
+    if (pitch_controller_) {
+        msg.pitch_angle = radians_to_degrees(pitch_controller_->measurement_);
+        msg.pitch_angular_velocity = radians_to_degrees(pitch_controller_->measurement_derivative_);
+        msg.pitch_angle_setpoint = radians_to_degrees(pitch_controller_->desired_setpoint_);
+        msg.outer_servo_tilt_angle = radians_to_degrees(pitch_controller_->computed_output_);
+    }
+
+    if (yaw_controller_) {
+        msg.yaw_angle = radians_to_degrees(yaw_controller_->measurement_);
+        msg.yaw_angular_velocity = radians_to_degrees(yaw_controller_->measurement_derivative_);
+        msg.yaw_angle_setpoint = radians_to_degrees(yaw_controller_->desired_setpoint_);
+        msg.delta_thrust_percentage = radians_to_degrees(yaw_controller_->computed_output_);
+    }
 
     msg.reference_motor_thrust_percentage = reference_motor_thrust_percentage;
 

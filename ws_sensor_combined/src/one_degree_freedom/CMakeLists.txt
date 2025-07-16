@@ -65,10 +65,13 @@ target_include_directories(frame_transforms PUBLIC
 )
 
 # controller
-add_executable(controller src/controller.cpp)
+add_executable(controller 
+	src/controller.cpp
+	src/lib/frame_transforms.cpp
+)
 ament_target_dependencies(controller rclcpp px4_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(controller ${cpp_typesupport_target})
+target_link_libraries(controller frame_transforms ${cpp_typesupport_target})
 target_include_directories(controller PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>

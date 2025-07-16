@@ -47,6 +47,35 @@ namespace one_degree_freedom
 namespace frame_transforms
 {
 
+/**
+ * @brief Convert quaternion to EulerAngle (radiands)
+ * @param q Quaternion
+ * @return EulerAngle (roll, pitch, yaw)
+ */
+EulerAngle quaternion_to_euler_radians(const Eigen::Quaterniond& q) {
+    auto w = q.w();
+    auto x = q.x();
+    auto y = q.y();
+    auto z = q.z();
+
+    // Roll (x-axis rotation)
+    float sinr_cosp = 2 * (w * x + y * z);
+    float cosr_cosp = 1 - 2 * (x * x + y * y);
+    float roll = std::atan2(sinr_cosp, cosr_cosp);
+
+    // Pitch (y-axis rotation)
+    double sinp = std::sqrt(1 + 2 * (w * y - x * z));
+    double cosp = std::sqrt(1 - 2 * (w * y - x * z));
+    float pitch = 2 * std::atan2(sinp, cosp) - M_PI / 2;
+
+    // Yaw (z-axis rotation)
+    float siny_cosp = 2 * (w * z + x * y);
+    float cosy_cosp = 1 - 2 * (y * y + z * z);
+    float yaw = std::atan2(siny_cosp, cosy_cosp);
+
+    return {roll, pitch, yaw};
+}
+
 // Utils to ease conversions
 namespace utils
 {

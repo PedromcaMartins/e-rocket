@@ -22,6 +22,9 @@
             k_i: 0.1
         frequency_hertz: 50.0
         motor_thrust_percentage: 0.1
+        motor_thrust_curve: # newtons = (x * m + b) / 1000 * g
+          m: 26.966
+          b: -38.95
       px4_ros2_message_mapping:
         input: 
           mocap: false

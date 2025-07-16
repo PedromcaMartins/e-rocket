@@ -343,8 +343,8 @@ MotorAllocationOutput ControllerInnerLoop::allocate_motor_thrust(float delta_thr
 {
     float reference_motor_thrust_percentage = thrust_curve_newtons_to_percentage(reference_motor_thrust_newtons);
 
-    float upwards_motor_thrust_percentage = reference_motor_thrust_percentage + delta_thrust_percentage/ 2.0f;
-    float downwards_motor_thrust_percentage = reference_motor_thrust_percentage - delta_thrust_percentage / 2.0f;
+    float upwards_motor_thrust_percentage = reference_motor_thrust_percentage - delta_thrust_percentage/ 2.0f;
+    float downwards_motor_thrust_percentage = reference_motor_thrust_percentage + delta_thrust_percentage / 2.0f;
 
     return {
         upwards_motor_thrust_percentage,

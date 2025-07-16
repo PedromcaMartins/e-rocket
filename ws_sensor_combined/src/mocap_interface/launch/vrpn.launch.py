@@ -20,7 +20,7 @@ def generate_launch_description():
 
     # Namespace and ID of the vehicle as parameter received by the launch file
     id_arg = DeclareLaunchArgument('vehicle_id', default_value='1', description='Drone ID in the network')
-    namespace_arg = DeclareLaunchArgument('vehicle_ns', default_value='e-rocket', description='Namespace to append to every topic and node name')
+    namespace_arg = DeclareLaunchArgument('vehicle_ns', default_value='erocket', description='Namespace to append to every topic and node name')
 
     # Create the actual mavlink_interface_node
     vrpn_node = Node(

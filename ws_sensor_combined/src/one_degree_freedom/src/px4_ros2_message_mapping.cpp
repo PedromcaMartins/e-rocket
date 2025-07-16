@@ -59,12 +59,19 @@ public:
         RCLCPP_INFO(this->get_logger(), "Angular Rate Mapping %s", (angular_rate_mapping)? "Activated" : "Deactivated");
 
         if (mocap_mapping) {
-            mocap_pose_enu_publisher_ = this->create_publisher<px4_msgs::msg::VehicleOdometry>(
+            vehicle_mocap_pose_ned_publisher_ = this->create_publisher<px4_msgs::msg::VehicleOdometry>(
                 "/fmu/in/vehicle_mocap_odometry", qos_
             );
             mocap_pose_enu_subscription_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
                 MOCAP_TOPIC, qos_,
                 std::bind(&Px4Ros2MessageMapping::mocap_pose_callback, this, std::placeholders::_1)
+            );
+
+            mocap_pose_enu_euler_publisher_ = this->create_publisher<geometry_msgs::msg::Vector3>(
+                "/offboard/mocap_pose_enu_debug", qos_
+            );
+            vehicle_mocap_pose_ned_euler_publisher_ = this->create_publisher<geometry_msgs::msg::Vector3>(
+                "/offboard/mocap_px4_ned_debug", qos_
             );
         }
 
@@ -113,9 +120,14 @@ private:
 	rmw_qos_profile_t qos_profile_;
 	rclcpp::QoS qos_;
 
-    rclcpp::Publisher<px4_msgs::msg::VehicleOdometry>::SharedPtr mocap_pose_enu_publisher_;
+    rclcpp::Publisher<px4_msgs::msg::VehicleOdometry>::SharedPtr vehicle_mocap_pose_ned_publisher_;
     rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr mocap_pose_enu_subscription_;
     void mocap_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr ros2_msg);
+
+    rclcpp::Publisher<geometry_msgs::msg::Vector3>::SharedPtr mocap_pose_enu_euler_publisher_;
+    rclcpp::Publisher<geometry_msgs::msg::Vector3>::SharedPtr vehicle_mocap_pose_ned_euler_publisher_;
+    void publish_mocap_enu_euler_angles(const Eigen::Quaterniond &q);
+    void publish_vehicle_mocap_ned_euler_angles(const Eigen::Quaterniond &q);
 
 	rclcpp::Publisher<px4_msgs::msg::ActuatorServos>::SharedPtr actuator_servos_publisher_;
     rclcpp::Subscription<one_degree_freedom::msg::ControllerOutputServoTiltAngle>::SharedPtr controller_output_servo_tilt_angle_subscription_;
@@ -140,7 +152,7 @@ private:
  * sends it via mavlink to the vehicle autopilot filter to merge
  * @param ros2_msg A message with the pose of the vehicle expressed in ENU
  */
-void Px4Ros2MessageMapping::mocap_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr ros2_msg) {
+ void Px4Ros2MessageMapping::mocap_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr ros2_msg) {
     px4_msgs::msg::VehicleOdometry px4_msg {};
     px4_msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
     px4_msg.pose_frame = px4_msgs::msg::VehicleOdometry::POSE_FRAME_NED;
@@ -178,7 +190,10 @@ void Px4Ros2MessageMapping::mocap_pose_callback(const geometry_msgs::msg::PoseSt
     px4_msg.orientation_variance[0] = 0.0f;
     px4_msg.velocity_variance[0] = 0.0f;
 
-    mocap_pose_enu_publisher_->publish(px4_msg);
+    vehicle_mocap_pose_ned_publisher_->publish(px4_msg);
+
+    publish_mocap_enu_euler_angles(ros2_enu_orientation);
+    publish_vehicle_mocap_ned_euler_angles(px4_ned_orientation);
 }
 
 void Px4Ros2MessageMapping::controller_output_servo_tilt_angle_callback(const one_degree_freedom::msg::ControllerOutputServoTiltAngle::SharedPtr ros2_msg) {
@@ -216,6 +231,30 @@ void Px4Ros2MessageMapping::vehicle_angular_velocity_callback(const px4_msgs::ms
     ros2_msg.z_yaw_angular_rate_radians_per_second = px4_msg->xyz[2];
     ros2_msg.stamp = this->get_clock()->now();
     controller_input_angular_rate_publisher_->publish(ros2_msg);
+}
+
+void Px4Ros2MessageMapping::publish_mocap_enu_euler_angles(const Eigen::Quaterniond &q) {
+    auto euler = one_degree_freedom::frame_transforms::quaternion_to_euler_radians(q);
+    auto to_degrees = [](float radians) {
+        return radians * (180.0f / M_PI);
+    };
+    geometry_msgs::msg::Vector3 euler_msg;
+    euler_msg.x = to_degrees(euler.roll);
+    euler_msg.y = to_degrees(euler.pitch);
+    euler_msg.z = to_degrees(euler.yaw);
+    mocap_pose_enu_euler_publisher_->publish(euler_msg);
+}
+
+void Px4Ros2MessageMapping::publish_vehicle_mocap_ned_euler_angles(const Eigen::Quaterniond &q) {
+    auto euler = one_degree_freedom::frame_transforms::quaternion_to_euler_radians(q);
+    auto to_degrees = [](float radians) {
+        return radians * (180.0f / M_PI);
+    };
+    geometry_msgs::msg::Vector3 euler_msg;
+    euler_msg.x = to_degrees(euler.roll);
+    euler_msg.y = to_degrees(euler.pitch);
+    euler_msg.z = to_degrees(euler.yaw);
+    vehicle_mocap_pose_ned_euler_publisher_->publish(euler_msg);
 }
 
 int main(int argc, char *argv[])

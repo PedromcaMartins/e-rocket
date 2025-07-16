@@ -72,7 +72,7 @@ namespace px4_ros2_flight_mode
 namespace px4_ros2_message_mapping
 {
 
-    constexpr char MOCAP_TOPIC[]         = "/mocap/pose_enu/e_rocket";
+    constexpr char MOCAP_TOPIC[]         = "/mocap/pose_enu/erocket";
     constexpr char MOCAP_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.output.mocap";
 
     constexpr char SERVOS_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.output.servos";

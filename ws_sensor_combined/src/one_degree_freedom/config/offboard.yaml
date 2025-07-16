@@ -3,25 +3,25 @@
     offboard:
       controller:
         roll: 
-          active: true
-          gains:
-            k_p: 1.0
-            k_d: 0.5
-            k_i: 0.1
-        pitch: 
-          active: true
-          gains:
-            k_p: 1.0
-            k_d: 0.5
-            k_i: 0.1
-        yaw: 
           active: false
           gains:
             k_p: 1.0
             k_d: 0.5
             k_i: 0.1
+        pitch: 
+          active: false
+          gains:
+            k_p: 1.0
+            k_d: 0.5
+            k_i: 0.1
+        yaw: 
+          active: true
+          gains:
+            k_p: 0.30
+            k_d: 0.15
+            k_i: 0.1
         frequency_hertz: 50.0
-        motor_thrust_percentage: 0.2
+        motor_thrust_percentage: 0.45
         motor_thrust_curve: # newtons = (x * m + b) / 1000 * g
           m: 26.966
           b: -38.95

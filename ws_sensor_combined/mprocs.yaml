@@ -19,11 +19,6 @@ procs:
     autostart: false
     stop: SIGINT
 
-  HITL:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom hitl_no_feedback.launch.py"
-    autostart: false
-    stop: SIGINT
-
   SITL:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom sitl_no_feedback.launch.py"
     autostart: false

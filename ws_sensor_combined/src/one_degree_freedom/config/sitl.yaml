@@ -32,7 +32,7 @@
       mission:
         setpoint: [0.0, 0.0, 0.0]
       simulator:
-        mass_of_system: 2.0
-        length_of_pendulum: 0.5
+        mass_of_system: 1.5
+        length_of_pendulum: 0.2
         gravitational_acceleration: 9.81
         moment_of_inertia: 0.3750

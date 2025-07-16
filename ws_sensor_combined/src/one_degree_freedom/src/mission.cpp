@@ -196,8 +196,11 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
         }
 		else if (param.get_name() == FLIGHT_MODE_PARAM) {
             uint8_t new_flight_mode = param.as_int();
-            flight_mode_.store(new_flight_mode);
             RCLCPP_INFO(this->get_logger(), "Updated flight mode to: %d", new_flight_mode);
+
+			while (new_flight_mode == FlightMode::ABORT) {
+				request_flight_mode(FlightMode::ABORT);
+			}
         }
     }
 
@@ -206,7 +209,7 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
 
 void Mission::request_flight_mode(uint8_t flight_mode)
 {
-	if (flag_flight_mode_requested_.load() == false) {
+	if (flight_mode == FlightMode::ABORT || flag_flight_mode_requested_.load() == false) {
 		flag_flight_mode_requested_.store(true);
 		one_degree_freedom::msg::FlightMode msg {};
 

@@ -14,6 +14,13 @@ using namespace std::chrono;
 using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
+using namespace one_degree_freedom::constants::simulator;
+
+struct MotorAllocationOutput
+{
+    float upwards_motor_thrust_percentage;
+    float downwards_motor_thrust_percentage;
+};
 
 class PIDController
 {
@@ -122,19 +129,36 @@ public:
         std::bind(&ControllerInnerLoop::response_flight_mode_callback, this, std::placeholders::_1)
     )}
     {
+        this->declare_parameter<double>(GRAVITATIONAL_ACCELERATION);
+        g_ = this->get_parameter(GRAVITATIONAL_ACCELERATION).as_double();
+        if (g_ == NAN) {
+            RCLCPP_ERROR(this->get_logger(), "Could not read gravitational acceleration correctly.");
+            throw std::runtime_error("Gravitational acceleration invalid");
+        }
+
         this->declare_parameter<double>(CONTROLLER_FREQUENCY_HERTZ_PARAM);
         double controllers_freq = this->get_parameter(CONTROLLER_FREQUENCY_HERTZ_PARAM).as_double();
         RCLCPP_INFO(this->get_logger(), "Controllers freq: %f", controllers_freq);
         double controllers_dt = 1.0 / controllers_freq;
 
+        this->declare_parameter<double>(CONTROLLER_THRUST_CURVE_M_PARAM);
+        this->declare_parameter<double>(CONTROLLER_THRUST_CURVE_B_PARAM);
+        thrust_curve_m_ = this->get_parameter(CONTROLLER_THRUST_CURVE_M_PARAM).as_double();
+        thrust_curve_b_ = this->get_parameter(CONTROLLER_THRUST_CURVE_B_PARAM).as_double();
+        if (thrust_curve_m_ == NAN || thrust_curve_b_ == NAN) {
+            RCLCPP_ERROR(this->get_logger(), "Could not read thrust curve correctly.");
+            throw std::runtime_error("Thrust curve invalid");
+        }
+        RCLCPP_INFO(this->get_logger(), "Thrust curve: x * %f + %f", thrust_curve_m_, thrust_curve_b_);
 
         this->declare_parameter<double>(CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM);
-        motor_thrust_percentage_ = this->get_parameter(CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM).as_double();
-        if (motor_thrust_percentage_ < 0.0f || motor_thrust_percentage_ > 1.0f || motor_thrust_percentage_ == NAN) {
+        float motor_thrust_percentage = this->get_parameter(CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM).as_double();
+        if (motor_thrust_percentage < 0.0f || motor_thrust_percentage > 1.0f || motor_thrust_percentage == NAN) {
             RCLCPP_ERROR(this->get_logger(), "Could not read motor thrust correctly.");
             throw std::runtime_error("Motor thrust invalid");
         }
-        RCLCPP_INFO(this->get_logger(), "Motor thrust percentage: %f", motor_thrust_percentage_);
+        RCLCPP_INFO(this->get_logger(), "Motor thrust percentage: %f", motor_thrust_percentage);
+        default_motor_thrust_newtons_ = thrust_curve_percentage_to_newtons(motor_thrust_percentage);
 
 
         this->declare_parameter<bool>(CONTROLLER_ROLL_ACTIVE_PARAM);
@@ -240,7 +264,15 @@ private:
 	std::atomic<float> yaw_setpoint_radians_;
     std::optional<PIDController> yaw_controller_;
 
-    float motor_thrust_percentage_;
+    float default_motor_thrust_newtons_;
+
+    float thrust_curve_m_;
+    float thrust_curve_b_;
+    float g_;
+
+    float thrust_curve_newtons_to_percentage(float thrust_newtons);
+    float thrust_curve_percentage_to_newtons(float thrust_percentage);
+    MotorAllocationOutput allocate_motor_thrust(float delta_thrust_percentage, float reference_motor_thrust_newtons);
 
 	//!< Auxiliary functions
     void controller_callback();
@@ -258,7 +290,12 @@ private:
         const float yaw_radians, 
         const float yaw_angular_velocity, 
         const float yaw_setpoint_radians, 
-        const float differential_motor_thrust_percentage
+        const float delta_thrust_percentage,
+
+        const float reference_motor_thrust_newtons,
+
+        const float upwards_motor_thrust_percentage,
+        const float downwards_motor_thrust_percentage
     );
 
     void publish_servo_tilt_angle(const float outer_servo_tilt_angle_radians, const float inner_servo_tilt_angle_radians);
@@ -285,13 +322,34 @@ float limit_range_servo_tilt(float servo_pwm) {
 }
 
 float limit_range_motor_thrust(float motor_pwm) {
-    if (motor_pwm > 1.0f) {
-        motor_pwm = 1.0f;
+    if (motor_pwm > 0.8f) {
+        motor_pwm = 0.8f;
     } else if (motor_pwm < 0.0f) {
         motor_pwm = 0.0f;
     }
 
     return motor_pwm;
+}
+
+float ControllerInnerLoop::thrust_curve_percentage_to_newtons(float thrust_percentage) {
+    return (thrust_percentage * thrust_curve_m_ + thrust_curve_b_) / 1000.0f * g_; // Convert to newtons
+}
+
+float ControllerInnerLoop::thrust_curve_newtons_to_percentage(float thrust_newtons) {
+    return ((thrust_newtons * 1000.0f) / g_ - thrust_curve_b_) / thrust_curve_m_; // Convert to percentage
+}
+
+MotorAllocationOutput ControllerInnerLoop::allocate_motor_thrust(float delta_thrust_percentage, float reference_motor_thrust_newtons)
+{
+    float reference_motor_thrust_percentage = thrust_curve_newtons_to_percentage(reference_motor_thrust_newtons);
+
+    float upwards_motor_thrust_percentage = reference_motor_thrust_percentage + delta_thrust_percentage/ 2.0f;
+    float downwards_motor_thrust_percentage = reference_motor_thrust_percentage - delta_thrust_percentage / 2.0f;
+
+    return {
+        upwards_motor_thrust_percentage,
+        downwards_motor_thrust_percentage
+    };
 }
 
 /**
@@ -303,9 +361,8 @@ void ControllerInnerLoop::controller_callback()
     if (flight_mode_.load() == FlightMode::IN_MISSION) {
         float outer_servo_pwm = 0.0f;
         float inner_servo_pwm = 0.0f;
-        float differential_motor_thrust_percentage = 0.0f;
-        float upwards_motor_thrust_percentage = motor_thrust_percentage_;
-        float downwards_motor_thrust_percentage = motor_thrust_percentage_;
+        float delta_thrust_percentage = 0.00f;
+        float reference_motor_thrust_newtons = default_motor_thrust_newtons_;
 
         float roll_angle = roll_radians_.load();
         float roll_angular_velocity = x_roll_angular_rate_radians_per_second_.load();
@@ -336,7 +393,7 @@ void ControllerInnerLoop::controller_callback()
         float yaw_angle_setpoint = yaw_setpoint_radians_.load();
         if (yaw_controller_.has_value()) {
             // Compute the control input for yaw
-            differential_motor_thrust_percentage = yaw_controller_->compute(
+            delta_thrust_percentage = yaw_controller_->compute(
                 yaw_angle, 
                 yaw_angular_velocity, 
                 yaw_angle_setpoint
@@ -348,6 +405,15 @@ void ControllerInnerLoop::controller_callback()
             limit_range_servo_tilt(outer_servo_pwm), 
             limit_range_servo_tilt(inner_servo_pwm)
         );
+
+        // Allocate motor thrust based on the computed torque
+        MotorAllocationOutput motor_allocation = allocate_motor_thrust(
+            delta_thrust_percentage, 
+            reference_motor_thrust_newtons
+        );
+
+        float upwards_motor_thrust_percentage = motor_allocation.upwards_motor_thrust_percentage;
+        float downwards_motor_thrust_percentage = motor_allocation.downwards_motor_thrust_percentage;
 
         // Publish the motor thrust
         publish_motor_thrust(
@@ -371,7 +437,12 @@ void ControllerInnerLoop::controller_callback()
             yaw_angle,
             yaw_angular_velocity,
             yaw_angle_setpoint,
-            differential_motor_thrust_percentage
+            delta_thrust_percentage,
+
+            reference_motor_thrust_newtons,
+
+            upwards_motor_thrust_percentage,
+            downwards_motor_thrust_percentage
         );
     }
 }
@@ -390,7 +461,12 @@ void ControllerInnerLoop::publish_controller_debug(
     const float yaw_angle, 
     const float yaw_angular_velocity, 
     const float yaw_angle_setpoint, 
-    const float differential_motor_thrust_percentage
+    const float delta_thrust_percentage,
+
+    const float reference_motor_thrust_newtons,
+
+    const float upwards_motor_thrust_percentage,
+    const float downwards_motor_thrust_percentage
 ) {
     auto to_degrees = [](float radians) {
         return radians * (180.0f / M_PI);
@@ -410,10 +486,20 @@ void ControllerInnerLoop::publish_controller_debug(
     float yaw_angular_velocity_degrees_per_second = to_degrees(yaw_angular_velocity);
     float yaw_angle_setpoint_degrees = to_degrees(yaw_angle_setpoint);
 
+    float reference_motor_thrust_percentage = thrust_curve_newtons_to_percentage(reference_motor_thrust_newtons);
 
+
+    if (roll_controller_.has_value()) {
     RCLCPP_INFO(this->get_logger(), "Roll  angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", roll_angle_degrees, roll_angular_velocity_degrees_per_second, roll_angle_setpoint_degrees, inner_servo_tilt_angle_degrees);
+    }
+    if (pitch_controller_.has_value()) {
     RCLCPP_INFO(this->get_logger(), "Pitch angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", pitch_angle_degrees, pitch_angular_velocity_degrees_per_second, pitch_angle_setpoint_degrees, outer_servo_tilt_angle_degrees);
-    RCLCPP_INFO(this->get_logger(), "Yaw   angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", yaw_angle_degrees, yaw_angular_velocity_degrees_per_second, yaw_angle_setpoint_degrees, differential_motor_thrust_percentage);
+    }
+    if (yaw_controller_.has_value()) {
+    RCLCPP_INFO(this->get_logger(), "Yaw   angle: %f, Angular velocity: %f, Setpoint: %f, Output: %f", yaw_angle_degrees, yaw_angular_velocity_degrees_per_second, yaw_angle_setpoint_degrees, delta_thrust_percentage);
+    }
+    RCLCPP_INFO(this->get_logger(), "Reference motor thrust percentage: %f", reference_motor_thrust_percentage);
+    RCLCPP_INFO(this->get_logger(), "Upwards motor thrust percentage: %f, Downwards motor thrust percentage: %f", upwards_motor_thrust_percentage, downwards_motor_thrust_percentage);
 
 
     ControllerDebug msg{};
@@ -430,7 +516,12 @@ void ControllerInnerLoop::publish_controller_debug(
     msg.yaw_angle = yaw_angle_degrees;
     msg.yaw_angular_velocity = yaw_angular_velocity_degrees_per_second;
     msg.yaw_angle_setpoint = yaw_angle_setpoint_degrees;
-    msg.reference_motor_thrust_percentage = differential_motor_thrust_percentage;
+    msg.delta_thrust_percentage = delta_thrust_percentage;
+
+    msg.reference_motor_thrust_percentage = reference_motor_thrust_percentage;
+
+    msg.upwards_motor_thrust_percentage = upwards_motor_thrust_percentage;
+    msg.downwards_motor_thrust_percentage = downwards_motor_thrust_percentage;
 
     msg.stamp = this->get_clock()->now();
     controller_debug_publisher_->publish(msg);

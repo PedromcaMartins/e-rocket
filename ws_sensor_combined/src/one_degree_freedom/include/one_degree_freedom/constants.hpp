@@ -35,6 +35,9 @@ namespace controller
     constexpr char CONTROLLER_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.frequency_hertz";
     constexpr char CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM[] = "offboard.controller.motor_thrust_percentage";
 
+    constexpr char CONTROLLER_THRUST_CURVE_M_PARAM[] = "offboard.controller.motor_thrust_curve.m";
+    constexpr char CONTROLLER_THRUST_CURVE_B_PARAM[] = "offboard.controller.motor_thrust_curve.b";
+
 } // namespace controller
 
 namespace simulator

@@ -430,7 +430,7 @@ void ControllerInnerLoop::publish_controller_debug(
     msg.yaw_angle = yaw_angle_degrees;
     msg.yaw_angular_velocity = yaw_angular_velocity_degrees_per_second;
     msg.yaw_angle_setpoint = yaw_angle_setpoint_degrees;
-    msg.differential_motor_thrust_percentage = differential_motor_thrust_percentage;
+    msg.reference_motor_thrust_percentage = differential_motor_thrust_percentage;
 
     msg.stamp = this->get_clock()->now();
     controller_debug_publisher_->publish(msg);

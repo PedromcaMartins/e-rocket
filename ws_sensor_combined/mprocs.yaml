@@ -9,6 +9,11 @@ procs:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && colcon build"
     autostart: true
 
+  MOCAP:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch mocap_interface vrpn.launch.py"
+    autostart: false
+    stop: SIGINT
+
   Offboard:
     shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom offboard_computer.launch.py"
     autostart: false

@@ -12,19 +12,20 @@
 #include <px4_msgs/msg/vehicle_angular_velocity.hpp>
 #include <one_degree_freedom/msg/controller_input_angular_rate.hpp>
 
+#include <px4_msgs/msg/vehicle_odometry.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+
 #include <one_degree_freedom/constants.hpp>
 
+#include <one_degree_freedom/frame_transforms.h>
 #include <eigen3/Eigen/Geometry>
 #include <chrono>
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
+using namespace one_degree_freedom::frame_transforms;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::px4_ros2_message_mapping;
-
-struct EulerAngle {
-    float roll, pitch, yaw;
-};
 
 /**
  * @brief PX4 ROS2 Communication Node is responsible for sending and receiving commands to and from the PX4. 
@@ -38,21 +39,34 @@ public:
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)}
     {
         // declare parameters
+        this->declare_parameter<bool>(MOCAP_MAPPING_PARAM, true);
         this->declare_parameter<bool>(SERVOS_MAPPING_PARAM, true);
         this->declare_parameter<bool>(MOTORS_MAPPING_PARAM, true);
         this->declare_parameter<bool>(ATTITUDE_MAPPING_PARAM, true);
         this->declare_parameter<bool>(ANGULAR_RATE_MAPPING_PARAM, true);
 
         // get values from config
+        bool mocap_mapping = this->get_parameter(MOCAP_MAPPING_PARAM).as_bool();
         bool servos_mapping = this->get_parameter(SERVOS_MAPPING_PARAM).as_bool();
         bool motors_mapping = this->get_parameter(MOTORS_MAPPING_PARAM).as_bool();
         bool attitude_mapping = this->get_parameter(ATTITUDE_MAPPING_PARAM).as_bool();
         bool angular_rate_mapping = this->get_parameter(ANGULAR_RATE_MAPPING_PARAM).as_bool();
 
+        RCLCPP_INFO(this->get_logger(), "MoCap Mapping %s", (mocap_mapping)? "Activated" : "Deactivated");
         RCLCPP_INFO(this->get_logger(), "Servos Mapping %s", (servos_mapping)? "Activated" : "Deactivated");
         RCLCPP_INFO(this->get_logger(), "Motors Mapping %s", (motors_mapping)? "Activated" : "Deactivated");
         RCLCPP_INFO(this->get_logger(), "Attitude Mapping %s", (attitude_mapping)? "Activated" : "Deactivated");
         RCLCPP_INFO(this->get_logger(), "Angular Rate Mapping %s", (angular_rate_mapping)? "Activated" : "Deactivated");
+
+        if (mocap_mapping) {
+            mocap_pose_enu_publisher_ = this->create_publisher<px4_msgs::msg::VehicleOdometry>(
+                "/fmu/in/vehicle_mocap_odometry", qos_
+            );
+            mocap_pose_enu_subscription_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+                MOCAP_TOPIC, qos_,
+                std::bind(&Px4Ros2MessageMapping::mocap_pose_callback, this, std::placeholders::_1)
+            );
+        }
 
         if (servos_mapping) {
             actuator_servos_publisher_ = this->create_publisher<px4_msgs::msg::ActuatorServos>(
@@ -99,6 +113,10 @@ private:
 	rmw_qos_profile_t qos_profile_;
 	rclcpp::QoS qos_;
 
+    rclcpp::Publisher<px4_msgs::msg::VehicleOdometry>::SharedPtr mocap_pose_enu_publisher_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr mocap_pose_enu_subscription_;
+    void mocap_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr ros2_msg);
+
 	rclcpp::Publisher<px4_msgs::msg::ActuatorServos>::SharedPtr actuator_servos_publisher_;
     rclcpp::Subscription<one_degree_freedom::msg::ControllerOutputServoTiltAngle>::SharedPtr controller_output_servo_tilt_angle_subscription_;
     void controller_output_servo_tilt_angle_callback(const one_degree_freedom::msg::ControllerOutputServoTiltAngle::SharedPtr ros2_msg);
@@ -117,32 +135,50 @@ private:
 };
 
 /**
- * @brief Convert quaternion to EulerAngle (radiands)
- * @param q Quaternion
- * @return EulerAngle (roll, pitch, yaw)
+ * @brief Motion Capture vehicle pose subscriber callback. This callback receives a message with the pose of the vehicle
+ * provided by a Motion Capture System (if available) expressed in ENU reference frame, converts to NED and 
+ * sends it via mavlink to the vehicle autopilot filter to merge
+ * @param ros2_msg A message with the pose of the vehicle expressed in ENU
  */
-EulerAngle quaternionToEulerRadians(const Eigen::Quaterniond q) {
-    auto w = q.w();
-    auto x = q.x();
-    auto y = q.y();
-    auto z = q.z();
+void Px4Ros2MessageMapping::mocap_pose_callback(const geometry_msgs::msg::PoseStamped::SharedPtr ros2_msg) {
+    px4_msgs::msg::VehicleOdometry px4_msg {};
+    px4_msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+    px4_msg.pose_frame = px4_msgs::msg::VehicleOdometry::POSE_FRAME_NED;
 
-    // Roll (x-axis rotation)
-    float sinr_cosp = 2 * (w * x + y * z);
-    float cosr_cosp = 1 - 2 * (x * x + y * y);
-    float roll = std::atan2(sinr_cosp, cosr_cosp);
+    // Convert ENU to NED
+    Eigen::Vector3d ros2_enu_position = Eigen::Vector3d(
+        ros2_msg->pose.position.x,
+        ros2_msg->pose.position.y,
+        ros2_msg->pose.position.z
+    );
+    Eigen::Vector3d px4_ned_position = transform_static_frame(ros2_enu_position, StaticTF::ENU_TO_NED);
+    px4_msg.position[0] = px4_ned_position.x();
+    px4_msg.position[1] = px4_ned_position.y();
+    px4_msg.position[2] = px4_ned_position.z();
 
-    // Pitch (y-axis rotation)
-    double sinp = std::sqrt(1 + 2 * (w * y - x * z));
-    double cosp = std::sqrt(1 - 2 * (w * y - x * z));
-    float pitch = 2 * std::atan2(sinp, cosp) - M_PI / 2;
+    // Convert quaternion from ROS2 to PX4 format
+    Eigen::Quaterniond ros2_enu_orientation = Eigen::Quaterniond(
+        ros2_msg->pose.orientation.w,
+        ros2_msg->pose.orientation.x,
+        ros2_msg->pose.orientation.y,
+        ros2_msg->pose.orientation.z
+    );
+    Eigen::Quaterniond intermediate_baselink_orientation = transform_orientation(ros2_enu_orientation, StaticTF::BASELINK_TO_AIRCRAFT);
+    Eigen::Quaterniond px4_ned_orientation = transform_orientation(intermediate_baselink_orientation, StaticTF::ENU_TO_NED);
+    px4_msg.q[0] = px4_ned_orientation.w();
+    px4_msg.q[1] = px4_ned_orientation.x();
+    px4_msg.q[2] = px4_ned_orientation.y();
+    px4_msg.q[3] = px4_ned_orientation.z();
 
-    // Yaw (z-axis rotation)
-    float siny_cosp = 2 * (w * z + x * y);
-    float cosy_cosp = 1 - 2 * (y * y + z * z);
-    float yaw = std::atan2(siny_cosp, cosy_cosp);
+    // Mocap does not provide, so we set them to zero
+    px4_msg.velocity_frame = px4_msgs::msg::VehicleOdometry::VELOCITY_FRAME_UNKNOWN;
+    px4_msg.velocity[0] = 0.0f;
+    px4_msg.angular_velocity[0] = 0.0f;
+    px4_msg.position_variance[0] = 0.0f;
+    px4_msg.orientation_variance[0] = 0.0f;
+    px4_msg.velocity_variance[0] = 0.0f;
 
-    return {roll, pitch, yaw};
+    mocap_pose_enu_publisher_->publish(px4_msg);
 }
 
 void Px4Ros2MessageMapping::controller_output_servo_tilt_angle_callback(const one_degree_freedom::msg::ControllerOutputServoTiltAngle::SharedPtr ros2_msg) {
@@ -163,7 +199,7 @@ void Px4Ros2MessageMapping::controller_output_motor_thrust_callback(const one_de
 
 void Px4Ros2MessageMapping::vehicle_attitude_callback(const px4_msgs::msg::VehicleAttitude::SharedPtr px4_msg) {
     auto q = Eigen::Quaterniond(px4_msg->q[0], px4_msg->q[1], px4_msg->q[2], px4_msg->q[3]);
-    auto euler = quaternionToEulerRadians(q);
+    EulerAngle euler = quaternion_to_euler_radians(q);
 
     one_degree_freedom::msg::ControllerInputAttitude ros2_msg {};
     ros2_msg.roll_radians = euler.roll;

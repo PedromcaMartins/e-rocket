@@ -24,6 +24,7 @@
         motor_thrust_percentage: 0.1
       px4_ros2_message_mapping:
         input:
+          mocap: true
           attitude: true
           angular_rate: true
         output:

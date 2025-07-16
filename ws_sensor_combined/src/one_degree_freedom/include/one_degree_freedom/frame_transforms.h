@@ -52,15 +52,51 @@
  #include <geometry_msgs/msg/quaternion.hpp>
  #include <geometry_msgs/msg/vector3.hpp>
  #include <sensor_msgs/msg/imu.hpp>
- 
- namespace one_degree_freedom
- {
- namespace frame_transforms
- {
- 
- //! Type matching rosmsg for 3x3 covariance matrix
- using Covariance3d = sensor_msgs::msg::Imu::_angular_velocity_covariance_type;
- 
+
+namespace one_degree_freedom
+{
+namespace frame_transforms
+{
+
+// Define EulerAngle struct
+struct EulerAngle {
+    double roll;
+    double pitch;
+    double yaw;
+};
+
+/**
+ * @brief Convert quaternion to EulerAngle (radiands)
+ * @param q Quaternion
+ * @return EulerAngle (roll, pitch, yaw)
+ */
+inline EulerAngle quaternion_to_euler_radians(const Eigen::Quaterniond& q) {
+    auto w = q.w();
+    auto x = q.x();
+    auto y = q.y();
+    auto z = q.z();
+
+    // Roll (x-axis rotation)
+    float sinr_cosp = 2 * (w * x + y * z);
+    float cosr_cosp = 1 - 2 * (x * x + y * y);
+    float roll = std::atan2(sinr_cosp, cosr_cosp);
+
+    // Pitch (y-axis rotation)
+    double sinp = std::sqrt(1 + 2 * (w * y - x * z));
+    double cosp = std::sqrt(1 - 2 * (w * y - x * z));
+    float pitch = 2 * std::atan2(sinp, cosp) - M_PI / 2;
+
+    // Yaw (z-axis rotation)
+    float siny_cosp = 2 * (w * z + x * y);
+    float cosy_cosp = 1 - 2 * (y * y + z * z);
+    float yaw = std::atan2(siny_cosp, cosy_cosp);
+
+    return {roll, pitch, yaw};
+}
+
+//! Type matching rosmsg for 3x3 covariance matrix
+using Covariance3d = sensor_msgs::msg::Imu::_angular_velocity_covariance_type;
+
  //! Type matching rosmsg for 6x6 covariance matrix
  using Covariance6d = geometry_msgs::msg::PoseWithCovariance::_covariance_type;
  

@@ -5,7 +5,9 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/opt/ros/humble/include/**",
-                "${workspaceFolder}/src/one_degree_freedom/include"
+                "${workspaceFolder}/src/one_degree_freedom/include",
+                "${workspaceFolder}/install/vrpn_vendor/include",
+                "${workspaceFolder}/src/mocap_interface/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

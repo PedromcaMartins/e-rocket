@@ -14,4 +14,9 @@ float32 outer_servo_tilt_angle
 float32 yaw_angle
 float32 yaw_angular_velocity
 float32 yaw_angle_setpoint
-float32 differential_motor_thrust_percentage
+float32 delta_thrust_percentage
+
+float32 reference_motor_thrust_percentage
+
+float32 upwards_motor_thrust_percentage
+float32 downwards_motor_thrust_percentage

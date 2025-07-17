@@ -81,12 +81,44 @@
      return degrees * (M_PI / 180.0f);
  };
 
+ inline EulerAngle radians_to_degrees(const EulerAngle &radians) {
+     EulerAngle degrees;
+     degrees.roll = radians_to_degrees(radians.roll);
+     degrees.pitch = radians_to_degrees(radians.pitch);
+     degrees.yaw = radians_to_degrees(radians.yaw);
+
+     return degrees;
+ };
+
+ inline EulerAngle degrees_to_radians(const EulerAngle &degrees) {
+     EulerAngle radians;
+     radians.roll = degrees_to_radians(degrees.roll);
+     radians.pitch = degrees_to_radians(degrees.pitch);
+     radians.yaw = degrees_to_radians(degrees.yaw);
+
+     return radians;
+ };
+
  /**
   * @brief Convert quaternion to EulerAngle (radiands)
   * @param q Quaternion
   * @return EulerAngle (roll, pitch, yaw)
   */
  EulerAngle quaternion_to_euler_radians(const Eigen::Quaterniond& q);
+
+ inline EulerAngle quaternion_to_euler_degrees(const Eigen::Quaterniond& q) {
+    return radians_to_degrees(
+        quaternion_to_euler_radians(q)
+    );
+ }
+
+ Eigen::Quaterniond euler_radians_to_quaternion(const EulerAngle &euler);
+
+ inline Eigen::Quaterniond euler_degrees_to_quaternion(const EulerAngle &euler) {
+    return euler_radians_to_quaternion(
+        degrees_to_radians(euler)
+    );
+ }
 
  //! Type matching rosmsg for 3x3 covariance matrix
  using Covariance3d = sensor_msgs::msg::Imu::_angular_velocity_covariance_type;

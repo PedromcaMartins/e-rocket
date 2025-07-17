@@ -38,10 +38,10 @@ public:
 	    z_yaw_angular_rate_radians_per_second_{0.0f},
 
         controller_output_servo_tilt_angle_publisher_{this->create_publisher<ControllerOutputServoTiltAngle>(
-            CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC, qos_
+            CONTROLLER_OUTPUT_SERVO_PWM_TOPIC, qos_
         )},
         controller_output_motor_thrust_publisher_{this->create_publisher<ControllerOutputMotorThrust>(
-            CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC, qos_
+            CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC, qos_
         )},
         controller_input_attitude_subscription_{this->create_subscription<ControllerInputAttitude>(
             CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_, 

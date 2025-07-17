@@ -15,11 +15,11 @@ namespace controller
 {
 
     //<! Topics for the 1-degree-of-freedom system
-    constexpr char CONTROLLER_INPUT_ATTITUDE_TOPIC[] = "offboard/controller/input/attitude";
-    constexpr char CONTROLLER_INPUT_ANGULAR_RATE_TOPIC[] = "offboard/controller/input/angular_rate";
-    constexpr char CONTROLLER_INPUT_SETPOINT_TOPIC[] = "offboard/controller/input/setpoint";
-    constexpr char CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC[] = "offboard/controller/output/servo_tilt_angle";
-    constexpr char CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC[] = "offboard/controller/output/motor_thrust";
+    constexpr char CONTROLLER_INPUT_ATTITUDE_TOPIC[] =      "/fmu/out/vehicle_attitude";
+    constexpr char CONTROLLER_INPUT_ANGULAR_RATE_TOPIC[] =  "/fmu/out/vehicle_angular_velocity";
+    constexpr char CONTROLLER_INPUT_SETPOINT_TOPIC[] =      "offboard/setpoint";
+    constexpr char CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC[] =    "/fmu/in/actuator_motors";
+    constexpr char CONTROLLER_OUTPUT_SERVO_PWM_TOPIC[] =    "/fmu/in/actuator_servos";
 
     constexpr char CONTROLLER_DEBUG_TOPIC[] = "/offboard/controller/debug";
     constexpr char ALLOCATOR_DEBUG_TOPIC[] = "/offboard/allocator/debug";
@@ -68,18 +68,13 @@ namespace px4_ros2_flight_mode
 
 } // namespace px4_ros2_flight_mode
 
-namespace px4_ros2_message_mapping
+namespace mocap_forwarder
 {
 
     constexpr char MOCAP_TOPIC[]         = "/mocap/pose_enu/erocket";
-    constexpr char MOCAP_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.output.mocap";
+    constexpr char MOCAP_ACTIVE_PARAM[]  = "offboard.mocap.active";
 
-    constexpr char SERVOS_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.output.servos";
-    constexpr char MOTORS_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.output.motors";
-    constexpr char ATTITUDE_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.input.attitude";
-    constexpr char ANGULAR_RATE_MAPPING_PARAM[] = "offboard.px4_ros2_message_mapping.input.angular_rate";
-
-} // namespace px4_ros2_message_mapping
+} // namespace mocap_forwarder
 
 namespace mission
 {

@@ -80,7 +80,7 @@ public:
                 "/fmu/in/actuator_servos", qos_
             );
             controller_output_servo_tilt_angle_subscription_ = this->create_subscription<one_degree_freedom::msg::ControllerOutputServoTiltAngle>(
-                CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC, qos_,
+                CONTROLLER_OUTPUT_SERVO_PWM_TOPIC, qos_,
                 std::bind(&Px4Ros2MessageMapping::controller_output_servo_tilt_angle_callback, this, std::placeholders::_1)
             );
         }
@@ -90,7 +90,7 @@ public:
                 "/fmu/in/actuator_motors", qos_
             );
             controller_output_motor_thrust_subscription_ = this->create_subscription<one_degree_freedom::msg::ControllerOutputMotorThrust>(
-                CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC, qos_,
+                CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC, qos_,
                 std::bind(&Px4Ros2MessageMapping::controller_output_motor_thrust_callback, this, std::placeholders::_1)
             );
         }

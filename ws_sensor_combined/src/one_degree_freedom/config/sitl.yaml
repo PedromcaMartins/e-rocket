@@ -31,13 +31,5 @@
         motor_thrust_curve: # newtons = (pwm * m + b) / 1000 * g;
           m: 2696.6
           b: -38.95
-      px4_ros2_message_mapping:
-        input: 
-          mocap: false
-          attitude: false
-          angular_rate: false
-        output:
-          servos: false
-          motors: false
       mission:
         setpoint: [0., 0., 0.]

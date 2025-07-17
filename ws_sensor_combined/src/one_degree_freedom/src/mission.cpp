@@ -1,7 +1,7 @@
 #include <rclcpp/rclcpp.hpp>
 
 #include <one_degree_freedom/msg/flight_mode.hpp>
-#include <one_degree_freedom/msg/controller_input_setpoint.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <one_degree_freedom/constants.hpp>
 
 #include <stdint.h>
@@ -11,6 +11,7 @@
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
+using namespace geometry_msgs::msg;
 using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::mission;
 using namespace one_degree_freedom::constants::controller;
@@ -39,7 +40,7 @@ public:
 			10ms, 
 			std::bind(&Mission::mission, this)
 		)},
-        setpoint_publisher_{this->create_publisher<ControllerInputSetpoint>(
+        setpoint_publisher_{this->create_publisher<Vector3Stamped>(
             CONTROLLER_INPUT_SETPOINT_TOPIC, qos_
         )}
     {
@@ -80,7 +81,7 @@ private:
 	void mission();
 
 	//!< Setpoint
-	rclcpp::Publisher<ControllerInputSetpoint>::SharedPtr setpoint_publisher_;
+	rclcpp::Publisher<Vector3Stamped>::SharedPtr setpoint_publisher_;
 	void publish_setpoint(float roll_setpoint_radians, float pitch_setpoint_radians, float yaw_setpoint_radians);
 
     OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
@@ -151,11 +152,11 @@ void Mission::mission() {
 
 void Mission::publish_setpoint(float roll_setpoint_radians, float pitch_setpoint_radians, float yaw_setpoint_radians)
 {
-    ControllerInputSetpoint msg{};
-    msg.stamp = this->get_clock()->now();
-    msg.roll_setpoint_radians = roll_setpoint_radians;
-    msg.pitch_setpoint_radians = pitch_setpoint_radians;
-    msg.yaw_setpoint_radians = yaw_setpoint_radians;
+    Vector3Stamped msg{};
+    msg.header.stamp = this->get_clock()->now();
+    msg.vector.x = roll_setpoint_radians;
+    msg.vector.y = pitch_setpoint_radians;
+    msg.vector.z = yaw_setpoint_radians;
     setpoint_publisher_->publish(msg);
 }
 
@@ -171,6 +172,12 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
 
             if (
                 new_setpoint_radians.size() != 3 || 
+                new_setpoint_radians[0] < -M_PI_2 ||
+                new_setpoint_radians[1] < -M_PI_2 || 
+                new_setpoint_radians[2] < -M_PI ||
+                new_setpoint_radians[0] >  M_PI_2 ||
+                new_setpoint_radians[1] >  M_PI_2 || 
+                new_setpoint_radians[2] >  M_PI ||
                 new_setpoint_radians[0] == NAN ||
                 new_setpoint_radians[1] == NAN || 
                 new_setpoint_radians[2] == NAN

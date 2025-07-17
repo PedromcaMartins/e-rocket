@@ -69,7 +69,7 @@ add_executable(controller
 	src/controller.cpp
 	src/lib/frame_transforms.cpp
 )
-ament_target_dependencies(controller rclcpp px4_msgs)
+ament_target_dependencies(controller rclcpp px4_msgs geometry_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 target_link_libraries(controller frame_transforms ${cpp_typesupport_target})
 target_include_directories(controller PUBLIC
@@ -80,7 +80,7 @@ install(TARGETS controller DESTINATION lib/${PROJECT_NAME})
 
 # mission
 add_executable(mission src/mission.cpp)
-ament_target_dependencies(mission rclcpp px4_msgs)
+ament_target_dependencies(mission rclcpp px4_msgs geometry_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 target_link_libraries(mission ${cpp_typesupport_target})
 target_include_directories(mission PUBLIC
@@ -119,10 +119,13 @@ install(TARGETS px4_ros2_message_mapping DESTINATION lib/${PROJECT_NAME})
 ##############################
 
 # controller simulator (for testing / development)
-add_executable(simulator test/simulator/simulator.cpp)
-ament_target_dependencies(simulator rclcpp px4_msgs)
+add_executable(simulator 
+	test/simulator/simulator.cpp
+	src/lib/frame_transforms.cpp
+)
+ament_target_dependencies(simulator rclcpp px4_msgs geometry_msgs Eigen3)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(simulator ${cpp_typesupport_target})
+target_link_libraries(simulator frame_transforms ${cpp_typesupport_target})
 target_include_directories(simulator PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>

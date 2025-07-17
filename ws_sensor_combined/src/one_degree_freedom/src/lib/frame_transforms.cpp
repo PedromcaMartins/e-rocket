@@ -66,7 +66,7 @@ EulerAngle quaternion_to_euler_radians(const Eigen::Quaterniond& q) {
     // Pitch (y-axis rotation)
     double sinp = std::sqrt(1 + 2 * (w * y - x * z));
     double cosp = std::sqrt(1 - 2 * (w * y - x * z));
-    float pitch = 2 * std::atan2(sinp, cosp) - M_PI / 2;
+    float pitch = 2 * std::atan2(sinp, cosp) - M_PI_2;
 
     // Yaw (z-axis rotation)
     float siny_cosp = 2 * (w * z + x * y);
@@ -74,6 +74,26 @@ EulerAngle quaternion_to_euler_radians(const Eigen::Quaterniond& q) {
     float yaw = std::atan2(siny_cosp, cosy_cosp);
 
     return {roll, pitch, yaw};
+}
+
+Eigen::Quaterniond euler_radians_to_quaternion(const EulerAngle &euler) {
+	float roll 	= euler.roll;
+	float pitch = euler.pitch;
+	float yaw 	= euler.yaw;
+
+    double cr = cos(roll * 0.5);
+    double sr = sin(roll * 0.5);
+    double cp = cos(pitch * 0.5);
+    double sp = sin(pitch * 0.5);
+    double cy = cos(yaw * 0.5);
+    double sy = sin(yaw * 0.5);
+
+	return Eigen::Quaterniond(
+        cr * cp * cy + sr * sp * sy,
+        sr * cp * cy - cr * sp * sy,
+        cr * sp * cy + sr * cp * sy,
+        cr * cp * sy - sr * sp * cy
+    );
 }
 
 // Utils to ease conversions

@@ -1,18 +1,20 @@
 #include <rclcpp/rclcpp.hpp>
-#include <one_degree_freedom/msg/controller_input_attitude.hpp>
-#include <one_degree_freedom/msg/controller_input_angular_rate.hpp>
-#include <one_degree_freedom/msg/controller_input_setpoint.hpp>
-#include <one_degree_freedom/msg/controller_output_servo_tilt_angle.hpp>
-#include <one_degree_freedom/msg/controller_output_motor_thrust.hpp>
+#include <px4_msgs/msg/vehicle_attitude.hpp>
+#include <px4_msgs/msg/vehicle_angular_velocity.hpp>
+#include <px4_msgs/msg/actuator_servos.hpp>
+#include <px4_msgs/msg/actuator_motors.hpp>
 #include <one_degree_freedom/msg/controller_debug.hpp>
 #include <one_degree_freedom/msg/allocator_debug.hpp>
 #include <one_degree_freedom/msg/flight_mode.hpp>
 #include <one_degree_freedom/constants.hpp>
 #include <one_degree_freedom/frame_transforms.h>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
 
 #include <chrono>
 
 using namespace std::chrono;
+using namespace px4_msgs::msg;
+using namespace geometry_msgs::msg;
 using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
@@ -180,35 +182,49 @@ public:
     qos_profile_{rmw_qos_profile_sensor_data},
     qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 
-    attitude_subscriber_{this->create_subscription<ControllerInputAttitude>(
+    attitude_subscriber_{this->create_subscription<VehicleAttitude>(
         CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_,
-        [this](const ControllerInputAttitude::SharedPtr msg) {
-            if (roll_controller_) roll_controller_->measurement_.store(msg->roll_radians);
-            if (pitch_controller_) pitch_controller_->measurement_.store(msg->pitch_radians);
-            if (yaw_controller_) yaw_controller_->measurement_.store(msg->yaw_radians);
+        [this](const VehicleAttitude::SharedPtr msg) {
+            auto q = Eigen::Quaterniond(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
+            EulerAngle euler = quaternion_to_euler_radians(q);
+        
+            if (roll_controller_) roll_controller_->measurement_.store(euler.roll);
+            if (pitch_controller_) pitch_controller_->measurement_.store(euler.pitch);
+            if (yaw_controller_) yaw_controller_->measurement_.store(euler.yaw);
         }
     )},
-    angular_rate_subscriber_{this->create_subscription<ControllerInputAngularRate>(
+    angular_rate_subscriber_{this->create_subscription<VehicleAngularVelocity>(
         CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_,
-        [this](const ControllerInputAngularRate::SharedPtr msg) {
-            if (roll_controller_) roll_controller_->measurement_derivative_.store(msg->x_roll_angular_rate_radians_per_second);
-            if (pitch_controller_) pitch_controller_->measurement_derivative_.store(msg->y_pitch_angular_rate_radians_per_second);
-            if (yaw_controller_) yaw_controller_->measurement_derivative_.store(msg->z_yaw_angular_rate_radians_per_second);
+        [this](const VehicleAngularVelocity::SharedPtr msg) {
+            if (roll_controller_) roll_controller_->measurement_derivative_.store(msg->xyz[0]);
+            if (pitch_controller_) pitch_controller_->measurement_derivative_.store(msg->xyz[1]);
+            if (yaw_controller_) yaw_controller_->measurement_derivative_.store(msg->xyz[2]);
         }
     )},
-    setpoint_subscriber_{this->create_subscription<ControllerInputSetpoint>(
+    setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
         CONTROLLER_INPUT_SETPOINT_TOPIC, qos_,
-        [this](const ControllerInputSetpoint::SharedPtr msg) {
-            if (roll_controller_) roll_controller_->desired_setpoint_.store(msg->roll_setpoint_radians);
-            if (pitch_controller_) pitch_controller_->desired_setpoint_.store(msg->pitch_setpoint_radians);
-            if (yaw_controller_) yaw_controller_->desired_setpoint_.store(msg->yaw_setpoint_radians);
+        [this](const Vector3Stamped::SharedPtr msg) {
+            if (msg->vector.x == NAN || msg->vector.y == NAN || msg->vector.z == NAN) {
+                RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
+                return;
+            }
+            if (msg->vector.x < -M_PI_2 || msg->vector.y < -M_PI_2 || msg->vector.z < -M_PI ||
+                msg->vector.x > M_PI_2 || msg->vector.y > M_PI_2 || msg->vector.z > M_PI
+            ) {
+                RCLCPP_ERROR(this->get_logger(), "Received out of range setpoint message.");
+                return;
+            }
+
+            if (roll_controller_) roll_controller_->desired_setpoint_.store(msg->vector.x);
+            if (pitch_controller_) pitch_controller_->desired_setpoint_.store(msg->vector.y);
+            if (yaw_controller_) yaw_controller_->desired_setpoint_.store(msg->vector.z);
         }
     )},
-    servo_tilt_angle_publisher_{this->create_publisher<ControllerOutputServoTiltAngle>(
-        CONTROLLER_OUTPUT_SERVO_TILT_ANGLE_TOPIC, qos_
+    servo_tilt_angle_publisher_{this->create_publisher<ActuatorServos>(
+        CONTROLLER_OUTPUT_SERVO_PWM_TOPIC, qos_
     )},
-    motor_thrust_publisher_{this->create_publisher<ControllerOutputMotorThrust>(
-        CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC, qos_
+    motor_thrust_publisher_{this->create_publisher<ActuatorMotors>(
+        CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC, qos_
     )},
     controller_debug_publisher_{this->create_publisher<ControllerDebug>(
         CONTROLLER_DEBUG_TOPIC, qos_
@@ -327,11 +343,11 @@ private:
     rclcpp::TimerBase::SharedPtr controller_timer_;
 
 	//!< Publishers and Subscribers
-	rclcpp::Subscription<ControllerInputAttitude>::SharedPtr     attitude_subscriber_;
-	rclcpp::Subscription<ControllerInputAngularRate>::SharedPtr  angular_rate_subscriber_;
-	rclcpp::Subscription<ControllerInputSetpoint>::SharedPtr     setpoint_subscriber_;
-	rclcpp::Publisher<ControllerOutputServoTiltAngle>::SharedPtr servo_tilt_angle_publisher_;
-    rclcpp::Publisher<ControllerOutputMotorThrust>::SharedPtr    motor_thrust_publisher_;
+	rclcpp::Subscription<VehicleAttitude>::SharedPtr        attitude_subscriber_;
+	rclcpp::Subscription<VehicleAngularVelocity>::SharedPtr angular_rate_subscriber_;
+	rclcpp::Subscription<Vector3Stamped>::SharedPtr         setpoint_subscriber_;
+	rclcpp::Publisher<ActuatorServos>::SharedPtr    servo_tilt_angle_publisher_;
+    rclcpp::Publisher<ActuatorMotors>::SharedPtr    motor_thrust_publisher_;
 
     rclcpp::Publisher<ControllerDebug>::SharedPtr controller_debug_publisher_;
     rclcpp::Publisher<AllocatorDebug>::SharedPtr  allocator_debug_publisher_;
@@ -475,10 +491,10 @@ void ControllersDecoupled::publish_allocator_debug(
 
 void ControllersDecoupled::publish_servo_pwm(const float inner_servo_pwm, const float outer_servo_pwm)
 {
-    ControllerOutputServoTiltAngle msg{};
-    msg.stamp = this->get_clock()->now();
-    msg.inner_servo_tilt_angle_radians = inner_servo_pwm;
-    msg.outer_servo_tilt_angle_radians = outer_servo_pwm;
+    ActuatorServos msg{};
+	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+    msg.control[1] = inner_servo_pwm;
+    msg.control[0] = outer_servo_pwm;
     servo_tilt_angle_publisher_->publish(msg);
 }
 
@@ -488,10 +504,10 @@ void ControllersDecoupled::publish_servo_pwm(const float inner_servo_pwm, const 
  */
 void ControllersDecoupled::publish_motor_pwm(const float upwards_motor_pwm, const float downwards_motor_pwm)
 {
-	ControllerOutputMotorThrust msg{};
-	msg.stamp = this->get_clock()->now();
-	msg.upwards_motor_thrust_percentage = upwards_motor_pwm;
-	msg.downwards_motor_thrust_percentage = downwards_motor_pwm;
+	ActuatorMotors msg{};
+	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
+	msg.control[1] = upwards_motor_pwm;
+	msg.control[0] = downwards_motor_pwm;
 	motor_thrust_publisher_->publish(msg);
 }
 

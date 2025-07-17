@@ -7,13 +7,13 @@
       moment_of_inertia: 0.375
       controller:
         roll: 
-          active: false
+          active: true
           gains:
             k_p: 1.
             k_d: 0.5
             k_i: 0.1
         pitch: 
-          active: false
+          active: true
           gains:
             k_p: 1.
             k_d: 0.5
@@ -31,13 +31,5 @@
         motor_thrust_curve: # newtons = (pwm * m + b) / 1000 * g;
           m: 2696.6
           b: -38.95
-      px4_ros2_message_mapping:
-        input:
-          mocap: true
-          attitude: true
-          angular_rate: true
-        output:
-          servos: true
-          motors: true
       mission:
         setpoint: [0., 0., 0.]

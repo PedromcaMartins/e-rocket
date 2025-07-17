@@ -1,0 +1,12 @@
+
+builtin_interfaces/Time stamp
+
+float32 servo_inner_tilt_angle_degrees
+float32 servo_outer_tilt_angle_degrees
+float32 servo_inner_pwm
+float32 servo_outer_pwm
+
+float32 motor_delta_pwm
+float32 motor_average_pwm
+float32 motor_upwards_pwm
+float32 motor_downwards_pwm

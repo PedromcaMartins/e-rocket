@@ -5,6 +5,12 @@ namespace one_degree_freedom
 {
 namespace constants
 {
+
+    constexpr char MASS_OF_SYSTEM[]             = "offboard.mass_of_system";
+    constexpr char LENGTH_OF_PENDULUM[]         = "offboard.length_of_pendulum";
+    constexpr char GRAVITATIONAL_ACCELERATION[] = "offboard.gravitational_acceleration";
+    constexpr char MOMENT_OF_INERTIA[]          = "offboard.moment_of_inertia";
+
 namespace controller
 {
 
@@ -16,6 +22,7 @@ namespace controller
     constexpr char CONTROLLER_OUTPUT_MOTOR_THRUST_TOPIC[] = "offboard/controller/output/motor_thrust";
 
     constexpr char CONTROLLER_DEBUG_TOPIC[] = "/offboard/controller/debug";
+    constexpr char ALLOCATOR_DEBUG_TOPIC[] = "/offboard/allocator/debug";
 
     constexpr char CONTROLLER_ROLL_ACTIVE_PARAM[] = "offboard.controller.roll.active";
     constexpr char CONTROLLER_ROLL_K_P_PARAM[] = "offboard.controller.roll.gains.k_p";
@@ -33,22 +40,14 @@ namespace controller
     constexpr char CONTROLLER_YAW_K_I_PARAM[] = "offboard.controller.yaw.gains.k_i";
 
     constexpr char CONTROLLER_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.frequency_hertz";
-    constexpr char CONTROLLER_MOTOR_THRUST_PERCENTAGE_PARAM[] = "offboard.controller.motor_thrust_percentage";
+    constexpr char CONTROLLER_DEFAULT_MOTOR_PWM[] = "offboard.controller.default_motor_pwm";
 
     constexpr char CONTROLLER_THRUST_CURVE_M_PARAM[] = "offboard.controller.motor_thrust_curve.m";
     constexpr char CONTROLLER_THRUST_CURVE_B_PARAM[] = "offboard.controller.motor_thrust_curve.b";
+    constexpr char CONTROLLER_SERVO_MAX_TILT_ANGLE_PARAM[] = "offboard.controller.servo_max_tilt_angle_degrees";
+    constexpr char CONTROLLER_MOTOR_MAX_PWM_PARAM[] = "offboard.controller.motor_max_pwm";
 
 } // namespace controller
-
-namespace simulator
-{
-
-    constexpr char MASS_OF_SYSTEM[]             = "offboard.simulator.mass_of_system";
-    constexpr char LENGTH_OF_PENDULUM[]         = "offboard.simulator.length_of_pendulum";
-    constexpr char GRAVITATIONAL_ACCELERATION[] = "offboard.simulator.gravitational_acceleration";
-    constexpr char MOMENT_OF_INERTIA[]          = "offboard.simulator.moment_of_inertia";
-    
-} // namespace simulator
 
 namespace flight_mode
 {

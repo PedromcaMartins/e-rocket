@@ -9,7 +9,7 @@
 using namespace std::chrono;
 using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::controller;
-using namespace one_degree_freedom::constants::simulator;
+using namespace one_degree_freedom::constants;
 
 /**
  * @brief Node that simulates the effects of the controller on the environment. It is used for testing the controller

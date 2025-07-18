@@ -100,19 +100,19 @@ target_include_directories(px4_ros2_flight_mode PUBLIC
 )
 install(TARGETS px4_ros2_flight_mode DESTINATION lib/${PROJECT_NAME})
 
-# px4_ros2_message_mapping
-add_executable(px4_ros2_message_mapping 
-	src/px4_ros2_message_mapping.cpp
+# mocap_forwarder
+add_executable(mocap_forwarder 
+	src/mocap_forwarder.cpp
 	src/lib/frame_transforms.cpp
 )
-ament_target_dependencies(px4_ros2_message_mapping rclcpp px4_msgs geometry_msgs)
+ament_target_dependencies(mocap_forwarder rclcpp px4_msgs geometry_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(px4_ros2_message_mapping frame_transforms ${cpp_typesupport_target})
-target_include_directories(px4_ros2_message_mapping PUBLIC
+target_link_libraries(mocap_forwarder frame_transforms ${cpp_typesupport_target})
+target_include_directories(mocap_forwarder PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-install(TARGETS px4_ros2_message_mapping DESTINATION lib/${PROJECT_NAME})
+install(TARGETS mocap_forwarder DESTINATION lib/${PROJECT_NAME})
 
 ##############################
 # Test and Development nodes #
@@ -154,19 +154,19 @@ target_include_directories(px4_ros2_flight_mode_test PUBLIC
 )
 install(TARGETS px4_ros2_flight_mode_test DESTINATION lib/${PROJECT_NAME})
 
-# px4_ros2_message_mapping test node (for testing / development)
-add_executable(px4_ros2_message_mapping_test 
-	test/px4_ros2_communication/px4_ros2_message_mapping_test.cpp
+# mocap_forwarder test node (for testing / development)
+add_executable(mocap_forwarder_test 
+	test/px4_ros2_communication/mocap_forwarder_test.cpp
 	src/lib/frame_transforms.cpp
 )
-ament_target_dependencies(px4_ros2_message_mapping_test rclcpp px4_msgs geometry_msgs)
+ament_target_dependencies(mocap_forwarder_test rclcpp px4_msgs geometry_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(px4_ros2_message_mapping_test frame_transforms ${cpp_typesupport_target})
-target_include_directories(px4_ros2_message_mapping_test PUBLIC
+target_link_libraries(mocap_forwarder_test frame_transforms ${cpp_typesupport_target})
+target_include_directories(mocap_forwarder_test PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-install(TARGETS px4_ros2_message_mapping_test DESTINATION lib/${PROJECT_NAME})
+install(TARGETS mocap_forwarder_test DESTINATION lib/${PROJECT_NAME})
 
 ############
 # Install ##

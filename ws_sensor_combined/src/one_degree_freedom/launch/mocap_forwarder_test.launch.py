@@ -1,5 +1,5 @@
 """
-Example to launch a px4_ros2_message_mapping listener node.
+Example to launch a mocap_forwarder listener node.
 """
 
 from launch import LaunchDescription
@@ -17,9 +17,9 @@ def generate_launch_description():
         shell=True
     )
 
-    px4_ros2_message_mapping_node = Node(
+    mocap_forwarder_node = Node(
         package='one_degree_freedom',
-        executable='px4_ros2_message_mapping',
+        executable='mocap_forwarder',
         output='screen',
         shell=True,
         parameters=[
@@ -28,9 +28,9 @@ def generate_launch_description():
         ],
     )
 
-    px4_ros2_message_mapping_test_node = Node(
+    mocap_forwarder_test_node = Node(
         package='one_degree_freedom',
-        executable='px4_ros2_message_mapping_test',
+        executable='mocap_forwarder_test',
         output='screen',
         shell=True,
         parameters=[
@@ -41,6 +41,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         #micro_ros_agent,
-        px4_ros2_message_mapping_node,
-        px4_ros2_message_mapping_test_node,
+        mocap_forwarder_node,
+        mocap_forwarder_test_node,
     ])

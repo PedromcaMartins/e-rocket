@@ -24,6 +24,7 @@
 - [X] Create Allocation class
 - [X] Removing inderect connection controller <-> px4 and controller <-> simulator
     - Transform message mappping to mocap forwarder
+- [X] Fix mocap implementation (including test)
 - [ ] Refactor Mission to interact directly with px4
     - Remove flight mode
 - [ ] Add position setpoint

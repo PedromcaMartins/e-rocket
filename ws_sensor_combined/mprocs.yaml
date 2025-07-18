@@ -10,7 +10,7 @@ procs:
     autostart: true
 
   MOCAP:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch mocap_interface vrpn.launch.py"
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom mocap_forwarder.launch.py"
     autostart: false
     stop: SIGINT
 
@@ -29,8 +29,8 @@ procs:
     autostart: false
     stop: SIGINT
 
-  Message_Mapping_Test:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom px4_ros2_message_mapping_test.launch.py"
+  Mocap_Forwarder_Test:
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom mocap_forwarder_test.launch.py"
     autostart: false
     stop: SIGINT
 

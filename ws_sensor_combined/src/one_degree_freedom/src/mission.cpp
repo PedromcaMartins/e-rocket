@@ -13,7 +13,7 @@ using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace geometry_msgs::msg;
 using namespace one_degree_freedom::msg;
-using namespace one_degree_freedom::constants::mission;
+using namespace one_degree_freedom::constants::setpoint;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
 using namespace one_degree_freedom::constants::flight_mode;
@@ -40,8 +40,8 @@ public:
 			10ms, 
 			std::bind(&Mission::mission, this)
 		)},
-        setpoint_publisher_{this->create_publisher<Vector3Stamped>(
-            CONTROLLER_INPUT_SETPOINT_TOPIC, qos_
+        setpoint_attitude_publisher_{this->create_publisher<Vector3Stamped>(
+            CONTROLLER_INPUT_SETPOINT_ATTITUDE_TOPIC, qos_
         )}
     {
         flight_mode_timer_ = this->create_wall_timer(
@@ -49,9 +49,9 @@ public:
             std::bind(&Mission::flight_mode, this)
 		);
 
-        // Declare the setpoint parameter as array of 3 floats [roll, pitch, yaw]
+        // Declare the setpoint attitude parameter as array of 3 floats [roll, pitch, yaw]
         this->declare_parameter<std::vector<double>>(
-            MISSION_SETPOINT_PARAM, 
+            MISSION_SETPOINT_ATTITUDE_PARAM, 
             std::vector<double>{0.0, 0.0, 0.0}
         );
         this->declare_parameter<uint8_t>(FLIGHT_MODE_PARAM, FlightMode::INIT);
@@ -80,9 +80,9 @@ private:
 	rclcpp::TimerBase::SharedPtr mission_timer_;
 	void mission();
 
-	//!< Setpoint
-	rclcpp::Publisher<Vector3Stamped>::SharedPtr setpoint_publisher_;
-	void publish_setpoint(float roll_setpoint_radians, float pitch_setpoint_radians, float yaw_setpoint_radians);
+	//!< Setpoint Attitude
+	rclcpp::Publisher<Vector3Stamped>::SharedPtr setpoint_attitude_publisher_;
+	void publish_setpoint_attitude(std::vector<double> setpoint_degrees);
 
     OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
     rcl_interfaces::msg::SetParametersResult parameter_callback(
@@ -136,10 +136,16 @@ void Mission::mission() {
             last_log_time = current_time;
         }
 
-		if (elapsed_time > 5s && elapsed_time <= 6s) {
+		static bool setpoint_published = false;
+		if (!setpoint_published && elapsed_time > 5s) {
+			setpoint_published = true;
 			// Get setpoint from parameter (init config)
-			auto setpoint_array = this->get_parameter(MISSION_SETPOINT_PARAM).as_double_array();
-			publish_setpoint(setpoint_array[0], setpoint_array[1], setpoint_array[2]);
+            std::vector<double> setpoint_degrees = this->get_parameter(MISSION_SETPOINT_ATTITUDE_PARAM).as_double_array();
+            if (setpoint_degrees.size() != 3) {
+                RCLCPP_ERROR(this->get_logger(), "Invalid setpoint size, expected 3 values.");
+                return;
+            }
+			publish_setpoint_attitude(setpoint_degrees);
 		}
 
         if (elapsed_time > 120s) {
@@ -150,14 +156,21 @@ void Mission::mission() {
     }
 }
 
-void Mission::publish_setpoint(float roll_setpoint_radians, float pitch_setpoint_radians, float yaw_setpoint_radians)
+void Mission::publish_setpoint_attitude(std::vector<double> setpoint_degrees)
 {
     Vector3Stamped msg{};
     msg.header.stamp = this->get_clock()->now();
-    msg.vector.x = roll_setpoint_radians;
-    msg.vector.y = pitch_setpoint_radians;
-    msg.vector.z = yaw_setpoint_radians;
-    setpoint_publisher_->publish(msg);
+    msg.vector.x = setpoint_degrees[0];
+    msg.vector.y = setpoint_degrees[1];
+    msg.vector.z = setpoint_degrees[2];
+    setpoint_attitude_publisher_->publish(msg);
+
+    RCLCPP_INFO(this->get_logger(), 
+        "Updated setpoint attitude to: [%f, %f, %f]",
+        setpoint_degrees[0],
+        setpoint_degrees[1],
+        setpoint_degrees[2]
+    );
 }
 
 rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
@@ -167,39 +180,17 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
     result.successful = true;
 
     for (const auto &param : parameters) {
-        if (param.get_name() == MISSION_SETPOINT_PARAM) {
-            std::vector<double> new_setpoint_radians = param.as_double_array();
+        if (param.get_name() == MISSION_SETPOINT_ATTITUDE_PARAM) {
+            std::vector<double> setpoint_degrees = param.as_double_array();
 
-            if (
-                new_setpoint_radians.size() != 3 || 
-                new_setpoint_radians[0] < -M_PI_2 ||
-                new_setpoint_radians[1] < -M_PI_2 || 
-                new_setpoint_radians[2] < -M_PI ||
-                new_setpoint_radians[0] >  M_PI_2 ||
-                new_setpoint_radians[1] >  M_PI_2 || 
-                new_setpoint_radians[2] >  M_PI ||
-                new_setpoint_radians[0] == NAN ||
-                new_setpoint_radians[1] == NAN || 
-                new_setpoint_radians[2] == NAN
-            ) {
-                RCLCPP_ERROR(this->get_logger(), "Invalid setpoint values.");
+            if (setpoint_degrees.size() != 3) {
+                RCLCPP_ERROR(this->get_logger(), "Invalid setpoint size, expected 3 values.");
                 result.successful = false;
-                result.reason = "Invalid setpoint values";
+                result.reason = "Invalid setpoint size";
                 return result;
             }
 
-            publish_setpoint(
-				new_setpoint_radians[0],
-				new_setpoint_radians[1],
-				new_setpoint_radians[2]
-			);
-
-            RCLCPP_INFO(this->get_logger(), 
-                "Updated setpoint to: [%f, %f, %f]",
-                new_setpoint_radians[0],
-                new_setpoint_radians[1],
-                new_setpoint_radians[2]
-            );
+            publish_setpoint_attitude(setpoint_degrees);
         }
 		else if (param.get_name() == FLIGHT_MODE_PARAM) {
             uint8_t new_flight_mode = param.as_int();

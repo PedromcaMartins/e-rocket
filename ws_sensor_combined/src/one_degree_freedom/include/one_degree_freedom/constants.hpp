@@ -17,7 +17,6 @@ namespace controller
     //<! Topics for the 1-degree-of-freedom system
     constexpr char CONTROLLER_INPUT_ATTITUDE_TOPIC[] =      "/fmu/out/vehicle_attitude";
     constexpr char CONTROLLER_INPUT_ANGULAR_RATE_TOPIC[] =  "/fmu/out/vehicle_angular_velocity";
-    constexpr char CONTROLLER_INPUT_SETPOINT_TOPIC[] =      "offboard/setpoint";
     constexpr char CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC[] =    "/fmu/in/actuator_motors";
     constexpr char CONTROLLER_OUTPUT_SERVO_PWM_TOPIC[] =    "/fmu/in/actuator_servos";
 
@@ -40,12 +39,12 @@ namespace controller
     constexpr char CONTROLLER_YAW_K_I_PARAM[] = "offboard.controller.yaw.gains.k_i";
 
     constexpr char CONTROLLER_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.frequency_hertz";
-    constexpr char CONTROLLER_DEFAULT_MOTOR_PWM[] = "offboard.controller.default_motor_pwm";
+    constexpr char CONTROLLER_DEFAULT_MOTOR_PWM[]     = "offboard.controller.default_motor_pwm";
 
     constexpr char CONTROLLER_THRUST_CURVE_M_PARAM[] = "offboard.controller.motor_thrust_curve.m";
     constexpr char CONTROLLER_THRUST_CURVE_B_PARAM[] = "offboard.controller.motor_thrust_curve.b";
     constexpr char CONTROLLER_SERVO_MAX_TILT_ANGLE_PARAM[] = "offboard.controller.servo_max_tilt_angle_degrees";
-    constexpr char CONTROLLER_MOTOR_MAX_PWM_PARAM[] = "offboard.controller.motor_max_pwm";
+    constexpr char CONTROLLER_MOTOR_MAX_PWM_PARAM[]  = "offboard.controller.motor_max_pwm";
 
 } // namespace controller
 
@@ -76,12 +75,13 @@ namespace mocap_forwarder
 
 } // namespace mocap_forwarder
 
-namespace mission
+namespace setpoint
 {
 
-    constexpr char MISSION_SETPOINT_PARAM[] = "offboard.mission.setpoint";
+    constexpr char CONTROLLER_INPUT_SETPOINT_ATTITUDE_TOPIC[] = "offboard/setpoint_attitude_degrees";
+    constexpr char MISSION_SETPOINT_ATTITUDE_PARAM[] = "offboard.mission.setpoint_attitude_degrees";
 
-} // namespace mission
+} // namespace setpoint
 
 } // namespace constants
 } // namespace one_degree_freedom

@@ -32,4 +32,4 @@
           m: 2696.6
           b: -38.95
       mission:
-        setpoint: [0., 0., 0.]
+        setpoint_attitude_degrees: [0., 0., 0.]

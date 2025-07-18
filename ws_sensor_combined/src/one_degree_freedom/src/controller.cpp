@@ -16,9 +16,10 @@ using namespace std::chrono;
 using namespace px4_msgs::msg;
 using namespace geometry_msgs::msg;
 using namespace one_degree_freedom::msg;
+using namespace one_degree_freedom::constants;
+using namespace one_degree_freedom::constants::setpoint;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
-using namespace one_degree_freedom::constants;
 using namespace one_degree_freedom::frame_transforms;
 
 class Allocator {
@@ -175,10 +176,10 @@ private:
 /**
  * @brief Node that runs the controller for a 1-degree-of-freedom system
  */
-class ControllersDecoupled : public rclcpp::Node
+class BaselinePIDController : public rclcpp::Node
 {
 public:
-	explicit ControllersDecoupled() : Node("controller_decoupled"),
+	explicit BaselinePIDController() : Node("controller_decoupled"),
     qos_profile_{rmw_qos_profile_sensor_data},
     qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 
@@ -201,23 +202,27 @@ public:
             if (yaw_controller_) yaw_controller_->measurement_derivative_.store(msg->xyz[2]);
         }
     )},
-    setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
-        CONTROLLER_INPUT_SETPOINT_TOPIC, qos_,
+    setpoint_attitude_subscriber_{this->create_subscription<Vector3Stamped>(
+        CONTROLLER_INPUT_SETPOINT_ATTITUDE_TOPIC, qos_,
         [this](const Vector3Stamped::SharedPtr msg) {
-            if (msg->vector.x == NAN || msg->vector.y == NAN || msg->vector.z == NAN) {
+            Eigen::Vector3d setpoint = degrees_to_radians(Eigen::Vector3d(
+                msg->vector.x, msg->vector.y, msg->vector.z
+            ));
+
+            if (setpoint[0] == NAN || setpoint[1] == NAN || setpoint[2] == NAN) {
                 RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
                 return;
             }
-            if (msg->vector.x < -M_PI_2 || msg->vector.y < -M_PI_2 || msg->vector.z < -M_PI ||
-                msg->vector.x > M_PI_2 || msg->vector.y > M_PI_2 || msg->vector.z > M_PI
+            if (setpoint[0] < -M_PI_2 || setpoint[1] < -M_PI_2 || setpoint[2] < -M_PI ||
+                setpoint[0] > M_PI_2  || setpoint[1] > M_PI_2  || setpoint[2] > M_PI
             ) {
                 RCLCPP_ERROR(this->get_logger(), "Received out of range setpoint message.");
                 return;
             }
 
-            if (roll_controller_) roll_controller_->desired_setpoint_.store(msg->vector.x);
-            if (pitch_controller_) pitch_controller_->desired_setpoint_.store(msg->vector.y);
-            if (yaw_controller_) yaw_controller_->desired_setpoint_.store(msg->vector.z);
+            if (roll_controller_) roll_controller_->desired_setpoint_.store(setpoint[0]);
+            if (pitch_controller_) pitch_controller_->desired_setpoint_.store(setpoint[1]);
+            if (yaw_controller_) yaw_controller_->desired_setpoint_.store(setpoint[2]);
         }
     )},
     servo_tilt_angle_publisher_{this->create_publisher<ActuatorServos>(
@@ -331,7 +336,7 @@ public:
 
         controller_timer_ = this->create_wall_timer(
             std::chrono::duration<float>(controllers_dt), 
-            std::bind(&ControllersDecoupled::controller_callback, this)
+            std::bind(&BaselinePIDController::controller_callback, this)
         );
 	}
 
@@ -345,7 +350,7 @@ private:
 	//!< Publishers and Subscribers
 	rclcpp::Subscription<VehicleAttitude>::SharedPtr        attitude_subscriber_;
 	rclcpp::Subscription<VehicleAngularVelocity>::SharedPtr angular_rate_subscriber_;
-	rclcpp::Subscription<Vector3Stamped>::SharedPtr         setpoint_subscriber_;
+	rclcpp::Subscription<Vector3Stamped>::SharedPtr         setpoint_attitude_subscriber_;
 	rclcpp::Publisher<ActuatorServos>::SharedPtr    servo_tilt_angle_publisher_;
     rclcpp::Publisher<ActuatorMotors>::SharedPtr    motor_thrust_publisher_;
 
@@ -387,7 +392,7 @@ private:
 /**
  * @brief Callback function for the controller
  */
-void ControllersDecoupled::controller_callback()
+void BaselinePIDController::controller_callback()
 {
     // only run controller when in mission
     if (flight_mode_.load() == FlightMode::IN_MISSION) {
@@ -434,7 +439,7 @@ void ControllersDecoupled::controller_callback()
     }
 }
 
-void ControllersDecoupled::publish_controller_debug() {
+void BaselinePIDController::publish_controller_debug() {
     ControllerDebug msg{};
 
     if (roll_controller_) {
@@ -462,7 +467,7 @@ void ControllersDecoupled::publish_controller_debug() {
     controller_debug_publisher_->publish(msg);
 }
 
-void ControllersDecoupled::publish_allocator_debug(
+void BaselinePIDController::publish_allocator_debug(
     const float inner_servo_tilt_angle_radians,
     const float outer_servo_tilt_angle_radians,
     const float inner_servo_pwm,
@@ -489,7 +494,7 @@ void ControllersDecoupled::publish_allocator_debug(
     allocator_debug_publisher_->publish(msg);
 }
 
-void ControllersDecoupled::publish_servo_pwm(const float inner_servo_pwm, const float outer_servo_pwm)
+void BaselinePIDController::publish_servo_pwm(const float inner_servo_pwm, const float outer_servo_pwm)
 {
     ActuatorServos msg{};
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
@@ -502,7 +507,7 @@ void ControllersDecoupled::publish_servo_pwm(const float inner_servo_pwm, const 
  * @brief Publish the actuator motors.
  *        For this example, we are generating sinusoidal values for the actuator positions.
  */
-void ControllersDecoupled::publish_motor_pwm(const float upwards_motor_pwm, const float downwards_motor_pwm)
+void BaselinePIDController::publish_motor_pwm(const float upwards_motor_pwm, const float downwards_motor_pwm)
 {
 	ActuatorMotors msg{};
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
@@ -516,7 +521,7 @@ int main(int argc, char *argv[])
 	std::cout << "Starting offboard controller decoupled node..." << std::endl;
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	rclcpp::init(argc, argv);
-	rclcpp::spin(std::make_shared<ControllersDecoupled>());
+	rclcpp::spin(std::make_shared<BaselinePIDController>());
 
 	rclcpp::shutdown();
 	return 0;

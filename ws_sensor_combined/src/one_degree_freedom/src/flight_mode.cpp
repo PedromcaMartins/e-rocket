@@ -38,7 +38,7 @@ public:
 		)},
 		offboard_control_mode_publisher_{this->create_publisher<px4_msgs::msg::OffboardControlMode>("/fmu/in/offboard_control_mode", 10)},
 		mantain_offboard_mode_timer_{this->create_wall_timer(
-			std::chrono::duration<float>(MANTAIN_OFFBOARD_MODE_TIMER_PERIOD_SECONDS),
+			std::chrono::duration<double>(MANTAIN_OFFBOARD_MODE_TIMER_PERIOD_SECONDS),
 			std::bind(&FlightMode::publish_offboard_control_mode, this)
 		)},
 		vehicle_control_mode_publisher_{this->create_publisher<px4_msgs::msg::VehicleControlMode>("/fmu/in/vehicle_control_mode", 10)}
@@ -66,8 +66,8 @@ private:
 	rclcpp::Client<px4_msgs::srv::VehicleCommand>::SharedPtr vehicle_command_client_;
 	void send_vehicle_command_request(
 		const uint16_t command, 
-		const float param1 = 0.0, 
-		const float param2 = 0.0
+		const double param1 = 0.0, 
+		const double param2 = 0.0
 	);
 	void handle_vehicle_command_response(
 		rclcpp::Client<px4_msgs::srv::VehicleCommand>::SharedFuture future
@@ -193,8 +193,8 @@ void FlightMode::publish_flight_mode() {
 
 void FlightMode::send_vehicle_command_request(
 	const uint16_t command, 
-	const float param1, 
-	const float param2
+	const double param1, 
+	const double param2
 ) {
 	auto request = std::make_shared<px4_msgs::srv::VehicleCommand::Request>();
 

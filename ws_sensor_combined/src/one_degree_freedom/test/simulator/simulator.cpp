@@ -39,7 +39,7 @@ public:
             CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos
         );
 
-        this->declare_parameter<float>(CONTROLLER_FREQUENCY_HERTZ_PARAM);
+        this->declare_parameter<double>(CONTROLLER_FREQUENCY_HERTZ_PARAM);
         auto controllers_freq = this->get_parameter(CONTROLLER_FREQUENCY_HERTZ_PARAM).as_double();
         time_step_seconds_ = 1.0 / controllers_freq;
 
@@ -50,10 +50,10 @@ public:
         }
         RCLCPP_INFO(this->get_logger(), "Controller period: %f seconds", time_step_seconds_);
 
-        this->declare_parameter<float>(MASS_OF_SYSTEM);
-        this->declare_parameter<float>(LENGTH_OF_PENDULUM);
-        this->declare_parameter<float>(GRAVITATIONAL_ACCELERATION);
-        this->declare_parameter<float>(MOMENT_OF_INERTIA);
+        this->declare_parameter<double>(MASS_OF_SYSTEM);
+        this->declare_parameter<double>(LENGTH_OF_PENDULUM);
+        this->declare_parameter<double>(GRAVITATIONAL_ACCELERATION);
+        this->declare_parameter<double>(MOMENT_OF_INERTIA);
 
         m_ = this->get_parameter(MASS_OF_SYSTEM).as_double();
         l_ = this->get_parameter(LENGTH_OF_PENDULUM).as_double();
@@ -76,21 +76,21 @@ private:
 	rclcpp::Subscription<ControllerDebug>::SharedPtr     controller_debug_subscriber_;
 
     //!< State variables - to be updated by the simulator
-    float roll_angle_ = 0.0f;         // pitch angle
-    float roll_angular_rate_ = 0.0f;  // angular position
+    double roll_angle_ = 0.0f;         // pitch angle
+    double roll_angular_rate_ = 0.0f;  // angular position
 
-    float pitch_angle_ = 0.0f;        // pitch angle
-    float pitch_angular_rate_ = 0.0f; // angular position
+    double pitch_angle_ = 0.0f;        // pitch angle
+    double pitch_angular_rate_ = 0.0f; // angular position
 
-    float yaw_angle_ = 0.0f;          // pitch angle
-    float yaw_angular_rate_ = 0.0f;   // angular position
+    double yaw_angle_ = 0.0f;          // pitch angle
+    double yaw_angular_rate_ = 0.0f;   // angular position
 
-    float m_;
-    float l_;
-    float g_;
-    float j_;
+    double m_;
+    double l_;
+    double g_;
+    double j_;
 
-    float time_step_seconds_;
+    double time_step_seconds_;
 
 	//!< Auxiliary functions
     void publish_attitude();
@@ -126,16 +126,16 @@ void Simulator::publish_angular_rate()
 
 void Simulator::controller_output_callback(const ControllerDebug::SharedPtr msg)
 {
-    float roll_inner_servo_tilt_angle = msg->roll_inner_servo_tilt_angle;
-    float pitch_outer_servo_tilt_angle = msg->pitch_outer_servo_tilt_angle;
-    float yaw_delta_motor_pwm = msg->yaw_delta_motor_pwm;
-    float step = time_step_seconds_;
+    double roll_inner_servo_tilt_angle = msg->roll_inner_servo_tilt_angle;
+    double pitch_outer_servo_tilt_angle = msg->pitch_outer_servo_tilt_angle;
+    double yaw_delta_motor_pwm = msg->yaw_delta_motor_pwm;
+    double step = time_step_seconds_;
 
     //*********//
     //* roll  *//
     //*********//
     {
-        float a = roll_inner_servo_tilt_angle * m_ * l_ * g_ / j_;
+        double a = roll_inner_servo_tilt_angle * m_ * l_ * g_ / j_;
         roll_angular_rate_ += a * step;
         roll_angle_ += roll_angular_rate_ * step;
     }
@@ -144,7 +144,7 @@ void Simulator::controller_output_callback(const ControllerDebug::SharedPtr msg)
     //* pitch *//
     //*********//
     {
-        float a = pitch_outer_servo_tilt_angle * m_ * l_ * g_ / j_;
+        double a = pitch_outer_servo_tilt_angle * m_ * l_ * g_ / j_;
         pitch_angular_rate_ += a * step;
         pitch_angle_ += pitch_angular_rate_ * step;
     }
@@ -153,7 +153,7 @@ void Simulator::controller_output_callback(const ControllerDebug::SharedPtr msg)
     //*  yaw  *//
     //*********//
     {
-        float a = yaw_delta_motor_pwm * m_ * l_ * g_ / j_;
+        double a = yaw_delta_motor_pwm * m_ * l_ * g_ / j_;
         yaw_angular_rate_ += a * step;
         yaw_angle_ += yaw_angular_rate_ * step;
     }

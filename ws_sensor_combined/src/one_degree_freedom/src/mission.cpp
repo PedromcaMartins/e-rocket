@@ -4,6 +4,7 @@
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <one_degree_freedom/constants.hpp>
 
+#include <one_degree_freedom/frame_transforms.h>
 #include <stdint.h>
 #include <chrono>
 #include <iostream>
@@ -13,6 +14,7 @@ using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace geometry_msgs::msg;
 using namespace one_degree_freedom::msg;
+using namespace one_degree_freedom::frame_transforms;
 using namespace one_degree_freedom::constants::setpoint;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
@@ -160,9 +162,9 @@ void Mission::publish_setpoint_attitude(std::vector<double> setpoint_degrees)
 {
     Vector3Stamped msg{};
     msg.header.stamp = this->get_clock()->now();
-    msg.vector.x = setpoint_degrees[0];
-    msg.vector.y = setpoint_degrees[1];
-    msg.vector.z = setpoint_degrees[2];
+    msg.vector.x = degrees_to_radians(setpoint_degrees[0]);
+    msg.vector.y = degrees_to_radians(setpoint_degrees[1]);
+    msg.vector.z = degrees_to_radians(setpoint_degrees[2]);
     setpoint_attitude_publisher_->publish(msg);
 
     RCLCPP_INFO(this->get_logger(), 

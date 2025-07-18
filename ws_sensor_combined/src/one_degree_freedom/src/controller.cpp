@@ -205,24 +205,20 @@ public:
     setpoint_attitude_subscriber_{this->create_subscription<Vector3Stamped>(
         CONTROLLER_INPUT_SETPOINT_ATTITUDE_TOPIC, qos_,
         [this](const Vector3Stamped::SharedPtr msg) {
-            Eigen::Vector3d setpoint = degrees_to_radians(Eigen::Vector3d(
-                msg->vector.x, msg->vector.y, msg->vector.z
-            ));
-
-            if (setpoint[0] == NAN || setpoint[1] == NAN || setpoint[2] == NAN) {
+            if (msg->vector.x == NAN || msg->vector.y == NAN || msg->vector.z == NAN) {
                 RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
                 return;
             }
-            if (setpoint[0] < -M_PI_2 || setpoint[1] < -M_PI_2 || setpoint[2] < -M_PI ||
-                setpoint[0] > M_PI_2  || setpoint[1] > M_PI_2  || setpoint[2] > M_PI
+            if (msg->vector.x < -M_PI_2 || msg->vector.y < -M_PI_2 || msg->vector.z < -M_PI ||
+                msg->vector.x > M_PI_2  || msg->vector.y > M_PI_2  || msg->vector.z > M_PI
             ) {
                 RCLCPP_ERROR(this->get_logger(), "Received out of range setpoint message.");
                 return;
             }
 
-            if (roll_controller_) roll_controller_->desired_setpoint_.store(setpoint[0]);
-            if (pitch_controller_) pitch_controller_->desired_setpoint_.store(setpoint[1]);
-            if (yaw_controller_) yaw_controller_->desired_setpoint_.store(setpoint[2]);
+            if (roll_controller_) roll_controller_->desired_setpoint_.store(msg->vector.x);
+            if (pitch_controller_) pitch_controller_->desired_setpoint_.store(msg->vector.y);
+            if (yaw_controller_) yaw_controller_->desired_setpoint_.store(msg->vector.z);
         }
     )},
     servo_tilt_angle_publisher_{this->create_publisher<ActuatorServos>(

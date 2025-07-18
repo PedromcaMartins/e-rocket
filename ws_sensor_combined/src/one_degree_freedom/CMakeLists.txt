@@ -79,10 +79,13 @@ target_include_directories(controller PUBLIC
 install(TARGETS controller DESTINATION lib/${PROJECT_NAME})
 
 # mission
-add_executable(mission src/mission.cpp)
+add_executable(mission 
+	src/mission.cpp
+	src/lib/frame_transforms.cpp
+)
 ament_target_dependencies(mission rclcpp px4_msgs geometry_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(mission ${cpp_typesupport_target})
+target_link_libraries(mission frame_transforms ${cpp_typesupport_target})
 target_include_directories(mission PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>

@@ -84,6 +84,8 @@ private:
         ros2_msg->pose.orientation.y,
         ros2_msg->pose.orientation.z
     );
+    // BASELINK_TO_AIRCRAFT    INPUT          ENU_TO_NED
+    // ROTATION NED-ENU * q (ENU - FLU) * ROTATION FLU - FRD
     Eigen::Quaterniond intermediate_aircraft_orientation = transform_orientation(ros2_enu_orientation, StaticTF::BASELINK_TO_AIRCRAFT);
     Eigen::Quaterniond px4_ned_orientation = transform_orientation(intermediate_aircraft_orientation, StaticTF::ENU_TO_NED);
     px4_msg.q[0] = px4_ned_orientation.w();

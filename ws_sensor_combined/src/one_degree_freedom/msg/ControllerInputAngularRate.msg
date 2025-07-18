@@ -1,7 +1,0 @@
-
-builtin_interfaces/Time stamp
-float32 x_roll_angular_rate_radians_per_second
-float32 y_pitch_angular_rate_radians_per_second
-float32 z_yaw_angular_rate_radians_per_second
-
-# TOPICS offboard/controller_input_angular_rate 

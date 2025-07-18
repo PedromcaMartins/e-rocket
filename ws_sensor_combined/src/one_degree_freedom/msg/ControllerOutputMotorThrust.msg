@@ -1,6 +1,0 @@
-
-builtin_interfaces/Time stamp
-float32 upwards_motor_thrust_percentage
-float32 downwards_motor_thrust_percentage
-
-# TOPICS offboard/controller_output_motor_thrust 

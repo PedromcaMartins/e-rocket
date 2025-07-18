@@ -28,7 +28,8 @@
 - [?] Refactor Mission to interact directly with px4
     - Remove flight mode
     -> Not possible! Flight Mode needs to be a seperate node! 
-- [ ] Setpoint to attitude degrees
+- [X] Setpoint to attitude degrees
+- [X] Sin wave trajectory for attitude
 - [ ] Add position setpoint
 - [ ] Add position controller
 

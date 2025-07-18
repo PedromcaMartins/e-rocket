@@ -79,7 +79,14 @@ namespace setpoint
 {
 
     constexpr char CONTROLLER_INPUT_SETPOINT_ATTITUDE_TOPIC[] = "offboard/setpoint_attitude_degrees";
-    constexpr char MISSION_SETPOINT_ATTITUDE_PARAM[] = "offboard.mission.setpoint_attitude_degrees";
+    constexpr char MISSION_SETPOINT_ATTITUDE_PARAM[] = "offboard.mission.setpoint_attitude.degrees";
+
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_PERIOD_PARAM[]   = "offboard.mission.sine_wave_trajectory.period";
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_AMPLITUDE_DEGREES_PARAM[]   = "offboard.mission.sine_wave_trajectory.amplitude_degrees";
+
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ROLL_PARAM[]  = "offboard.mission.sine_wave_trajectory.activate_roll";
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_PITCH_PARAM[] = "offboard.mission.sine_wave_trajectory.activate_pitch";
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_YAW_PARAM[]   = "offboard.mission.sine_wave_trajectory.activate_yaw";
 
 } // namespace setpoint
 

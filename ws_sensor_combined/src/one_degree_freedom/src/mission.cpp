@@ -61,6 +61,27 @@ public:
         parameter_callback_handle_ = this->add_on_set_parameters_callback(
             std::bind(&Mission::parameter_callback, this, std::placeholders::_1)
         );
+
+		this->declare_parameter<double>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_PERIOD_PARAM);
+		this->declare_parameter<double>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_AMPLITUDE_DEGREES_PARAM);
+		sine_wave_trajectory_period_ 			= this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_PERIOD_PARAM).as_double();
+		sine_wave_trajectory_amplitude_degrees_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_AMPLITUDE_DEGREES_PARAM).as_double();
+
+		RCLCPP_INFO(this->get_logger(), "Sine wave trajectory: %.2f * sin(2 * pi * t / %.2f) degrees",
+			sine_wave_trajectory_amplitude_degrees_, sine_wave_trajectory_period_);
+
+		this->declare_parameter<bool>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ROLL_PARAM);
+		this->declare_parameter<bool>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_PITCH_PARAM);
+		this->declare_parameter<bool>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_YAW_PARAM);
+		sine_wave_trajectory_active_roll_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ROLL_PARAM).as_bool();
+		sine_wave_trajectory_active_pitch_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_PITCH_PARAM).as_bool();
+		sine_wave_trajectory_active_yaw_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_YAW_PARAM).as_bool();
+
+		RCLCPP_INFO(this->get_logger(), "Sine wave trajectory: roll=%s, pitch=%s, yaw=%s",
+			sine_wave_trajectory_active_roll_ ? "active" : "off",
+			sine_wave_trajectory_active_pitch_ ? "active" : "off",
+			sine_wave_trajectory_active_yaw_ ? "active" : "off"
+		);
     }
 
 private:
@@ -84,7 +105,14 @@ private:
 
 	//!< Setpoint Attitude
 	rclcpp::Publisher<Vector3Stamped>::SharedPtr setpoint_attitude_publisher_;
-	void publish_setpoint_attitude(std::vector<double> setpoint_degrees);
+	void publish_setpoint_attitude_radians(Eigen::Vector3d setpoint_radians);
+
+	double sine_wave_trajectory_period_;
+	double sine_wave_trajectory_amplitude_degrees_;
+
+	bool sine_wave_trajectory_active_roll_ = false;
+	bool sine_wave_trajectory_active_pitch_ = false;
+	bool sine_wave_trajectory_active_yaw_ = false;
 
     OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
     rcl_interfaces::msg::SetParametersResult parameter_callback(
@@ -130,27 +158,36 @@ void Mission::mission() {
         // Log mission progress periodically (every second)
         static rclcpp::Time last_log_time = IN_MISSION_time;
         if (current_time - last_log_time > 10s) {
+            last_log_time = current_time;
             RCLCPP_INFO(
                 this->get_logger(),
                 "Mission in progress - Elapsed time: %.2f seconds",
                 elapsed_time.seconds()
             );
-            last_log_time = current_time;
         }
 
-		static bool setpoint_published = false;
-		if (!setpoint_published && elapsed_time > 5s) {
-			setpoint_published = true;
-			// Get setpoint from parameter (init config)
-            std::vector<double> setpoint_degrees = this->get_parameter(MISSION_SETPOINT_ATTITUDE_PARAM).as_double_array();
-            if (setpoint_degrees.size() != 3) {
-                RCLCPP_ERROR(this->get_logger(), "Invalid setpoint size, expected 3 values.");
-                return;
-            }
-			publish_setpoint_attitude(setpoint_degrees);
+		{
+			// Example: Sine wave trajectory for setpoint attitude
+			double time_in_seconds = elapsed_time.seconds();
+			double frequency = 1.0 / sine_wave_trajectory_period_; // Frequency in Hz
+			double amplitude_radians = degrees_to_radians(sine_wave_trajectory_amplitude_degrees_); // Amplitude in radians
+
+			Eigen::Vector3d setpoint_radians(0.0f, 0.0f, 0.0f);
+			if (sine_wave_trajectory_active_roll_) {
+				setpoint_radians[0] = amplitude_radians * std::sin(2 * M_PI * frequency * time_in_seconds);
+			}
+			if (sine_wave_trajectory_active_pitch_) {
+				setpoint_radians[1] = amplitude_radians * std::sin(2 * M_PI * frequency * time_in_seconds);
+			}
+			if (sine_wave_trajectory_active_yaw_) {
+				setpoint_radians[2] = amplitude_radians * std::sin(2 * M_PI * frequency * time_in_seconds);
+			}
+			publish_setpoint_attitude_radians(setpoint_radians);
 		}
 
-        if (elapsed_time > 120s) {
+		static bool first_run = true;
+        if (elapsed_time > 120s && first_run) {
+			first_run = false;
             // Mission completion
             RCLCPP_INFO(this->get_logger(), "Mission complete, switching to MISSION_COMPLETE mode");
             request_flight_mode(FlightMode::MISSION_COMPLETE);
@@ -158,21 +195,14 @@ void Mission::mission() {
     }
 }
 
-void Mission::publish_setpoint_attitude(std::vector<double> setpoint_degrees)
+void Mission::publish_setpoint_attitude_radians(Eigen::Vector3d setpoint_radians)
 {
     Vector3Stamped msg{};
     msg.header.stamp = this->get_clock()->now();
-    msg.vector.x = degrees_to_radians(setpoint_degrees[0]);
-    msg.vector.y = degrees_to_radians(setpoint_degrees[1]);
-    msg.vector.z = degrees_to_radians(setpoint_degrees[2]);
+    msg.vector.x = setpoint_radians[0];
+    msg.vector.y = setpoint_radians[1];
+    msg.vector.z = setpoint_radians[2];
     setpoint_attitude_publisher_->publish(msg);
-
-    RCLCPP_INFO(this->get_logger(), 
-        "Updated setpoint attitude to: [%f, %f, %f]",
-        setpoint_degrees[0],
-        setpoint_degrees[1],
-        setpoint_degrees[2]
-    );
 }
 
 rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
@@ -192,7 +222,20 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
                 return result;
             }
 
-            publish_setpoint_attitude(setpoint_degrees);
+			Eigen::Vector3d setpoint_radians = degrees_to_radians(Eigen::Vector3d(
+				setpoint_degrees[0],
+				setpoint_degrees[1],
+				setpoint_degrees[2]
+			));
+
+            publish_setpoint_attitude_radians(setpoint_radians);
+
+			RCLCPP_INFO(this->get_logger(), 
+				"Updated setpoint attitude to: [%f, %f, %f]",
+				setpoint_degrees[0],
+				setpoint_degrees[1],
+				setpoint_degrees[2]
+			);
         }
 		else if (param.get_name() == FLIGHT_MODE_PARAM) {
             uint8_t new_flight_mode = param.as_int();

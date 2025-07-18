@@ -32,4 +32,10 @@
           m: 2696.6
           b: -38.95
       mission:
-        setpoint_attitude_degrees: [30., 60., 169.]
+        sine_wave_trajectory: 
+          period: 5.
+
+          amplitude_degrees: 30.
+          activate_roll:  false
+          activate_pitch: false
+          activate_yaw:   true

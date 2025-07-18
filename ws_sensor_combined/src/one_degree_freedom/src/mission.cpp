@@ -16,7 +16,7 @@ using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::mission;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
-using namespace one_degree_freedom::constants::px4_ros2_flight_mode;
+using namespace one_degree_freedom::constants::flight_mode;
 
 /**
  * @brief PX4 ROS2 Communication Node is responsible for sending and receiving commands to and from the PX4. 

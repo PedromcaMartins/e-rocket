@@ -28,9 +28,9 @@ def generate_launch_description():
         ],
     )
 
-    px4_ros2_flight_mode_node = Node(
+    flight_mode_node = Node(
         package='one_degree_freedom',
-        executable='px4_ros2_flight_mode',
+        executable='flight_mode',
         output='screen',
         shell=True,
         arguments=['--ros-args', '--log-level', 'warn'],
@@ -54,6 +54,6 @@ def generate_launch_description():
     return LaunchDescription([
         #micro_ros_agent,
         controller_node,
-        px4_ros2_flight_mode_node,
+        flight_mode_node,
         mission_node,
     ])

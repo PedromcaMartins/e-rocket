@@ -58,7 +58,7 @@ namespace flight_mode
 
 } // namespace flight_mode
 
-namespace px4_ros2_flight_mode
+namespace flight_mode
 {
 
     constexpr float MANTAIN_OFFBOARD_MODE_TIMER_PERIOD_SECONDS = 0.1f; // 10 Hz
@@ -66,7 +66,7 @@ namespace px4_ros2_flight_mode
     //<! Parameters for the flight mode node
     constexpr char FLIGHT_MODE_PARAM[] = "offboard.flight_mode";
 
-} // namespace px4_ros2_flight_mode
+} // namespace flight_mode
 
 namespace mocap_forwarder
 {

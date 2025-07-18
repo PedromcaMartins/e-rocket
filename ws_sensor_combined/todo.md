@@ -25,8 +25,10 @@
 - [X] Removing inderect connection controller <-> px4 and controller <-> simulator
     - Transform message mappping to mocap forwarder
 - [X] Fix mocap implementation (including test)
-- [ ] Refactor Mission to interact directly with px4
+- [?] Refactor Mission to interact directly with px4
     - Remove flight mode
+    -> Not possible! Flight Mode needs to be a seperate node! 
+- [ ] Setpoint to attitude degrees
 - [ ] Add position setpoint
 - [ ] Add position controller
 

@@ -25,7 +25,7 @@ procs:
     stop: SIGINT
 
   Flight_Mode_Test:
-    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom px4_ros2_flight_mode_test.launch.py"
+    shell: /bin/bash -c "source /opt/ros/humble/setup.bash && source install/local_setup.bash && ros2 launch one_degree_freedom flight_mode_test.launch.py"
     autostart: false
     stop: SIGINT
 

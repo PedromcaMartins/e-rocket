@@ -89,16 +89,16 @@ target_include_directories(mission PUBLIC
 )
 install(TARGETS mission DESTINATION lib/${PROJECT_NAME})
 
-# px4_ros2_flight_mode
-add_executable(px4_ros2_flight_mode src/px4_ros2_flight_mode.cpp)
-ament_target_dependencies(px4_ros2_flight_mode rclcpp px4_msgs)
+# flight_mode
+add_executable(flight_mode src/flight_mode.cpp)
+ament_target_dependencies(flight_mode rclcpp px4_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(px4_ros2_flight_mode ${cpp_typesupport_target})
-target_include_directories(px4_ros2_flight_mode PUBLIC
+target_link_libraries(flight_mode ${cpp_typesupport_target})
+target_include_directories(flight_mode PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-install(TARGETS px4_ros2_flight_mode DESTINATION lib/${PROJECT_NAME})
+install(TARGETS flight_mode DESTINATION lib/${PROJECT_NAME})
 
 # mocap_forwarder
 add_executable(mocap_forwarder 
@@ -143,16 +143,16 @@ target_include_directories(mock_flight_mode PUBLIC
 )
 install(TARGETS mock_flight_mode DESTINATION lib/${PROJECT_NAME})
 
-# px4_ros2_flight_mode test node (for testing / development)
-add_executable(px4_ros2_flight_mode_test test/px4_ros2_communication/px4_ros2_flight_mode_test.cpp)
-ament_target_dependencies(px4_ros2_flight_mode_test rclcpp px4_msgs)
+# flight_mode test node (for testing / development)
+add_executable(flight_mode_test test/px4_ros2_communication/flight_mode_test.cpp)
+ament_target_dependencies(flight_mode_test rclcpp px4_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(px4_ros2_flight_mode_test ${cpp_typesupport_target})
-target_include_directories(px4_ros2_flight_mode_test PUBLIC
+target_link_libraries(flight_mode_test ${cpp_typesupport_target})
+target_include_directories(flight_mode_test PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-install(TARGETS px4_ros2_flight_mode_test DESTINATION lib/${PROJECT_NAME})
+install(TARGETS flight_mode_test DESTINATION lib/${PROJECT_NAME})
 
 # mocap_forwarder test node (for testing / development)
 add_executable(mocap_forwarder_test 

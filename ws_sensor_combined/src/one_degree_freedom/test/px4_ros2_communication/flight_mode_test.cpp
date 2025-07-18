@@ -12,7 +12,7 @@ using namespace std::chrono;
 using namespace std::chrono_literals;
 using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::flight_mode;
-using namespace one_degree_freedom::constants::px4_ros2_flight_mode;
+using namespace one_degree_freedom::constants::flight_mode;
 
 /**
  * @brief PX4 ROS2 Communication Node is responsible for sending and receiving commands to and from the PX4. 
@@ -21,7 +21,7 @@ class Px4Ros2FlightModeTest : public rclcpp::Node
 {
 public: 
     Px4Ros2FlightModeTest() : 
-		Node("px4_ros2_flight_mode_test"),
+		Node("flight_mode_test"),
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 		flight_mode_set_publisher_{this->create_publisher<one_degree_freedom::msg::FlightMode>(

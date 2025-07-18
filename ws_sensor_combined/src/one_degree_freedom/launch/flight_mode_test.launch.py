@@ -1,5 +1,5 @@
 """
-Example to launch a px4_ros2_flight_mode test node.
+Example to launch a flight_mode test node.
 """
 
 from launch import LaunchDescription
@@ -17,9 +17,9 @@ def generate_launch_description():
         shell=True
     )
 
-    px4_ros2_flight_mode_node = Node(
+    flight_mode_node = Node(
         package='one_degree_freedom',
-        executable='px4_ros2_flight_mode',
+        executable='flight_mode',
         output='screen',
         shell=True,
         parameters=[
@@ -28,9 +28,9 @@ def generate_launch_description():
         ],
     )
 
-    px4_ros2_flight_mode_test_node = Node(
+    flight_mode_test_node = Node(
         package='one_degree_freedom',
-        executable='px4_ros2_flight_mode_test',
+        executable='flight_mode_test',
         output='screen',
         shell=True,
         parameters=[
@@ -41,6 +41,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         #micro_ros_agent,
-        px4_ros2_flight_mode_node,
-        px4_ros2_flight_mode_test_node,
+        flight_mode_node,
+        flight_mode_test_node,
     ])

@@ -20,7 +20,7 @@ class MocapForwarderTest : public rclcpp::Node
 {
 public: 
     MocapForwarderTest() : 
-		Node("px4_ros2_flight_mode_test"),
+		Node("flight_mode_test"),
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
         mocap_publisher_{this->create_publisher<geometry_msgs::msg::PoseStamped>(

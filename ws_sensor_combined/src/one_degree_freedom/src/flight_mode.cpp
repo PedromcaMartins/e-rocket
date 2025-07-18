@@ -13,26 +13,25 @@
 
 using namespace std::chrono;
 using namespace std::chrono_literals;
-using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::flight_mode;
-using namespace one_degree_freedom::constants::px4_ros2_flight_mode;
+using namespace one_degree_freedom::constants::flight_mode;
 
 /**
  * @brief PX4 ROS2 Communication Node is responsible for sending and receiving commands to and from the PX4. 
  */
-class Px4Ros2FlightMode : public rclcpp::Node
+class FlightMode : public rclcpp::Node
 {
 public: 
-    Px4Ros2FlightMode() : 
-		Node("px4_ros2_flight_mode"),
-        flight_mode_current_{FlightMode::INIT},
-        flight_mode_requested_{FlightMode::INIT},
+    FlightMode() : 
+		Node("flight_mode"),
+        flight_mode_current_{one_degree_freedom::msg::FlightMode::INIT},
+        flight_mode_requested_{one_degree_freedom::msg::FlightMode::INIT},
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 		vehicle_command_client_{this->create_client<px4_msgs::srv::VehicleCommand>("/fmu/vehicle_command")},
 		flight_mode_set_subscriber_{this->create_subscription<one_degree_freedom::msg::FlightMode>(
 			FLIGHT_MODE_SET_TOPIC, qos_, 
-			std::bind(&Px4Ros2FlightMode::handle_flight_mode_set, this, std::placeholders::_1)
+			std::bind(&FlightMode::handle_flight_mode_set, this, std::placeholders::_1)
 		)},
 		flight_mode_get_publisher_{this->create_publisher<one_degree_freedom::msg::FlightMode>(
 			FLIGHT_MODE_GET_TOPIC, qos_
@@ -40,7 +39,7 @@ public:
 		offboard_control_mode_publisher_{this->create_publisher<px4_msgs::msg::OffboardControlMode>("/fmu/in/offboard_control_mode", 10)},
 		mantain_offboard_mode_timer_{this->create_wall_timer(
 			std::chrono::duration<float>(MANTAIN_OFFBOARD_MODE_TIMER_PERIOD_SECONDS),
-			std::bind(&Px4Ros2FlightMode::publish_offboard_control_mode, this)
+			std::bind(&FlightMode::publish_offboard_control_mode, this)
 		)},
 		vehicle_control_mode_publisher_{this->create_publisher<px4_msgs::msg::VehicleControlMode>("/fmu/in/vehicle_control_mode", 10)}
     {
@@ -91,32 +90,32 @@ private:
 
 };
 
-void Px4Ros2FlightMode::switch_to_offboard_mode() {
+void FlightMode::switch_to_offboard_mode() {
 	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 6);
 	RCLCPP_INFO(this->get_logger(), "Offboard mode command sent");
 }
 
-void Px4Ros2FlightMode::switch_to_manual_mode() {
+void FlightMode::switch_to_manual_mode() {
 	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1, 1);
 	RCLCPP_INFO(this->get_logger(), "Manual mode command sent");
 }
 
-void Px4Ros2FlightMode::arm() {
+void FlightMode::arm() {
 	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 1.0);
 	RCLCPP_INFO(this->get_logger(), "Arm command sent");
 }
 
-void Px4Ros2FlightMode::disarm() {
+void FlightMode::disarm() {
 	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_COMPONENT_ARM_DISARM, 0.0, 21196);
 	RCLCPP_INFO(this->get_logger(), "Disarm command sent");
 }
 
-void Px4Ros2FlightMode::terminate_flight() {
+void FlightMode::terminate_flight() {
 	send_vehicle_command_request(px4_msgs::msg::VehicleCommand::VEHICLE_CMD_DO_FLIGHTTERMINATION, 1);
 	RCLCPP_INFO(this->get_logger(), "Terminate Flight command sent");
 }
 
-void Px4Ros2FlightMode::handle_flight_mode_set(
+void FlightMode::handle_flight_mode_set(
 	const std::shared_ptr<one_degree_freedom::msg::FlightMode> flight_mode_set
 ) {
 	if (!vehicle_command_client_->wait_for_service(1s)) {
@@ -128,32 +127,36 @@ void Px4Ros2FlightMode::handle_flight_mode_set(
 	auto flight_mode_requested = flight_mode_set->flight_mode;
 	flight_mode_requested_.store(flight_mode_requested);
 
-	if (flight_mode_current == FlightMode::INIT && flight_mode_requested == FlightMode::PRE_ARM) {
+	if (flight_mode_current == one_degree_freedom::msg::FlightMode::INIT && 
+		flight_mode_requested == one_degree_freedom::msg::FlightMode::PRE_ARM) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to PRE_ARM");
 		switch_to_offboard_mode();
 	}
-	else if (flight_mode_current == FlightMode::PRE_ARM && flight_mode_requested == FlightMode::ARM) {
+	else if (flight_mode_current == one_degree_freedom::msg::FlightMode::PRE_ARM && 
+		flight_mode_requested == one_degree_freedom::msg::FlightMode::ARM) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to ARM");
 		arm();
 	}
-	else if (flight_mode_current == FlightMode::ARM && flight_mode_requested == FlightMode::IN_MISSION) {
+	else if (flight_mode_current == one_degree_freedom::msg::FlightMode::ARM && 
+		flight_mode_requested == one_degree_freedom::msg::FlightMode::IN_MISSION) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to IN_MISSION");
 
 		// no need to change PX4 internal state
 		publish_vehicle_control_mode();
-		flight_mode_current_.store(FlightMode::IN_MISSION);
+		flight_mode_current_.store(one_degree_freedom::msg::FlightMode::IN_MISSION);
 		publish_flight_mode();
 	}
-	else if (flight_mode_current == FlightMode::IN_MISSION && flight_mode_requested == FlightMode::MISSION_COMPLETE) {
+	else if (flight_mode_current == one_degree_freedom::msg::FlightMode::IN_MISSION && 
+		flight_mode_requested == one_degree_freedom::msg::FlightMode::MISSION_COMPLETE) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to MISSION_COMPLETE");
 		disarm();
 	}
-	else if (flight_mode_requested == FlightMode::ABORT) {
+	else if (flight_mode_requested == one_degree_freedom::msg::FlightMode::ABORT) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to ABORT");
 		terminate_flight();
 		switch_to_manual_mode();
 	}
-	else if (flight_mode_current == FlightMode::ABORT) {
+	else if (flight_mode_current == one_degree_freedom::msg::FlightMode::ABORT) {
 		rclcpp::shutdown();
 	}
 	else {
@@ -161,7 +164,7 @@ void Px4Ros2FlightMode::handle_flight_mode_set(
 	}
 }
 
-void Px4Ros2FlightMode::handle_vehicle_command_response(
+void FlightMode::handle_vehicle_command_response(
 	rclcpp::Client<px4_msgs::srv::VehicleCommand>::SharedFuture future
 ) {
 	auto vehicle_command_response = future.get();
@@ -179,7 +182,7 @@ void Px4Ros2FlightMode::handle_vehicle_command_response(
 	publish_flight_mode();
 }
 
-void Px4Ros2FlightMode::publish_flight_mode() {
+void FlightMode::publish_flight_mode() {
 	one_degree_freedom::msg::FlightMode msg {};
 
 	msg.flight_mode = flight_mode_current_.load();
@@ -188,7 +191,7 @@ void Px4Ros2FlightMode::publish_flight_mode() {
 	flight_mode_get_publisher_->publish(msg);
 }
 
-void Px4Ros2FlightMode::send_vehicle_command_request(
+void FlightMode::send_vehicle_command_request(
 	const uint16_t command, 
 	const float param1, 
 	const float param2
@@ -211,7 +214,7 @@ void Px4Ros2FlightMode::send_vehicle_command_request(
 	// Send the request asynchronously
 	vehicle_command_client_->async_send_request(
 		request, 
-		std::bind(&Px4Ros2FlightMode::handle_vehicle_command_response, this, std::placeholders::_1)
+		std::bind(&FlightMode::handle_vehicle_command_response, this, std::placeholders::_1)
 	);
 }
 
@@ -219,7 +222,7 @@ void Px4Ros2FlightMode::send_vehicle_command_request(
  * @brief Publish the offboard control mode.
  *        For this example, only direct actuator is active.
  */
-void Px4Ros2FlightMode::publish_offboard_control_mode()
+void FlightMode::publish_offboard_control_mode()
 {
 	px4_msgs::msg::OffboardControlMode msg{};
 	msg.position = false;
@@ -237,7 +240,7 @@ void Px4Ros2FlightMode::publish_offboard_control_mode()
  * @brief Publish the vehicle control mode.
  *        For this example, we are setting the vehicle to offboard mode.
  */
-void Px4Ros2FlightMode::publish_vehicle_control_mode()
+void FlightMode::publish_vehicle_control_mode()
 {
 	px4_msgs::msg::VehicleControlMode msg{};
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
@@ -271,7 +274,7 @@ int main(int argc, char *argv[])
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 
 	rclcpp::init(argc, argv);
-	rclcpp::spin(std::make_shared<Px4Ros2FlightMode>());
+	rclcpp::spin(std::make_shared<FlightMode>());
 
 	rclcpp::shutdown();
 	return 0;

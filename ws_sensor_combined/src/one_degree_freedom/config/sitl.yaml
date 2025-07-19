@@ -35,7 +35,12 @@
         sine_wave_trajectory: 
           period: 5.
 
-          amplitude_degrees: 30.
-          activate_roll:  false
-          activate_pitch: false
-          activate_yaw:   true
+          amplitude_attitude_degrees: 30.
+          activate_attitude_roll:  false
+          activate_attitude_pitch: false
+          activate_attitude_yaw:   false
+
+          amplitude_position_meters: 1.
+          activate_position_x: false
+          activate_position_y: false
+          activate_position_z: false

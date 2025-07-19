@@ -44,13 +44,13 @@ public:
                     servo_max_tilt_angle_degrees <= 0.0f || servo_max_tilt_angle_degrees > 90.0f ||
                     servo_max_tilt_angle_degrees == NAN || motor_max_pwm < 0.0f || motor_max_pwm > 1.0 || motor_max_pwm == NAN
                 ) {
-                    RCLCPP_ERROR(rclcpp::get_logger("Allocator"), "Invalid parameters for allocator.");
+                    RCLCPP_ERROR(rclcpp::get_logger("allocator"), "Invalid parameters for allocator.");
                     throw std::runtime_error("Allocator parameters invalid");
                 }
-                RCLCPP_INFO(rclcpp::get_logger("Allocator"), "Thrust curve: x * %f + %f", thrust_curve_m_, thrust_curve_b_);
-                RCLCPP_INFO(rclcpp::get_logger("Allocator"), "Gravitational acceleration: %f", g_);
-                RCLCPP_INFO(rclcpp::get_logger("Allocator"), "Servo max tilt angle degrees: %f", servo_max_tilt_angle_degrees_);
-                RCLCPP_INFO(rclcpp::get_logger("Allocator"), "Motor max pwm: %f", motor_max_pwm_);
+                RCLCPP_INFO(rclcpp::get_logger("allocator"), "Thrust curve: x * %f + %f", thrust_curve_m_, thrust_curve_b_);
+                RCLCPP_INFO(rclcpp::get_logger("allocator"), "Gravitational acceleration: %f", g_);
+                RCLCPP_INFO(rclcpp::get_logger("allocator"), "Servo max tilt angle degrees: %f", servo_max_tilt_angle_degrees_);
+                RCLCPP_INFO(rclcpp::get_logger("allocator"), "Motor max pwm: %f", motor_max_pwm_);
             }
 
     ServoAllocatorOutput compute_servo_allocation(
@@ -121,34 +121,35 @@ private:
 
 };
 
-class PIDController
+class AttitudePIDController
 {
 public:
     // updated asyncronously by the caller
-    std::atomic<double> measurement_;
-    std::atomic<double> measurement_derivative_;
+    std::atomic<double> angle_;
+    std::atomic<double> angular_rate;
     std::atomic<double> desired_setpoint_;
-    double computed_output_;
+    // computed by the controller
+    double tilt_angle_;
 
-    PIDController(double k_p, double k_d, double k_i, double dt)
-        : measurement_{0.0f}, measurement_derivative_{0.0f}, desired_setpoint_{0.0f}, computed_output_(0.0f), 
+    AttitudePIDController(double k_p, double k_d, double k_i, double dt)
+        : angle_{0.0f}, angular_rate{0.0f}, desired_setpoint_{0.0f}, tilt_angle_(0.0f), 
             k_p_(k_p), k_d_(k_d), k_i_(k_i), integrated_error_(0.0f), dt_(dt)
             {
                 // Safety check
                 if (k_p == NAN || k_d == NAN || k_i == NAN) {
-                    RCLCPP_ERROR(rclcpp::get_logger("PIDController"), "Invalid PID gains provided.");
+                    RCLCPP_ERROR(rclcpp::get_logger("attitude_pid_controller"), "Invalid PID gains provided.");
                     throw std::runtime_error("Gains vector invalid");
                 }
 
                 // Safety check
                 if (dt <= 0.0f || dt == NAN) {
-                    RCLCPP_ERROR(rclcpp::get_logger("PIDController"), "Invalid time step provided.");
+                    RCLCPP_ERROR(rclcpp::get_logger("attitude_pid_controller"), "Invalid time step provided.");
                     throw std::runtime_error("Time step invalid");
                 }
 
-                RCLCPP_INFO(rclcpp::get_logger("PIDController"), "gains k_p: %f", k_p);
-                RCLCPP_INFO(rclcpp::get_logger("PIDController"), "gains k_d: %f", k_d);
-                RCLCPP_INFO(rclcpp::get_logger("PIDController"), "gains k_i: %f", k_i);
+                RCLCPP_INFO(rclcpp::get_logger("attitude_pid_controller"), "gains k_p: %f", k_p);
+                RCLCPP_INFO(rclcpp::get_logger("attitude_pid_controller"), "gains k_d: %f", k_d);
+                RCLCPP_INFO(rclcpp::get_logger("attitude_pid_controller"), "gains k_i: %f", k_i);
             }
 
     /*
@@ -157,12 +158,12 @@ public:
     */
     double compute() {
         // Update the integrated error
-        integrated_error_ = integrated_error_ + (desired_setpoint_ - measurement_) * dt_; 
+        integrated_error_ = integrated_error_ + (desired_setpoint_ - angle_) * dt_; 
 
         // Compute control input
-        double dot_product = measurement_ * k_p_ + measurement_derivative_ * k_d_;
-        computed_output_ = -dot_product + integrated_error_ * k_i_;
-        return computed_output_;
+        double dot_product = angle_ * k_p_ + angular_rate * k_d_;
+        tilt_angle_ = -dot_product + integrated_error_ * k_i_;
+        return tilt_angle_;
     }
 
 private:
@@ -179,7 +180,7 @@ private:
 class BaselinePIDController : public rclcpp::Node
 {
 public:
-	explicit BaselinePIDController() : Node("controller_decoupled"),
+	explicit BaselinePIDController() : Node("baseline_pid_controller"),
     qos_profile_{rmw_qos_profile_sensor_data},
     qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 
@@ -189,21 +190,21 @@ public:
             auto q = Eigen::Quaterniond(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
             EulerAngle euler = quaternion_to_euler_radians(q);
         
-            if (roll_controller_) roll_controller_->measurement_.store(euler.roll);
-            if (pitch_controller_) pitch_controller_->measurement_.store(euler.pitch);
-            if (yaw_controller_) yaw_controller_->measurement_.store(euler.yaw);
+            if (roll_controller_) roll_controller_->angle_.store(euler.roll);
+            if (pitch_controller_) pitch_controller_->angle_.store(euler.pitch);
+            if (yaw_controller_) yaw_controller_->angle_.store(euler.yaw);
         }
     )},
     angular_rate_subscriber_{this->create_subscription<VehicleAngularVelocity>(
         CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_,
         [this](const VehicleAngularVelocity::SharedPtr msg) {
-            if (roll_controller_) roll_controller_->measurement_derivative_.store(msg->xyz[0]);
-            if (pitch_controller_) pitch_controller_->measurement_derivative_.store(msg->xyz[1]);
-            if (yaw_controller_) yaw_controller_->measurement_derivative_.store(msg->xyz[2]);
+            if (roll_controller_) roll_controller_->angular_rate.store(msg->xyz[0]);
+            if (pitch_controller_) pitch_controller_->angular_rate.store(msg->xyz[1]);
+            if (yaw_controller_) yaw_controller_->angular_rate.store(msg->xyz[2]);
         }
     )},
-    setpoint_attitude_subscriber_{this->create_subscription<Vector3Stamped>(
-        CONTROLLER_INPUT_SETPOINT_ATTITUDE_TOPIC, qos_,
+    attitude_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
+        CONTROLLER_INPUT_ATTITUDE_SETPOINT_TOPIC, qos_,
         [this](const Vector3Stamped::SharedPtr msg) {
             if (msg->vector.x == NAN || msg->vector.y == NAN || msg->vector.z == NAN) {
                 RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
@@ -219,6 +220,18 @@ public:
             if (roll_controller_) roll_controller_->desired_setpoint_.store(msg->vector.x);
             if (pitch_controller_) pitch_controller_->desired_setpoint_.store(msg->vector.y);
             if (yaw_controller_) yaw_controller_->desired_setpoint_.store(msg->vector.z);
+        }
+    )},
+    position_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
+        CONTROLLER_INPUT_POSITION_SETPOINT_TOPIC, qos_,
+        [this](const Vector3Stamped::SharedPtr msg) {
+            if (msg->vector.x == NAN || msg->vector.y == NAN || msg->vector.z == NAN) {
+                RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
+                return;
+            }
+
+            RCLCPP_INFO(this->get_logger(), "Received position setpoint: x: %f, y: %f, z: %f",
+                msg->vector.x, msg->vector.y, msg->vector.z);
         }
     )},
     servo_tilt_angle_publisher_{this->create_publisher<ActuatorServos>(
@@ -278,7 +291,7 @@ public:
 
         this->declare_parameter<bool>(CONTROLLER_ROLL_ACTIVE_PARAM);
         if (this->get_parameter(CONTROLLER_ROLL_ACTIVE_PARAM).as_bool()) {
-            RCLCPP_INFO(this->get_logger(), "Roll is active");
+            RCLCPP_INFO(this->get_logger(), "Roll Controller is active");
             this->declare_parameter<double>(CONTROLLER_ROLL_K_P_PARAM);
             this->declare_parameter<double>(CONTROLLER_ROLL_K_D_PARAM);
             this->declare_parameter<double>(CONTROLLER_ROLL_K_I_PARAM);
@@ -289,14 +302,14 @@ public:
 
             roll_controller_.emplace(k_p, k_d, k_i, controllers_dt);
         } else {
-            RCLCPP_INFO(this->get_logger(), "Roll is not active");
+            RCLCPP_INFO(this->get_logger(), "Roll Controller is not active");
             roll_controller_ = std::nullopt;
         }
 
 
         this->declare_parameter<bool>(CONTROLLER_PITCH_ACTIVE_PARAM);
         if (this->get_parameter(CONTROLLER_PITCH_ACTIVE_PARAM).as_bool()) {
-            RCLCPP_INFO(this->get_logger(), "Pitch is active");
+            RCLCPP_INFO(this->get_logger(), "Pitch Controller is active");
             this->declare_parameter<double>(CONTROLLER_PITCH_K_P_PARAM);
             this->declare_parameter<double>(CONTROLLER_PITCH_K_D_PARAM);
             this->declare_parameter<double>(CONTROLLER_PITCH_K_I_PARAM);
@@ -307,14 +320,14 @@ public:
 
             pitch_controller_.emplace(k_p, k_d, k_i, controllers_dt);
         } else {
-            RCLCPP_INFO(this->get_logger(), "Pitch is not active");
+            RCLCPP_INFO(this->get_logger(), "Pitch Controller is not active");
             pitch_controller_ = std::nullopt;
         }
 
 
         this->declare_parameter<bool>(CONTROLLER_YAW_ACTIVE_PARAM);
         if (this->get_parameter(CONTROLLER_YAW_ACTIVE_PARAM).as_bool()) {
-            RCLCPP_INFO(this->get_logger(), "Yaw is active");
+            RCLCPP_INFO(this->get_logger(), "Yaw Controller is active");
             this->declare_parameter<double>(CONTROLLER_YAW_K_P_PARAM);
             this->declare_parameter<double>(CONTROLLER_YAW_K_D_PARAM);
             this->declare_parameter<double>(CONTROLLER_YAW_K_I_PARAM);
@@ -325,7 +338,7 @@ public:
 
             yaw_controller_.emplace(k_p, k_d, k_i, controllers_dt);
         } else {
-            RCLCPP_INFO(this->get_logger(), "Yaw is not active");
+            RCLCPP_INFO(this->get_logger(), "Yaw Controller is not active");
             yaw_controller_ = std::nullopt;
         }
 
@@ -346,7 +359,8 @@ private:
 	//!< Publishers and Subscribers
 	rclcpp::Subscription<VehicleAttitude>::SharedPtr        attitude_subscriber_;
 	rclcpp::Subscription<VehicleAngularVelocity>::SharedPtr angular_rate_subscriber_;
-	rclcpp::Subscription<Vector3Stamped>::SharedPtr         setpoint_attitude_subscriber_;
+	rclcpp::Subscription<Vector3Stamped>::SharedPtr         attitude_setpoint_subscriber_;
+	rclcpp::Subscription<Vector3Stamped>::SharedPtr         position_setpoint_subscriber_;
 	rclcpp::Publisher<ActuatorServos>::SharedPtr    servo_tilt_angle_publisher_;
     rclcpp::Publisher<ActuatorMotors>::SharedPtr    motor_thrust_publisher_;
 
@@ -354,9 +368,9 @@ private:
     rclcpp::Publisher<AllocatorDebug>::SharedPtr  allocator_debug_publisher_;
 
     // radians, radians per second
-    std::optional<PIDController> roll_controller_;
-    std::optional<PIDController> pitch_controller_;
-    std::optional<PIDController> yaw_controller_;
+    std::optional<AttitudePIDController> roll_controller_;
+    std::optional<AttitudePIDController> pitch_controller_;
+    std::optional<AttitudePIDController> yaw_controller_;
 
     std::unique_ptr<Allocator> allocator_;
 
@@ -439,24 +453,24 @@ void BaselinePIDController::publish_controller_debug() {
     ControllerDebug msg{};
 
     if (roll_controller_) {
-        msg.roll_angle = radians_to_degrees(roll_controller_->measurement_);
-        msg.roll_angular_velocity = radians_to_degrees(roll_controller_->measurement_derivative_);
+        msg.roll_angle = radians_to_degrees(roll_controller_->angle_);
+        msg.roll_angular_velocity = radians_to_degrees(roll_controller_->angular_rate);
         msg.roll_angle_setpoint = radians_to_degrees(roll_controller_->desired_setpoint_);
-        msg.roll_inner_servo_tilt_angle = radians_to_degrees(roll_controller_->computed_output_);
+        msg.roll_inner_servo_tilt_angle = radians_to_degrees(roll_controller_->tilt_angle_);
     }
 
     if (pitch_controller_) {
-        msg.pitch_angle = radians_to_degrees(pitch_controller_->measurement_);
-        msg.pitch_angular_velocity = radians_to_degrees(pitch_controller_->measurement_derivative_);
+        msg.pitch_angle = radians_to_degrees(pitch_controller_->angle_);
+        msg.pitch_angular_velocity = radians_to_degrees(pitch_controller_->angular_rate);
         msg.pitch_angle_setpoint = radians_to_degrees(pitch_controller_->desired_setpoint_);
-        msg.pitch_outer_servo_tilt_angle = radians_to_degrees(pitch_controller_->computed_output_);
+        msg.pitch_outer_servo_tilt_angle = radians_to_degrees(pitch_controller_->tilt_angle_);
     }
 
     if (yaw_controller_) {
-        msg.yaw_angle = radians_to_degrees(yaw_controller_->measurement_);
-        msg.yaw_angular_velocity = radians_to_degrees(yaw_controller_->measurement_derivative_);
+        msg.yaw_angle = radians_to_degrees(yaw_controller_->angle_);
+        msg.yaw_angular_velocity = radians_to_degrees(yaw_controller_->angular_rate);
         msg.yaw_angle_setpoint = radians_to_degrees(yaw_controller_->desired_setpoint_);
-        msg.yaw_delta_motor_pwm = radians_to_degrees(yaw_controller_->computed_output_);
+        msg.yaw_delta_motor_pwm = radians_to_degrees(yaw_controller_->tilt_angle_);
     }
 
     msg.stamp = this->get_clock()->now();
@@ -514,7 +528,7 @@ void BaselinePIDController::publish_motor_pwm(const double upwards_motor_pwm, co
 
 int main(int argc, char *argv[])
 {
-	std::cout << "Starting offboard controller decoupled node..." << std::endl;
+	std::cout << "Starting offboard baseline pid controller node..." << std::endl;
 	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 	rclcpp::init(argc, argv);
 	rclcpp::spin(std::make_shared<BaselinePIDController>());

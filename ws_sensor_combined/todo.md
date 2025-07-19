@@ -30,7 +30,7 @@
     -> Not possible! Flight Mode needs to be a seperate node! 
 - [X] Setpoint to attitude degrees
 - [X] Sin wave trajectory for attitude
-- [ ] Add position setpoint
+- [X] Add position setpoint
 - [ ] Add position controller
 
 - [ ] Testing RC killswitch

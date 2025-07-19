@@ -78,15 +78,23 @@ namespace mocap_forwarder
 namespace setpoint
 {
 
-    constexpr char CONTROLLER_INPUT_SETPOINT_ATTITUDE_TOPIC[] = "offboard/setpoint_attitude_degrees";
-    constexpr char MISSION_SETPOINT_ATTITUDE_PARAM[] = "offboard.mission.setpoint_attitude.degrees";
+    constexpr char CONTROLLER_INPUT_ATTITUDE_SETPOINT_TOPIC[] = "offboard/attitude_setpoint_degrees";
+    constexpr char MISSION_ATTITUDE_SETPOINT_PARAM[] = "offboard.mission.attitude_setpoint.degrees";
+
+    constexpr char CONTROLLER_INPUT_POSITION_SETPOINT_TOPIC[] = "offboard/position_setpoint_meters";
+    constexpr char MISSION_POSITION_SETPOINT_PARAM[] = "offboard.mission.position_setpoint.meters";
 
     constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_PERIOD_PARAM[]   = "offboard.mission.sine_wave_trajectory.period";
-    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_AMPLITUDE_DEGREES_PARAM[]   = "offboard.mission.sine_wave_trajectory.amplitude_degrees";
 
-    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ROLL_PARAM[]  = "offboard.mission.sine_wave_trajectory.activate_roll";
-    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_PITCH_PARAM[] = "offboard.mission.sine_wave_trajectory.activate_pitch";
-    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_YAW_PARAM[]   = "offboard.mission.sine_wave_trajectory.activate_yaw";
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_AMPLITUDE_ATTITUDE_DEGREES_PARAM[]   = "offboard.mission.sine_wave_trajectory.amplitude_attitude_degrees";
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ATTITUDE_ROLL_PARAM[]  = "offboard.mission.sine_wave_trajectory.activate_attitude_roll";
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ATTITUDE_PITCH_PARAM[] = "offboard.mission.sine_wave_trajectory.activate_attitude_pitch";
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ATTITUDE_YAW_PARAM[]   = "offboard.mission.sine_wave_trajectory.activate_attitude_yaw";
+
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_AMPLITUDE_POSITION_METERS_PARAM[]   = "offboard.mission.sine_wave_trajectory.amplitude_position_meters";
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_POSITION_X_PARAM[] = "offboard.mission.sine_wave_trajectory.activate_position_x";
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_POSITION_Y_PARAM[] = "offboard.mission.sine_wave_trajectory.activate_position_y";
+    constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_POSITION_Z_PARAM[] = "offboard.mission.sine_wave_trajectory.activate_position_z";
 
 } // namespace setpoint
 

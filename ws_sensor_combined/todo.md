@@ -31,7 +31,7 @@
 - [X] Setpoint to attitude degrees
 - [X] Sin wave trajectory for attitude
 - [X] Add position setpoint
-- [ ] Add position controller
+- [X] Add position controller
 
 - [ ] Testing RC killswitch
 - [ ] Build connector PX4 TELEM1 <-> RPI UART header

@@ -1,9 +1,11 @@
 #include <rclcpp/rclcpp.hpp>
 #include <px4_msgs/msg/vehicle_attitude.hpp>
 #include <px4_msgs/msg/vehicle_angular_velocity.hpp>
+#include <px4_msgs/msg/vehicle_local_position.hpp>
 #include <px4_msgs/msg/actuator_servos.hpp>
 #include <px4_msgs/msg/actuator_motors.hpp>
-#include <one_degree_freedom/msg/controller_debug.hpp>
+#include <one_degree_freedom/msg/attitude_controller_debug.hpp>
+#include <one_degree_freedom/msg/position_controller_debug.hpp>
 #include <one_degree_freedom/msg/allocator_debug.hpp>
 #include <one_degree_freedom/msg/flight_mode.hpp>
 #include <one_degree_freedom/constants.hpp>
@@ -174,6 +176,154 @@ private:
     const double dt_;
 };
 
+class PositionPIDController
+{
+public:
+    // updated asyncronously by the caller
+    std::array<std::atomic<double>, 3> position_;
+    std::array<std::atomic<double>, 3> position_setpoint_;
+    std::array<std::atomic<double>, 3> velocity_;
+    std::array<std::atomic<double>, 3> velocity_setpoint_;
+    std::array<std::atomic<double>, 3> acceleration_;
+    std::array<std::atomic<double>, 3> acceleration_setpoint_;
+    std::atomic<double> yaw_angle_setpoint_;
+    // computed by the controller
+    Eigen::Vector3d desired_acceleration_;
+    Eigen::Vector3d desired_attitude_;
+    double desired_thrust_;
+
+    PositionPIDController(
+        double mass, 
+        double g, 
+        const Eigen::Vector3d & k_p, 
+        const Eigen::Vector3d & k_d, 
+        const Eigen::Vector3d & k_i,
+        const Eigen::Vector3d & kff,
+        const Eigen::Vector3d & min_output,
+        const Eigen::Vector3d & max_output,
+        double dt
+    )   : mass_(mass), g_(g), k_p_(k_p), k_d_(k_d), k_i_(k_i), kff_(kff),
+            min_output_(min_output), max_output_(max_output), dt_(dt)
+            {
+                if (mass <= 0.0f || mass == NAN) {
+                    RCLCPP_ERROR(rclcpp::get_logger("position_pid_controller"), "Invalid mass provided.");
+                    throw std::runtime_error("Mass invalid");
+                }
+
+                if (k_p.size() != 3 || k_d.size() != 3 || k_i.size() != 3 || kff.size() != 3 || 
+                    min_output.size() != 3 || max_output.size() != 3 || 
+                    k_p[0] == NAN || k_p[1] == NAN || k_p[2] == NAN ||
+                    k_d[0] == NAN || k_d[1] == NAN || k_d[2] == NAN ||
+                    k_i[0] == NAN || k_i[1] == NAN || k_i[2] == NAN ||
+                    kff[0] == NAN || kff[1] == NAN || kff[2] == NAN ||
+                    min_output[0] == NAN || min_output[1] == NAN || min_output[2] == NAN ||
+                    max_output[0] == NAN || max_output[1] == NAN || max_output[2] == NAN
+                ) {
+                    RCLCPP_ERROR(rclcpp::get_logger("position_pid_controller"), "Invalid PID gains provided.");
+                    throw std::runtime_error("Gains vector invalid");
+                }
+
+                if (dt <= 0.0f || dt == NAN) {
+                    RCLCPP_ERROR(rclcpp::get_logger("position_pid_controller"), "Invalid time step provided.");
+                    throw std::runtime_error("Time step invalid");
+                }
+
+                RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "mass: %f", mass_);
+                RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "controller dt: %f", dt_);
+
+                RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "gains k_p: [%f, %f, %f]", k_p[0], k_p[1], k_p[2]);
+                RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "gains k_d: [%f, %f, %f]", k_d[0], k_d[1], k_d[2]);
+                RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "gains k_i: [%f, %f, %f]", k_i[0], k_i[1], k_i[2]);
+
+                RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "gains kff: [%f, %f, %f]", kff[0], kff[1], kff[2]);
+                RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "min output: [%f, %f, %f]", min_output[0], min_output[1], min_output[2]);
+                RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "max output: [%f, %f, %f]", max_output[0], max_output[1], max_output[2]);
+
+                for (auto& val : position_) val.store(0.0f);
+                for (auto& val : position_setpoint_) val.store(0.0f);
+                for (auto& val : velocity_) val.store(0.0f);
+                for (auto& val : velocity_setpoint_) val.store(0.0f);
+                for (auto& val : acceleration_) val.store(0.0f);
+                for (auto& val : acceleration_setpoint_) val.store(0.0f);
+
+                yaw_angle_setpoint_ = 0.0f;
+                desired_acceleration_.fill(0.0f);
+                desired_attitude_.fill(0.0f);
+                desired_thrust_ = 0.0f;
+
+                error_i_.fill(0.0f);
+            }
+
+    void compute() {
+        Eigen::Vector3d position, position_setpoint, velocity, velocity_setpoint, feed_forward_ref;
+        for (size_t i = 0; i < 3; ++i) {
+            position[i]          = position_[i];
+            position_setpoint[i] = position_setpoint_[i];
+            velocity[i]          = velocity_[i];
+            velocity_setpoint[i] = velocity_setpoint_[i];
+            feed_forward_ref[i]  = acceleration_setpoint_[i];
+        }
+
+        // Compute the position error and velocity error using the path desired position and velocity
+        Eigen::Vector3d error_p = position_setpoint - position;
+        Eigen::Vector3d error_d = velocity_setpoint - velocity;
+
+        // Compute the desired control output acceleration for each controller
+        // Compute the integral term (using euler integration) - TODO: improve the integration part
+        error_i_ += k_i_.cwiseProduct(error_p * dt_);
+
+        // // Compute the PID terms
+        Eigen::Vector3d p_term = k_p_.cwiseProduct(error_p);
+        Eigen::Vector3d d_term = k_d_.cwiseProduct(error_d);
+        Eigen::Vector3d i_term = error_i_;
+        Eigen::Vector3d ff_term = kff_.cwiseProduct(feed_forward_ref);
+
+        // // Compute the output and saturate it
+        Eigen::Vector3d output = p_term + d_term + i_term + ff_term;
+        for (size_t i = 0; i < 3; ++i) {
+            desired_acceleration_[i] = std::max(min_output_[i], std::min(output[i], max_output_[i]));
+        }
+        desired_acceleration_[2] -= g_;
+
+        double yaw = yaw_angle_setpoint_;
+        Eigen::Matrix3d RzT;
+        Eigen::Vector3d r3d;
+
+        /* Compute the normalized thrust and r3d vector */
+        desired_thrust_ = mass_ * desired_acceleration_.norm();
+
+        /* Compute the rotation matrix about the Z-axis */
+        RzT << cos(yaw), sin(yaw), 0.0,
+            -sin(yaw), cos(yaw), 0.0,
+                    0.0,      0.0, 1.0;
+
+        /* Compute the normalized rotation */
+        r3d = -RzT * desired_acceleration_ / desired_acceleration_.norm();
+
+        /* Compute the actual attitude and setup the desired thrust to apply to the vehicle */
+        desired_attitude_ << asin(-r3d[1]), atan2(r3d[0], r3d[2]), yaw;
+        RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), 
+            "Desired attitude: [%f, %f, %f], desired thrust: %f", 
+            radians_to_degrees(desired_attitude_[0]), 
+            radians_to_degrees(desired_attitude_[1]), 
+            radians_to_degrees(desired_attitude_[2]), 
+            desired_thrust_
+        );
+    }
+
+private: 
+    double mass_;
+    double g_;
+    Eigen::Vector3d k_p_;
+    Eigen::Vector3d k_d_;
+    Eigen::Vector3d k_i_;
+    Eigen::Vector3d kff_;
+    Eigen::Vector3d min_output_;
+    Eigen::Vector3d max_output_;
+    Eigen::Vector3d error_i_;
+    const double dt_;
+};
+
 /**
  * @brief Node that runs the controller for a 1-degree-of-freedom system
  */
@@ -203,6 +353,24 @@ public:
             if (yaw_controller_) yaw_controller_->angular_rate.store(msg->xyz[2]);
         }
     )},
+    local_position_subscriber_{this->create_subscription<VehicleLocalPosition>(
+        CONTROLLER_INPUT_LOCAL_POSITION_TOPIC, qos_,
+        [this](const VehicleLocalPosition::SharedPtr msg) {
+            if (position_controller_) {
+                position_controller_->position_[0].store(msg->x);
+                position_controller_->position_[1].store(msg->y);
+                position_controller_->position_[2].store(msg->z);
+
+                position_controller_->velocity_[0].store(msg->vx);
+                position_controller_->velocity_[1].store(msg->vy);
+                position_controller_->velocity_[2].store(msg->vz);
+
+                position_controller_->acceleration_[0].store(msg->ax);
+                position_controller_->acceleration_[1].store(msg->ay);
+                position_controller_->acceleration_[2].store(msg->az);
+            }
+        }
+    )},
     attitude_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
         CONTROLLER_INPUT_ATTITUDE_SETPOINT_TOPIC, qos_,
         [this](const Vector3Stamped::SharedPtr msg) {
@@ -220,6 +388,7 @@ public:
             if (roll_controller_) roll_controller_->desired_setpoint_.store(msg->vector.x);
             if (pitch_controller_) pitch_controller_->desired_setpoint_.store(msg->vector.y);
             if (yaw_controller_) yaw_controller_->desired_setpoint_.store(msg->vector.z);
+            if (position_controller_) position_controller_->yaw_angle_setpoint_.store(msg->vector.z);
         }
     )},
     position_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
@@ -230,8 +399,11 @@ public:
                 return;
             }
 
-            RCLCPP_INFO(this->get_logger(), "Received position setpoint: x: %f, y: %f, z: %f",
-                msg->vector.x, msg->vector.y, msg->vector.z);
+            if (position_controller_) {
+                position_controller_->position_setpoint_[0].store(msg->vector.x);
+                position_controller_->position_setpoint_[1].store(msg->vector.y);
+                position_controller_->position_setpoint_[2].store(msg->vector.z);
+            } 
         }
     )},
     servo_tilt_angle_publisher_{this->create_publisher<ActuatorServos>(
@@ -240,8 +412,11 @@ public:
     motor_thrust_publisher_{this->create_publisher<ActuatorMotors>(
         CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC, qos_
     )},
-    controller_debug_publisher_{this->create_publisher<ControllerDebug>(
-        CONTROLLER_DEBUG_TOPIC, qos_
+    attitude_controller_debug_publisher_{this->create_publisher<AttitudeControllerDebug>(
+        CONTROLLER_ATTITUDE_DEBUG_TOPIC, qos_
+    )},
+    position_controller_debug_publisher_{this->create_publisher<PositionControllerDebug>(
+        CONTROLLER_POSITION_DEBUG_TOPIC, qos_
     )},
     allocator_debug_publisher_{this->create_publisher<AllocatorDebug>(
         ALLOCATOR_DEBUG_TOPIC, qos_
@@ -255,6 +430,11 @@ public:
         }
     )}
     {
+        this->declare_parameter<double>(GRAVITATIONAL_ACCELERATION);
+        this->declare_parameter<double>(MASS_OF_SYSTEM);
+        double g = this->get_parameter(GRAVITATIONAL_ACCELERATION).as_double();
+        double mass = this->get_parameter(MASS_OF_SYSTEM).as_double();
+
         this->declare_parameter<double>(CONTROLLER_FREQUENCY_HERTZ_PARAM);
         double controllers_freq = this->get_parameter(CONTROLLER_FREQUENCY_HERTZ_PARAM).as_double();
         if (controllers_freq <= 0.0f || controllers_freq == NAN) {
@@ -273,14 +453,12 @@ public:
         RCLCPP_INFO(this->get_logger(), "Default motor thrust pwm: %f", default_motor_pwm_);
 
 
-        this->declare_parameter<double>(GRAVITATIONAL_ACCELERATION);
         this->declare_parameter<double>(CONTROLLER_THRUST_CURVE_M_PARAM);
         this->declare_parameter<double>(CONTROLLER_THRUST_CURVE_B_PARAM);
         this->declare_parameter<double>(CONTROLLER_SERVO_MAX_TILT_ANGLE_PARAM);
         this->declare_parameter<double>(CONTROLLER_MOTOR_MAX_PWM_PARAM);
         double thrust_curve_m = this->get_parameter(CONTROLLER_THRUST_CURVE_M_PARAM).as_double();
         double thrust_curve_b = this->get_parameter(CONTROLLER_THRUST_CURVE_B_PARAM).as_double();
-        double g               = this->get_parameter(GRAVITATIONAL_ACCELERATION).as_double();
         double servo_max_tilt_angle_degrees = this->get_parameter(CONTROLLER_SERVO_MAX_TILT_ANGLE_PARAM).as_double();
         double motor_max_pwm   = this->get_parameter(CONTROLLER_MOTOR_MAX_PWM_PARAM).as_double();
 
@@ -343,6 +521,38 @@ public:
         }
 
 
+        this->declare_parameter<bool>(CONTROLLER_POSITION_ACTIVE_PARAM);
+        if (this->get_parameter(CONTROLLER_POSITION_ACTIVE_PARAM).as_bool()) {
+            RCLCPP_INFO(this->get_logger(), "Position Controller is active");
+            this->declare_parameter<std::vector<double>>(CONTROLLER_POSITION_K_P_PARAM);
+            this->declare_parameter<std::vector<double>>(CONTROLLER_POSITION_K_D_PARAM);
+            this->declare_parameter<std::vector<double>>(CONTROLLER_POSITION_K_I_PARAM);
+            this->declare_parameter<std::vector<double>>(CONTROLLER_POSITION_MIN_OUTPUT_PARAM);
+            this->declare_parameter<std::vector<double>>(CONTROLLER_POSITION_MAX_OUTPUT_PARAM);
+
+            std::vector<double> k_p = this->get_parameter(CONTROLLER_POSITION_K_P_PARAM).as_double_array();
+            std::vector<double> k_d = this->get_parameter(CONTROLLER_POSITION_K_D_PARAM).as_double_array();
+            std::vector<double> k_i = this->get_parameter(CONTROLLER_POSITION_K_I_PARAM).as_double_array();
+            std::vector<double> min_output = this->get_parameter(CONTROLLER_POSITION_MIN_OUTPUT_PARAM).as_double_array();
+            std::vector<double> max_output = this->get_parameter(CONTROLLER_POSITION_MAX_OUTPUT_PARAM).as_double_array();
+
+            position_controller_.emplace(
+                mass, 
+                g,
+                Eigen::Vector3d {k_p[0], k_p[1], k_p[2]}, 
+                Eigen::Vector3d {k_d[0], k_d[1], k_d[2]}, 
+                Eigen::Vector3d {k_i[0], k_i[1], k_i[2]},
+                Eigen::Vector3d { 1.0f,   1.0f,   1.0f}, // No feedforward for position controller
+                Eigen::Vector3d {min_output[0], min_output[1], min_output[2]},
+                Eigen::Vector3d {max_output[0], max_output[1], max_output[2]},
+                controllers_dt
+            );
+        } else {
+            RCLCPP_INFO(this->get_logger(), "Position Controller is not active");
+            position_controller_ = std::nullopt;
+        }
+
+
         controller_timer_ = this->create_wall_timer(
             std::chrono::duration<double>(controllers_dt), 
             std::bind(&BaselinePIDController::controller_callback, this)
@@ -359,12 +569,14 @@ private:
 	//!< Publishers and Subscribers
 	rclcpp::Subscription<VehicleAttitude>::SharedPtr        attitude_subscriber_;
 	rclcpp::Subscription<VehicleAngularVelocity>::SharedPtr angular_rate_subscriber_;
+    rclcpp::Subscription<VehicleLocalPosition>::SharedPtr   local_position_subscriber_;
 	rclcpp::Subscription<Vector3Stamped>::SharedPtr         attitude_setpoint_subscriber_;
 	rclcpp::Subscription<Vector3Stamped>::SharedPtr         position_setpoint_subscriber_;
 	rclcpp::Publisher<ActuatorServos>::SharedPtr    servo_tilt_angle_publisher_;
     rclcpp::Publisher<ActuatorMotors>::SharedPtr    motor_thrust_publisher_;
 
-    rclcpp::Publisher<ControllerDebug>::SharedPtr controller_debug_publisher_;
+    rclcpp::Publisher<AttitudeControllerDebug>::SharedPtr attitude_controller_debug_publisher_;
+    rclcpp::Publisher<PositionControllerDebug>::SharedPtr position_controller_debug_publisher_;
     rclcpp::Publisher<AllocatorDebug>::SharedPtr  allocator_debug_publisher_;
 
     // radians, radians per second
@@ -374,11 +586,13 @@ private:
 
     std::unique_ptr<Allocator> allocator_;
 
+    std::optional<PositionPIDController> position_controller_;
+
     double default_motor_pwm_;
 
 	//!< Auxiliary functions
     void controller_callback();
-    void publish_controller_debug();
+    void publish_attitude_controller_debug();
     void publish_allocator_debug(
         const double inner_servo_tilt_angle_radians,
         const double outer_servo_tilt_angle_radians,
@@ -390,6 +604,7 @@ private:
         const double upwards_motor_pwm,
         const double downwards_motor_pwm
     );
+    void publish_position_controller_debug();
 
     void publish_servo_pwm(const double inner_servo_pwm, const double outer_servo_pwm);
     void publish_motor_pwm(const double upwards_motor_pwm, const double downwards_motor_pwm);
@@ -406,10 +621,22 @@ void BaselinePIDController::controller_callback()
 {
     // only run controller when in mission
     if (flight_mode_.load() == FlightMode::IN_MISSION) {
+        double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(default_motor_pwm_);
+
+        if (position_controller_) {
+            position_controller_->compute();
+            if (roll_controller_) roll_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[0]);
+            if (pitch_controller_) pitch_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[1]);
+            if (yaw_controller_) yaw_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[2]);
+
+            average_motor_thrust_newtons = position_controller_->desired_thrust_;
+
+            publish_position_controller_debug();
+        }
+
         double inner_servo_tilt_angle_radians = (roll_controller_)  ? roll_controller_->compute() : 0.0f;
         double outer_servo_tilt_angle_radians = (pitch_controller_) ? pitch_controller_->compute() : 0.0f;
         double delta_motor_pwm = (yaw_controller_) ? yaw_controller_->compute() : 0.0f;
-        double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(default_motor_pwm_);
 
         Allocator::ServoAllocatorOutput servo_output = allocator_->compute_servo_allocation(
             inner_servo_tilt_angle_radians,
@@ -434,7 +661,7 @@ void BaselinePIDController::controller_callback()
         );
 
         // Publish the controller debug information
-        publish_controller_debug();
+        publish_attitude_controller_debug();
         publish_allocator_debug(
             inner_servo_tilt_angle_radians,
             outer_servo_tilt_angle_radians,
@@ -449,8 +676,8 @@ void BaselinePIDController::controller_callback()
     }
 }
 
-void BaselinePIDController::publish_controller_debug() {
-    ControllerDebug msg{};
+void BaselinePIDController::publish_attitude_controller_debug() {
+    AttitudeControllerDebug msg{};
 
     if (roll_controller_) {
         msg.roll_angle = radians_to_degrees(roll_controller_->angle_);
@@ -474,7 +701,7 @@ void BaselinePIDController::publish_controller_debug() {
     }
 
     msg.stamp = this->get_clock()->now();
-    controller_debug_publisher_->publish(msg);
+    attitude_controller_debug_publisher_->publish(msg);
 }
 
 void BaselinePIDController::publish_allocator_debug(
@@ -502,6 +729,44 @@ void BaselinePIDController::publish_allocator_debug(
     msg.motor_downwards_pwm = downwards_motor_pwm;
 
     allocator_debug_publisher_->publish(msg);
+}
+
+void BaselinePIDController::publish_position_controller_debug() {
+    PositionControllerDebug msg{};
+
+    msg.position[0] = position_controller_->position_[0];
+    msg.position[1] = position_controller_->position_[1];
+    msg.position[2] = position_controller_->position_[2];
+    msg.position_setpoint[0] = position_controller_->position_setpoint_[0];
+    msg.position_setpoint[1] = position_controller_->position_setpoint_[1];
+    msg.position_setpoint[2] = position_controller_->position_setpoint_[2];
+
+    msg.velocity[0] = position_controller_->velocity_[0];
+    msg.velocity[1] = position_controller_->velocity_[1];
+    msg.velocity[2] = position_controller_->velocity_[2];
+    msg.velocity_setpoint[0] = position_controller_->velocity_setpoint_[0];
+    msg.velocity_setpoint[1] = position_controller_->velocity_setpoint_[1];
+    msg.velocity_setpoint[2] = position_controller_->velocity_setpoint_[2];
+
+    msg.acceleration[0] = position_controller_->acceleration_[0];
+    msg.acceleration[1] = position_controller_->acceleration_[1];
+    msg.acceleration[2] = position_controller_->acceleration_[2];
+    msg.acceleration_setpoint[0] = position_controller_->acceleration_setpoint_[0];
+    msg.acceleration_setpoint[1] = position_controller_->acceleration_setpoint_[1];
+    msg.acceleration_setpoint[2] = position_controller_->acceleration_setpoint_[2];
+
+    msg.yaw_angle_setpoint = radians_to_degrees(position_controller_->yaw_angle_setpoint_);
+
+    msg.desired_acceleration[0] = position_controller_->desired_acceleration_[0];
+    msg.desired_acceleration[1] = position_controller_->desired_acceleration_[1];
+    msg.desired_acceleration[2] = position_controller_->desired_acceleration_[2];
+    msg.desired_attitude[0] = radians_to_degrees(position_controller_->desired_attitude_[0]);
+    msg.desired_attitude[1] = radians_to_degrees(position_controller_->desired_attitude_[1]);
+    msg.desired_attitude[2] = radians_to_degrees(position_controller_->desired_attitude_[2]);
+    msg.desired_thrust = position_controller_->desired_thrust_;
+
+    msg.stamp = this->get_clock()->now();
+    position_controller_debug_publisher_->publish(msg);
 }
 
 void BaselinePIDController::publish_servo_pwm(const double inner_servo_pwm, const double outer_servo_pwm)

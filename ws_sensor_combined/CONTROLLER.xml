@@ -1,69 +1,69 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <root>
- <tabbed_widget parent="main_window" name="Main Window">
-  <Tab containers="1" tab_name="tab1">
+ <tabbed_widget name="Main Window" parent="main_window">
+  <Tab containers="1" tab_name="Attitude Controller">
    <Container>
-    <DockSplitter orientation="-" sizes="1" count="1">
-     <DockSplitter orientation="|" sizes="0.500275;0.499725" count="2">
-      <DockSplitter orientation="-" sizes="0.327832;0.338335;0.333833" count="3">
+    <DockSplitter sizes="1" count="1" orientation="-">
+     <DockSplitter sizes="0.585296;0.414704" count="2" orientation="|">
+      <DockSplitter sizes="0.333333;0.333333;0.333333" count="3" orientation="-">
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
-         <range top="31.652202" left="66.743317" right="86.743295" bottom="-1.322325"/>
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205323" bottom="-60.901648" top="57.885458" left="223.225255"/>
          <limitY/>
-         <curve color="#f14cc1" name="/offboard/controller/debug/roll_angle"/>
-         <curve color="#9467bd" name="/offboard/controller/debug/roll_angle_setpoint"/>
-         <curve color="#17becf" name="/offboard/controller/debug/roll_angular_velocity"/>
-         <curve color="#bcbd22" name="/offboard/controller/debug/roll_inner_servo_tilt_angle"/>
+         <curve name="/offboard/attitude_controller/debug/roll_angle" color="#d62728"/>
+         <curve name="/offboard/attitude_controller/debug/roll_angle_setpoint" color="#1ac938"/>
+         <curve name="/offboard/attitude_controller/debug/roll_angular_velocity" color="#ff7f0e"/>
+         <curve name="/offboard/attitude_controller/debug/roll_inner_servo_tilt_angle" color="#f14cc1"/>
         </plot>
        </DockArea>
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
-         <range top="63.304407" left="66.743317" right="86.743295" bottom="-2.644627"/>
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205323" bottom="-115.767597" top="121.801128" left="223.225255"/>
          <limitY/>
-         <curve color="#1f77b4" name="/offboard/controller/debug/pitch_angle"/>
-         <curve color="#d62728" name="/offboard/controller/debug/pitch_angle_setpoint"/>
-         <curve color="#1ac938" name="/offboard/controller/debug/pitch_angular_velocity"/>
-         <curve color="#ff7f0e" name="/offboard/controller/debug/pitch_outer_servo_tilt_angle"/>
+         <curve name="/offboard/attitude_controller/debug/pitch_angle" color="#d62728"/>
+         <curve name="/offboard/attitude_controller/debug/pitch_angle_setpoint" color="#1ac938"/>
+         <curve name="/offboard/attitude_controller/debug/pitch_angular_velocity" color="#ff7f0e"/>
+         <curve name="/offboard/attitude_controller/debug/pitch_outer_servo_tilt_angle" color="#f14cc1"/>
         </plot>
        </DockArea>
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
-         <range top="178.307418" left="66.743317" right="86.743295" bottom="-7.449109"/>
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205323" bottom="-0.000216" top="0.000286" left="223.225255"/>
          <limitY/>
-         <curve color="#1f77b4" name="/offboard/controller/debug/yaw_angle"/>
-         <curve color="#d62728" name="/offboard/controller/debug/yaw_angle_setpoint"/>
-         <curve color="#1ac938" name="/offboard/controller/debug/yaw_angular_velocity"/>
-         <curve color="#ff7f0e" name="/offboard/controller/debug/yaw_delta_motor_pwm"/>
+         <curve name="/offboard/attitude_controller/debug/yaw_angle" color="#d62728"/>
+         <curve name="/offboard/attitude_controller/debug/yaw_angle_setpoint" color="#1ac938"/>
+         <curve name="/offboard/attitude_controller/debug/yaw_angular_velocity" color="#ff7f0e"/>
+         <curve name="/offboard/attitude_controller/debug/yaw_delta_motor_pwm" color="#f14cc1"/>
         </plot>
        </DockArea>
       </DockSplitter>
-      <DockSplitter orientation="-" sizes="0.50075;0.49925" count="2">
-       <DockSplitter orientation="|" sizes="0.5;0.5" count="2">
+      <DockSplitter sizes="0.5;0.5" count="2" orientation="-">
+       <DockSplitter sizes="0.50208;0.49792" count="2" orientation="|">
         <DockArea name="...">
-         <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
-          <range top="0.390207" left="66.743155" right="86.743086" bottom="-0.062000"/>
+         <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+          <range right="243.205323" bottom="-0.644266" top="0.644257" left="223.225255"/>
           <limitY/>
-          <curve color="#1ac938" name="/offboard/allocator/debug/servo_outer_pwm"/>
-          <curve color="#ff7f0e" name="/offboard/allocator/debug/servo_outer_tilt_angle_degrees"/>
+          <curve name="/offboard/allocator/debug/servo_inner_pwm" color="#9467bd"/>
+          <curve name="/offboard/allocator/debug/servo_inner_tilt_angle_degrees" color="#17becf"/>
          </plot>
         </DockArea>
         <DockArea name="...">
-         <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
-          <range top="0.195103" left="66.743155" right="86.743086" bottom="-0.030999"/>
+         <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+          <range right="243.205323" bottom="-1.287233" top="1.287203" left="223.225255"/>
           <limitY/>
-          <curve color="#1f77b4" name="/offboard/allocator/debug/servo_inner_pwm"/>
-          <curve color="#d62728" name="/offboard/allocator/debug/servo_inner_tilt_angle_degrees"/>
+          <curve name="/offboard/allocator/debug/servo_outer_pwm" color="#bcbd22"/>
+          <curve name="/offboard/allocator/debug/servo_outer_tilt_angle_degrees" color="#1f77b4"/>
          </plot>
         </DockArea>
        </DockSplitter>
        <DockArea name="...">
-        <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
-         <range top="0.470873" left="66.743155" right="86.743086" bottom="-0.014065"/>
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205323" bottom="-0.003783" top="0.155055" left="223.225255"/>
          <limitY/>
-         <curve color="#f14cc1" name="/offboard/allocator/debug/motor_average_pwm"/>
-         <curve color="#9467bd" name="/offboard/allocator/debug/motor_delta_pwm"/>
-         <curve color="#17becf" name="/offboard/allocator/debug/motor_downwards_pwm"/>
-         <curve color="#bcbd22" name="/offboard/allocator/debug/motor_upwards_pwm"/>
+         <curve name="/offboard/allocator/debug/motor_average_pwm" color="#d62728"/>
+         <curve name="/offboard/allocator/debug/motor_delta_pwm" color="#1ac938"/>
+         <curve name="/offboard/allocator/debug/motor_downwards_pwm" color="#ff7f0e"/>
+         <curve name="/offboard/allocator/debug/motor_upwards_pwm" color="#f14cc1"/>
         </plot>
        </DockArea>
       </DockSplitter>
@@ -71,7 +71,114 @@
     </DockSplitter>
    </Container>
   </Tab>
-  <currentTabIndex index="0"/>
+  <Tab containers="1" tab_name="Position Controller">
+   <Container>
+    <DockSplitter sizes="0.74732;0.25268" count="2" orientation="-">
+     <DockSplitter sizes="0.333333;0.333333;0.333333" count="3" orientation="|">
+      <DockSplitter sizes="0.332649;0.334702;0.332649" count="3" orientation="-">
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205294" bottom="-1.134213" top="1.134258" left="223.225124"/>
+         <limitY/>
+         <curve name="/offboard/position_controller/debug/position[0]" color="#1f77b4"/>
+         <curve name="/offboard/position_controller/debug/position_setpoint[0]" color="#9467bd"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205294" bottom="-1.425303" top="1.425339" left="223.225124"/>
+         <limitY/>
+         <curve name="/offboard/position_controller/debug/velocity[0]" color="#ff7f0e"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205294" bottom="-1.791611" top="1.791347" left="223.225124"/>
+         <limitY/>
+         <curve name="/offboard/position_controller/debug/acceleration[0]" color="#17becf"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+      <DockSplitter sizes="0.333676;0.332649;0.333676" count="3" orientation="-">
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205294" bottom="-1.134213" top="1.134258" left="223.225124"/>
+         <limitY/>
+         <curve name="/offboard/position_controller/debug/position[1]" color="#d62728"/>
+         <curve name="/offboard/position_controller/debug/position_setpoint[1]" color="#17becf"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205294" bottom="-1.425303" top="1.425339" left="223.225124"/>
+         <limitY/>
+         <curve name="/offboard/position_controller/debug/velocity[1]" color="#f14cc1"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205294" bottom="-1.791611" top="1.791347" left="223.225124"/>
+         <limitY/>
+         <curve name="/offboard/position_controller/debug/acceleration[1]" color="#bcbd22"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+      <DockSplitter sizes="0.333676;0.332649;0.333676" count="3" orientation="-">
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205294" bottom="-0.361253" top="0.008811" left="223.225124"/>
+         <limitY/>
+         <curve name="/offboard/position_controller/debug/position[2]" color="#1ac938"/>
+         <curve name="/offboard/position_controller/debug/position_setpoint[2]" color="#1f77b4"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205294" bottom="0.003420" top="0.004451" left="223.225124"/>
+         <limitY/>
+         <curve name="/offboard/position_controller/debug/velocity[2]" color="#9467bd"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range right="243.205294" bottom="-0.000103" top="0.000580" left="223.225124"/>
+         <limitY/>
+         <curve name="/offboard/position_controller/debug/acceleration[2]" color="#1f77b4"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+     </DockSplitter>
+     <DockSplitter sizes="0.334483;0.331034;0.334483" count="3" orientation="|">
+      <DockArea name="...">
+       <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+        <range right="243.205294" bottom="-94.499032" top="94.521836" left="223.225124"/>
+        <limitY/>
+        <curve name="/offboard/position_controller/debug/desired_attitude[0]" color="#9467bd"/>
+        <curve name="/offboard/position_controller/debug/desired_attitude[1]" color="#17becf"/>
+        <curve name="/offboard/position_controller/debug/desired_attitude[2]" color="#bcbd22"/>
+       </plot>
+      </DockArea>
+      <DockArea name="...">
+       <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+        <range right="243.205294" bottom="-1.791611" top="1.791347" left="223.225124"/>
+        <limitY/>
+        <curve name="/offboard/position_controller/debug/desired_acceleration[0]" color="#1f77b4"/>
+        <curve name="/offboard/position_controller/debug/desired_acceleration[1]" color="#d62728"/>
+        <curve name="/offboard/position_controller/debug/desired_acceleration[2]" color="#1ac938"/>
+       </plot>
+      </DockArea>
+      <DockArea name="...">
+       <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+        <range right="243.205294" bottom="-0.051831" top="3.709162" left="223.225124"/>
+        <limitY/>
+        <curve name="/offboard/position_controller/debug/desired_thrust" color="#ff7f0e"/>
+       </plot>
+      </DockArea>
+     </DockSplitter>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <currentTabIndex index="1"/>
  </tabbed_widget>
  <use_relative_time_offset enabled="1"/>
  <!-- - - - - - - - - - - - - - - -->
@@ -96,7 +203,7 @@
    <max_array_size value="9999"/>
    <boolean_strings_to_number value="true"/>
    <remove_suffix_from_strings value="true"/>
-   <selected_topics value="/offboard/allocator/debug;/offboard/controller/debug"/>
+   <selected_topics value="/offboard/allocator/debug;/offboard/attitude_controller/debug;/offboard/position_controller/debug"/>
   </plugin>
   <plugin ID="UDP Server"/>
   <plugin ID="WebSocket Server"/>

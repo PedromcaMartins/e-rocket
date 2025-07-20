@@ -24,6 +24,14 @@
             k_p: 0.3350
             k_d: 0.1616
             k_i: 0.3162
+        position: 
+          active: true
+          gains:
+            k_p: [8.0, 8.0, 8.0]   # Proportional gain
+            k_d: [3.0, 3.0, 3.0]   # Derivative gain
+            k_i: [0.2, 0.2, 0.1]   # Integral gain
+            min_output: [-20., -20., -20.] # Minimum output of each PID
+            max_output: [ 20.,  20.,  20.]
         frequency_hertz: 50.
         default_motor_pwm: 0.45
         servo_max_tilt_angle_degrees: 30.
@@ -41,6 +49,6 @@
           activate_attitude_yaw:   false
 
           amplitude_position_meters: 1.
-          activate_position_x: false
-          activate_position_y: false
+          activate_position_x: true
+          activate_position_y: true
           activate_position_z: false

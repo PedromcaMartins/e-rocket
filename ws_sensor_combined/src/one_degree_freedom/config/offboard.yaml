@@ -24,6 +24,14 @@
             k_p: 0.30
             k_d: 0.15
             k_i: 0.1
+        position: 
+          active: true
+          gains:
+            k_p: [0., 0., 0.]
+            k_d: [0., 0., 0.]
+            k_i: [0., 0., 0.]
+            min_output: [0., 0., 0.]
+            max_output: [0., 0., 0.]
         frequency_hertz: 50.
         default_motor_pwm: 0.45
         servo_max_tilt_angle_degrees: 30.

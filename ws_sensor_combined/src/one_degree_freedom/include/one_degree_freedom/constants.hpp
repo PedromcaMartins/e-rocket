@@ -17,10 +17,12 @@ namespace controller
     //<! Topics for the 1-degree-of-freedom system
     constexpr char CONTROLLER_INPUT_ATTITUDE_TOPIC[] =      "/fmu/out/vehicle_attitude";
     constexpr char CONTROLLER_INPUT_ANGULAR_RATE_TOPIC[] =  "/fmu/out/vehicle_angular_velocity";
+    constexpr char CONTROLLER_INPUT_LOCAL_POSITION_TOPIC[] =  "/fmu/out/vehicle_local_position";
     constexpr char CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC[] =    "/fmu/in/actuator_motors";
     constexpr char CONTROLLER_OUTPUT_SERVO_PWM_TOPIC[] =    "/fmu/in/actuator_servos";
 
-    constexpr char CONTROLLER_DEBUG_TOPIC[] = "/offboard/controller/debug";
+    constexpr char CONTROLLER_ATTITUDE_DEBUG_TOPIC[] = "/offboard/attitude_controller/debug";
+    constexpr char CONTROLLER_POSITION_DEBUG_TOPIC[] = "/offboard/position_controller/debug";
     constexpr char ALLOCATOR_DEBUG_TOPIC[] = "/offboard/allocator/debug";
 
     constexpr char CONTROLLER_ROLL_ACTIVE_PARAM[] = "offboard.controller.roll.active";
@@ -37,6 +39,13 @@ namespace controller
     constexpr char CONTROLLER_YAW_K_P_PARAM[] = "offboard.controller.yaw.gains.k_p";
     constexpr char CONTROLLER_YAW_K_D_PARAM[] = "offboard.controller.yaw.gains.k_d";
     constexpr char CONTROLLER_YAW_K_I_PARAM[] = "offboard.controller.yaw.gains.k_i";
+
+    constexpr char CONTROLLER_POSITION_ACTIVE_PARAM[] = "offboard.controller.position.active";
+    constexpr char CONTROLLER_POSITION_K_P_PARAM[] = "offboard.controller.position.gains.k_p";
+    constexpr char CONTROLLER_POSITION_K_D_PARAM[] = "offboard.controller.position.gains.k_d";
+    constexpr char CONTROLLER_POSITION_K_I_PARAM[] = "offboard.controller.position.gains.k_i";
+    constexpr char CONTROLLER_POSITION_MIN_OUTPUT_PARAM[] = "offboard.controller.position.gains.min_output";
+    constexpr char CONTROLLER_POSITION_MAX_OUTPUT_PARAM[] = "offboard.controller.position.gains.max_output";
 
     constexpr char CONTROLLER_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.frequency_hertz";
     constexpr char CONTROLLER_DEFAULT_MOTOR_PWM[]     = "offboard.controller.default_motor_pwm";
@@ -83,6 +92,9 @@ namespace setpoint
 
     constexpr char CONTROLLER_INPUT_POSITION_SETPOINT_TOPIC[] = "offboard/position_setpoint_meters";
     constexpr char MISSION_POSITION_SETPOINT_PARAM[] = "offboard.mission.position_setpoint.meters";
+
+    constexpr char CONTROLLER_INPUT_SETPOINT_POSITION_TOPIC[] = "offboard/setpoint_position_degrees";
+    constexpr char MISSION_SETPOINT_POSITION_PARAM[] = "offboard.mission.setpoint_position.degrees";
 
     constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_PERIOD_PARAM[]   = "offboard.mission.sine_wave_trajectory.period";
 

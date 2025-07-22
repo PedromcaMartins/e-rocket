@@ -160,11 +160,11 @@ public:
     */
     double compute() {
         // Update the integrated error
-        integrated_error_ = integrated_error_ + (desired_setpoint_ - angle_) * dt_; 
+        integrated_error_ = integrated_error_ + (angle_ - desired_setpoint_) * dt_; 
 
         // Compute control input
         double dot_product = angle_ * k_p_ + angular_rate * k_d_;
-        tilt_angle_ = -dot_product + integrated_error_ * k_i_;
+        tilt_angle_ = dot_product + integrated_error_ * k_i_;
         return tilt_angle_;
     }
 
@@ -302,13 +302,11 @@ public:
 
         /* Compute the actual attitude and setup the desired thrust to apply to the vehicle */
         desired_attitude_ << asin(-r3d[1]), atan2(r3d[0], r3d[2]), yaw;
-        RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), 
-            "Desired attitude: [%f, %f, %f], desired thrust: %f", 
-            radians_to_degrees(desired_attitude_[0]), 
-            radians_to_degrees(desired_attitude_[1]), 
-            radians_to_degrees(desired_attitude_[2]), 
-            desired_thrust_
-        );
+
+        /* Saturate attitude */
+        for (size_t i = 0; i < 2; ++i) {
+            desired_attitude_[i] = std::max(-M_PI / 6., std::min(desired_attitude_[i], M_PI / 6.));
+        }
     }
 
 private: 
@@ -624,6 +622,16 @@ void BaselinePIDController::controller_callback()
         double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(default_motor_pwm_);
 
         if (position_controller_) {
+            static bool mission_start = false;
+            if (!mission_start) {
+                mission_start = true;
+                for (size_t i = 0; i < 3; ++i) {
+                    position_controller_->position_setpoint_[i].store(position_controller_->position_[i]);
+                    position_controller_->yaw_angle_setpoint_.store(yaw_controller_->angle_);
+                    yaw_controller_->desired_setpoint_.store(yaw_controller_->angle_);
+                }
+            }
+
             position_controller_->compute();
             if (roll_controller_) roll_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[0]);
             if (pitch_controller_) pitch_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[1]);
@@ -786,8 +794,8 @@ void BaselinePIDController::publish_motor_pwm(const double upwards_motor_pwm, co
 {
 	ActuatorMotors msg{};
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-	msg.control[1] = upwards_motor_pwm;
-	msg.control[0] = downwards_motor_pwm;
+	msg.control[0] = upwards_motor_pwm;
+	msg.control[1] = downwards_motor_pwm;
 	motor_thrust_publisher_->publish(msg);
 }
 

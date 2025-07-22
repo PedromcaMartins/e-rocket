@@ -164,9 +164,9 @@ void Simulator::publish_local_position()
 
 void Simulator::attitude_controller_output_callback(const AttitudeControllerDebug::SharedPtr msg)
 {
-    double roll_inner_servo_tilt_angle = msg->roll_inner_servo_tilt_angle;
-    double pitch_outer_servo_tilt_angle = msg->pitch_outer_servo_tilt_angle;
-    double yaw_delta_motor_pwm = msg->yaw_delta_motor_pwm;
+    double roll_inner_servo_tilt_angle = -msg->roll_inner_servo_tilt_angle;
+    double pitch_outer_servo_tilt_angle = -msg->pitch_outer_servo_tilt_angle;
+    double yaw_delta_motor_pwm = -msg->yaw_delta_motor_pwm;
     double step = time_step_seconds_;
 
     //*********//
@@ -208,6 +208,7 @@ void Simulator::position_controller_output_callback(const PositionControllerDebu
         msg->desired_acceleration[1],
         msg->desired_acceleration[2]
     );
+    desired_acceleration_[2] += g_;
 
     acceleration_ = desired_acceleration_;
     velocity_ += acceleration_ * time_step_seconds_;

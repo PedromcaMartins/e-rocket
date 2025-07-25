@@ -45,8 +45,8 @@ public:
         attitude_setpoint_publisher_{this->create_publisher<Vector3Stamped>(
             CONTROLLER_INPUT_ATTITUDE_SETPOINT_TOPIC, qos_
         )},
-        position_setpoint_publisher_{this->create_publisher<Vector3Stamped>(
-            CONTROLLER_INPUT_POSITION_SETPOINT_TOPIC, qos_
+        translation_position_setpoint_publisher_{this->create_publisher<Vector3Stamped>(
+            CONTROLLER_INPUT_TRANSLATION_POSITION_SETPOINT_TOPIC, qos_
         )}
     {
         flight_mode_timer_ = this->create_wall_timer(
@@ -60,7 +60,7 @@ public:
             std::vector<double>{0.0, 0.0, 0.0}
         );
         this->declare_parameter<std::vector<double>>(
-            MISSION_POSITION_SETPOINT_PARAM, 
+            MISSION_TRANSLATION_POSITION_SETPOINT_PARAM, 
             std::vector<double>{0.0, 0.0, 0.0}
         );
         this->declare_parameter<uint8_t>(FLIGHT_MODE_PARAM, FlightMode::INIT);
@@ -138,8 +138,8 @@ private:
 	bool sine_wave_trajectory_active_position_x_;
 	bool sine_wave_trajectory_active_position_y_;
 	bool sine_wave_trajectory_active_position_z_;
-	rclcpp::Publisher<Vector3Stamped>::SharedPtr position_setpoint_publisher_;
-	void publish_position_setpoint_radians(Eigen::Vector3d setpoint_meters);
+	rclcpp::Publisher<Vector3Stamped>::SharedPtr translation_position_setpoint_publisher_;
+	void publish_translation_position_setpoint_radians(Eigen::Vector3d translation_setpoint_meters);
 
     OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
     rcl_interfaces::msg::SetParametersResult parameter_callback(
@@ -217,22 +217,22 @@ void Mission::mission() {
 				publish_attitude_setpoint_radians(attitude_setpoint_radians);
 			}
 
-			Eigen::Vector3d position_setpoint_meters(0.0f, 0.0f, 0.0f);
-			double position_amplitude_meters = sine_wave_trajectory_amplitude_position_meters_;
-			if (sine_wave_trajectory_active_position_x_) {
-				position_setpoint_meters[0] = position_amplitude_meters * std::sin(2 * M_PI * frequency * time_in_seconds);
-			}
-			if (sine_wave_trajectory_active_position_y_) {
-				position_setpoint_meters[1] = position_amplitude_meters * std::sin(2 * M_PI * frequency * time_in_seconds);
-			}
-			if (sine_wave_trajectory_active_position_z_) {
-				position_setpoint_meters[2] = position_amplitude_meters * std::sin(2 * M_PI * frequency * time_in_seconds);
-			}
-			if (sine_wave_trajectory_active_position_x_ ||
-				sine_wave_trajectory_active_position_y_ ||
-				sine_wave_trajectory_active_position_z_) {
-				publish_position_setpoint_radians(position_setpoint_meters);
-			}
+			// Eigen::Vector3d position_setpoint_meters(0.0f, 0.0f, 0.0f);
+			// double position_amplitude_meters = sine_wave_trajectory_amplitude_position_meters_;
+			// if (sine_wave_trajectory_active_position_x_) {
+			// 	position_setpoint_meters[0] = position_amplitude_meters * std::sin(2 * M_PI * frequency * time_in_seconds);
+			// }
+			// if (sine_wave_trajectory_active_position_y_) {
+			// 	position_setpoint_meters[1] = position_amplitude_meters * std::sin(2 * M_PI * frequency * time_in_seconds);
+			// }
+			// if (sine_wave_trajectory_active_position_z_) {
+			// 	position_setpoint_meters[2] = position_amplitude_meters * std::sin(2 * M_PI * frequency * time_in_seconds);
+			// }
+			// if (sine_wave_trajectory_active_position_x_ ||
+			// 	sine_wave_trajectory_active_position_y_ ||
+			// 	sine_wave_trajectory_active_position_z_) {
+			// 	publish_translation_position_setpoint_radians(position_setpoint_meters);
+			// }
 		}
 
 		// Remove mission time limit
@@ -257,14 +257,14 @@ void Mission::publish_attitude_setpoint_radians(Eigen::Vector3d setpoint_radians
     attitude_setpoint_publisher_->publish(msg);
 }
 
-void Mission::publish_position_setpoint_radians(Eigen::Vector3d setpoint_meters)
+void Mission::publish_translation_position_setpoint_radians(Eigen::Vector3d translation_setpoint_meters)
 {
     Vector3Stamped msg{};
     msg.header.stamp = this->get_clock()->now();
-    msg.vector.x = setpoint_meters[0];
-    msg.vector.y = setpoint_meters[1];
-    msg.vector.z = setpoint_meters[2];
-    position_setpoint_publisher_->publish(msg);
+    msg.vector.x = translation_setpoint_meters[0];
+    msg.vector.y = translation_setpoint_meters[1];
+    msg.vector.z = translation_setpoint_meters[2];
+    translation_position_setpoint_publisher_->publish(msg);
 }
 
 rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
@@ -309,10 +309,10 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
 				attitude_setpoint_degrees[2]
 			);
         } 
-		else if (param.get_name() == MISSION_POSITION_SETPOINT_PARAM) {
-            std::vector<double> position_setpoint_meters = param.as_double_array();
+		else if (param.get_name() == MISSION_TRANSLATION_POSITION_SETPOINT_PARAM) {
+            std::vector<double> translation_position_setpoint_meters = param.as_double_array();
 
-            if (position_setpoint_meters.size() != 3) {
+            if (translation_position_setpoint_meters.size() != 3) {
                 RCLCPP_ERROR(this->get_logger(), "Invalid setpoint size, expected 3 values.");
                 result.successful = false;
                 result.reason = "Invalid setpoint size";
@@ -329,17 +329,17 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
 				return result;
 			}
 
-            publish_position_setpoint_radians(Eigen::Vector3d(
-				position_setpoint_meters[0],
-				position_setpoint_meters[1],
-				position_setpoint_meters[2]
+            publish_translation_position_setpoint_radians(Eigen::Vector3d(
+				translation_position_setpoint_meters[0],
+				translation_position_setpoint_meters[1],
+				translation_position_setpoint_meters[2]
 			));
 
 			RCLCPP_INFO(this->get_logger(), 
 				"Updated position setpoint to: [%f, %f, %f]",
-				position_setpoint_meters[0],
-				position_setpoint_meters[1],
-				position_setpoint_meters[2]
+				translation_position_setpoint_meters[0],
+				translation_position_setpoint_meters[1],
+				translation_position_setpoint_meters[2]
 			);
         }
 		else if (param.get_name() == FLIGHT_MODE_PARAM) {

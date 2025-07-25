@@ -93,11 +93,8 @@ namespace setpoint
     constexpr char CONTROLLER_INPUT_ATTITUDE_SETPOINT_TOPIC[] = "offboard/attitude_setpoint_degrees";
     constexpr char MISSION_ATTITUDE_SETPOINT_PARAM[] = "offboard.mission.attitude_setpoint.degrees";
 
-    constexpr char CONTROLLER_INPUT_POSITION_SETPOINT_TOPIC[] = "offboard/position_setpoint_meters";
-    constexpr char MISSION_POSITION_SETPOINT_PARAM[] = "offboard.mission.position_setpoint.meters";
-
-    constexpr char CONTROLLER_INPUT_SETPOINT_POSITION_TOPIC[] = "offboard/setpoint_position_degrees";
-    constexpr char MISSION_SETPOINT_POSITION_PARAM[] = "offboard.mission.setpoint_position.degrees";
+    constexpr char CONTROLLER_INPUT_TRANSLATION_POSITION_SETPOINT_TOPIC[] = "offboard/translation_position_setpoint_meters";
+    constexpr char MISSION_TRANSLATION_POSITION_SETPOINT_PARAM[] = "offboard.mission.translation_position_setpoint.meters";
 
     constexpr char MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_PERIOD_PARAM[]   = "offboard.mission.sine_wave_trajectory.period";
 

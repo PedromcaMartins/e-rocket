@@ -391,8 +391,8 @@ public:
             if (position_controller_) position_controller_->yaw_angle_setpoint_.store(msg->vector.z);
         }
     )},
-    position_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
-        CONTROLLER_INPUT_POSITION_SETPOINT_TOPIC, qos_,
+    translation_position_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
+        CONTROLLER_INPUT_TRANSLATION_POSITION_SETPOINT_TOPIC, qos_,
         [this](const Vector3Stamped::SharedPtr msg) {
             if (msg->vector.x == NAN || msg->vector.y == NAN || msg->vector.z == NAN) {
                 RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
@@ -400,10 +400,16 @@ public:
             }
 
             if (position_controller_) {
-                position_controller_->position_setpoint_[0].store(msg->vector.x);
-                position_controller_->position_setpoint_[1].store(msg->vector.y);
-                position_controller_->position_setpoint_[2].store(msg->vector.z);
-            } 
+                position_controller_->position_setpoint_[0].store(
+                    position_controller_->position_setpoint_[0].load() + msg->vector.x
+                );
+                position_controller_->position_setpoint_[1].store(
+                    position_controller_->position_setpoint_[1].load() + msg->vector.y
+                );
+                position_controller_->position_setpoint_[2].store(
+                    position_controller_->position_setpoint_[2].load() + msg->vector.z
+                );
+            }
         }
     )},
     servo_tilt_angle_publisher_{this->create_publisher<ActuatorServos>(
@@ -595,7 +601,7 @@ private:
 	rclcpp::Subscription<VehicleAngularVelocity>::SharedPtr angular_rate_subscriber_;
     rclcpp::Subscription<VehicleLocalPosition>::SharedPtr   local_position_subscriber_;
 	rclcpp::Subscription<Vector3Stamped>::SharedPtr         attitude_setpoint_subscriber_;
-	rclcpp::Subscription<Vector3Stamped>::SharedPtr         position_setpoint_subscriber_;
+	rclcpp::Subscription<Vector3Stamped>::SharedPtr         translation_position_setpoint_subscriber_;
 	rclcpp::Publisher<ActuatorServos>::SharedPtr    servo_tilt_angle_publisher_;
     rclcpp::Publisher<ActuatorMotors>::SharedPtr    motor_thrust_publisher_;
 

@@ -36,6 +36,8 @@
         default_motor_pwm: 0.45
         servo_max_tilt_angle_degrees: 30.
         motor_max_pwm: 0.8
+        motor_active: true
+        servo_active: true
         motor_thrust_curve: # newtons = (pwm * m + b) / 1000 * g;
           m: 2696.6
           b: -38.95

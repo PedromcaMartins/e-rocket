@@ -159,11 +159,13 @@ public:
         * @return The computed control input
     */
     double compute() {
+        double error_p = angle_ - desired_setpoint_;
+
         // Update the integrated error
-        integrated_error_ = integrated_error_ + (angle_ - desired_setpoint_) * dt_; 
+        integrated_error_ += error_p * dt_; 
 
         // Compute control input
-        double dot_product = angle_ * k_p_ + angular_rate * k_d_;
+        double dot_product = error_p * k_p_ + angular_rate * k_d_;
         tilt_angle_ = dot_product + integrated_error_ * k_i_;
         return tilt_angle_;
     }
@@ -428,6 +430,16 @@ public:
         }
     )}
     {
+        this->declare_parameter<bool>(CONTROLLER_OUTPUT_MOTOR_ACTIVE_PARAM);
+        this->declare_parameter<bool>(CONTROLLER_OUTPUT_SERVO_ACTIVE_PARAM);
+        motor_active_ = this->get_parameter(CONTROLLER_OUTPUT_MOTOR_ACTIVE_PARAM).as_bool();
+        servo_active_ = this->get_parameter(CONTROLLER_OUTPUT_SERVO_ACTIVE_PARAM).as_bool();
+
+        RCLCPP_INFO(this->get_logger(), "Motor %s; Servo %s", 
+            (motor_active_)? "active" : "off",
+            (servo_active_)? "active" : "off"
+        );
+
         this->declare_parameter<double>(GRAVITATIONAL_ACCELERATION);
         this->declare_parameter<double>(MASS_OF_SYSTEM);
         double g = this->get_parameter(GRAVITATIONAL_ACCELERATION).as_double();
@@ -550,10 +562,24 @@ public:
             position_controller_ = std::nullopt;
         }
 
+        if (position_controller_ && (!roll_controller_ || !pitch_controller_ || !yaw_controller_)) {
+            RCLCPP_ERROR(this->get_logger(), "Position controller requires all attitude controllers to be active.");
+            throw std::runtime_error("Position controller requires all attitude controllers to be active.");
+        }
 
         controller_timer_ = this->create_wall_timer(
             std::chrono::duration<double>(controllers_dt), 
             std::bind(&BaselinePIDController::controller_callback, this)
+        );
+
+        publish_servo_pwm(
+            0.0f,
+            0.0f
+        );
+
+        publish_motor_pwm(
+            NAN,
+            NAN
         );
 	}
 
@@ -587,6 +613,8 @@ private:
     std::optional<PositionPIDController> position_controller_;
 
     double default_motor_pwm_;
+    bool motor_active_;
+    bool servo_active_;
 
 	//!< Auxiliary functions
     void controller_callback();
@@ -617,8 +645,53 @@ private:
  */
 void BaselinePIDController::controller_callback()
 {
+    if (flight_mode_.load() == FlightMode::ARM) {
+        static rclcpp::Time t0 = this->get_clock()->now();
+        rclcpp::Time now = this->get_clock()->now();
+
+        double inner_servo_tilt_angle_radians = 0.0;
+        double outer_servo_tilt_angle_radians = 0.0;
+
+        if (now - t0 < 6.0s) {
+            inner_servo_tilt_angle_radians = sin(2.0 * M_PI * (now - t0).seconds()) * degrees_to_radians(30.0);
+            outer_servo_tilt_angle_radians = sin(2.0 * M_PI * (now - t0).seconds() + M_PI / 2.0) * degrees_to_radians(30.0);
+        } else {
+            inner_servo_tilt_angle_radians =  0. ;
+            outer_servo_tilt_angle_radians =  0. ;
+        }
+
+        Allocator::ServoAllocatorOutput servo_output = allocator_->compute_servo_allocation(
+            inner_servo_tilt_angle_radians,
+            outer_servo_tilt_angle_radians
+        );
+
+        publish_servo_pwm(
+            servo_output.inner_servo_pwm,
+            servo_output.outer_servo_pwm
+        );
+
+        if (now - t0 > 7.0s) {
+            // Needed 
+            double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(0.4f);
+            double delta_motor_pwm = yaw_controller_->compute();
+
+            // Allocate motor thrust based on the computed torque
+            Allocator::MotorAllocatorOutput motor_output = allocator_->compute_motor_allocation(
+                delta_motor_pwm, 
+                average_motor_thrust_newtons
+            );
+
+            // Publish the motor thrust
+            publish_motor_pwm(
+                motor_output.upwards_motor_pwm, 
+                motor_output.downwards_motor_pwm
+            );
+            publish_attitude_controller_debug();
+        }
+    }
+
     // only run controller when in mission
-    if (flight_mode_.load() == FlightMode::IN_MISSION) {
+    else if (flight_mode_.load() == FlightMode::IN_MISSION) {
         double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(default_motor_pwm_);
 
         if (position_controller_) {
@@ -633,9 +706,9 @@ void BaselinePIDController::controller_callback()
             }
 
             position_controller_->compute();
-            if (roll_controller_) roll_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[0]);
-            if (pitch_controller_) pitch_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[1]);
-            if (yaw_controller_) yaw_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[2]);
+            roll_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[0]);
+            pitch_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[1]);
+            yaw_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[2]);
 
             average_motor_thrust_newtons = position_controller_->desired_thrust_;
 
@@ -781,8 +854,14 @@ void BaselinePIDController::publish_servo_pwm(const double inner_servo_pwm, cons
 {
     ActuatorServos msg{};
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-    msg.control[1] = inner_servo_pwm;
-    msg.control[0] = outer_servo_pwm;
+    if (servo_active_) {
+        msg.control[1] = inner_servo_pwm;
+        msg.control[0] = outer_servo_pwm;
+    } else {
+        // If servos are not active, disable them
+        msg.control[0] = 0.;
+        msg.control[1] = 0.;
+    }
     servo_tilt_angle_publisher_->publish(msg);
 }
 
@@ -794,8 +873,14 @@ void BaselinePIDController::publish_motor_pwm(const double upwards_motor_pwm, co
 {
 	ActuatorMotors msg{};
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-	msg.control[0] = upwards_motor_pwm;
-	msg.control[1] = downwards_motor_pwm;
+    if (motor_active_) {
+        msg.control[0] = upwards_motor_pwm;
+        msg.control[1] = downwards_motor_pwm;
+    } else {
+        // If motors are not active, disable them
+        msg.control[0] = NAN;
+        msg.control[1] = NAN;
+    }
 	motor_thrust_publisher_->publish(msg);
 }
 

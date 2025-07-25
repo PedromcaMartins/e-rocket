@@ -3,10 +3,16 @@ Example to launch a controller listener node.
 """
 
 from launch import LaunchDescription
-from launch_ros.actions import Node
 from launch.actions import ExecuteProcess
-from launch.substitutions import PathJoinSubstitution
-from launch_ros.substitutions import FindPackageShare
+from launch_ros.actions import Node
+import os
+
+# Get the parent directory of the directory containing this launch file
+launch_file_dir = os.path.dirname(os.path.realpath(__file__))
+config_file = os.path.realpath(os.path.join(
+    launch_file_dir,
+    '../../../../../src/one_degree_freedom/config/sitl.yaml'
+))
 
 def generate_launch_description():
 
@@ -15,10 +21,7 @@ def generate_launch_description():
         executable='controller',
         output='screen',
         shell=True,
-        parameters=[
-            PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'sitl.yaml']),
-        ],
+        parameters=[config_file],
     )
 
     simulator_node = Node(
@@ -26,10 +29,7 @@ def generate_launch_description():
         executable='simulator',
         output='screen',
         shell=True,
-        parameters=[
-            PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'sitl.yaml']),
-        ],
+        parameters=[config_file],
     )
 
     mission_node = Node(
@@ -37,10 +37,7 @@ def generate_launch_description():
         executable='mission',
         output='screen',
         shell=True,
-        parameters=[
-            PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'sitl.yaml']),
-        ],
+        parameters=[config_file],
     )
 
     mock_flight_mode_node = Node(
@@ -49,10 +46,7 @@ def generate_launch_description():
         output='screen',
         shell=True,
         arguments=['--ros-args', '--log-level', 'warn'],
-        parameters=[
-            PathJoinSubstitution([
-                FindPackageShare('one_degree_freedom'), 'config', 'sitl.yaml']),
-        ],
+        parameters=[config_file],
     )
 
 

@@ -21,6 +21,9 @@ namespace controller
     constexpr char CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC[] =    "/fmu/in/actuator_motors";
     constexpr char CONTROLLER_OUTPUT_SERVO_PWM_TOPIC[] =    "/fmu/in/actuator_servos";
 
+    constexpr char CONTROLLER_OUTPUT_MOTOR_ACTIVE_PARAM[] = "offboard.controller.motor_active";
+    constexpr char CONTROLLER_OUTPUT_SERVO_ACTIVE_PARAM[] = "offboard.controller.servo_active";
+
     constexpr char CONTROLLER_ATTITUDE_DEBUG_TOPIC[] = "/offboard/attitude_controller/debug";
     constexpr char CONTROLLER_POSITION_DEBUG_TOPIC[] = "/offboard/position_controller/debug";
     constexpr char ALLOCATOR_DEBUG_TOPIC[] = "/offboard/allocator/debug";

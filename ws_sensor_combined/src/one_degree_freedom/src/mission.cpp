@@ -161,12 +161,14 @@ void Mission::flight_mode() {
 
 		case FlightMode::ARM:
 			{
-				static rclcpp::Time t0 = this->get_clock()->now();
-				auto now = this->get_clock()->now();
-				if (now - t0 > 1s) {
-					RCLCPP_INFO(this->get_logger(), "Switching to IN_MISSION mode");
-					request_flight_mode(FlightMode::IN_MISSION);
-				}
+				// Changes manual mode to IN_MISSION manually
+
+				// static rclcpp::Time t0 = this->get_clock()->now();
+				// auto now = this->get_clock()->now();
+				// if (now - t0 > 1s) {
+				// 	RCLCPP_INFO(this->get_logger(), "Switching to IN_MISSION mode");
+				// 	request_flight_mode(FlightMode::IN_MISSION);
+				// }
 			}
 			break;	
 
@@ -233,13 +235,15 @@ void Mission::mission() {
 			}
 		}
 
-		static bool first_run = true;
-        if (elapsed_time > 120s && first_run) {
-			first_run = false;
-            // Mission completion
-            RCLCPP_INFO(this->get_logger(), "Mission complete, switching to MISSION_COMPLETE mode");
-            request_flight_mode(FlightMode::MISSION_COMPLETE);
-        }
+		// Remove mission time limit
+
+		// static bool first_run = true;
+        // if (elapsed_time > 120s && first_run) {
+		// 	first_run = false;
+        //     // Mission completion
+        //     RCLCPP_INFO(this->get_logger(), "Mission complete, switching to MISSION_COMPLETE mode");
+        //     request_flight_mode(FlightMode::MISSION_COMPLETE);
+        // }
     }
 }
 
@@ -341,6 +345,7 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
 		else if (param.get_name() == FLIGHT_MODE_PARAM) {
             uint8_t new_flight_mode = param.as_int();
             RCLCPP_INFO(this->get_logger(), "Updated flight mode to: %d", new_flight_mode);
+			request_flight_mode(new_flight_mode);
 
 			while (new_flight_mode == FlightMode::ABORT) {
 				request_flight_mode(FlightMode::ABORT);

@@ -658,7 +658,7 @@ void BaselinePIDController::controller_callback()
         double inner_servo_tilt_angle_radians = 0.0;
         double outer_servo_tilt_angle_radians = 0.0;
 
-        if (now - t0 < 6.0s) {
+        if (now - t0 < 3.0s) {
             inner_servo_tilt_angle_radians = sin(2.0 * M_PI * (now - t0).seconds()) * degrees_to_radians(30.0);
             outer_servo_tilt_angle_radians = sin(2.0 * M_PI * (now - t0).seconds() + M_PI / 2.0) * degrees_to_radians(30.0);
         } else {
@@ -676,9 +676,10 @@ void BaselinePIDController::controller_callback()
             servo_output.outer_servo_pwm
         );
 
-        if (now - t0 > 7.0s) {
+        if (now - t0 > 4.0s) {
             // Needed 
             double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(0.4f);
+            yaw_controller_->desired_setpoint_.store(0.0f);
             double delta_motor_pwm = yaw_controller_->compute();
 
             // Allocate motor thrust based on the computed torque

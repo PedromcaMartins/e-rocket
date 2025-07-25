@@ -4,13 +4,13 @@
       mass_of_system: 1.584
       length_of_pendulum: 0.2
       gravitational_acceleration: 9.81
-      moment_of_inertia: 0.375
+      moment_of_inertia: 0.0375
       controller:
         roll: 
           active: true
           gains:
-            k_p: 0.7
-            k_d: 0.4
+            k_p: 0.5
+            k_d: 0.3
             k_i: .0
         pitch: 
           active: true
@@ -27,13 +27,13 @@
         position: 
           active: true
           gains:
-            k_p: [3.0, 3.0, 5.5]   # Proportional gain
-            k_d: [2.5, 2.5, 3.0]   # Derivative gain
-            k_i: [0, 0, 0.4]       # Integral gain
+            k_p: [4.0, 4.0, 5.5]   # Proportional gain
+            k_d: [3.0, 3.0, 3.0]   # Derivative gain
+            k_i: [0., 0., 0.2]     # Integral gain
             min_output: [-20., -20., -20.] # Minimum output of each PID
             max_output: [ 20.,  20.,  20.]
         frequency_hertz: 50.
-        default_motor_pwm: 0.40
+        default_motor_pwm: 0.50
         servo_max_tilt_angle_degrees: 30.
         motor_max_pwm: 0.75
         motor_active: true

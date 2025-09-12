@@ -55,7 +55,7 @@ public:
         time_step_seconds_ = 1.0 / controllers_freq;
 
         // Safety check
-        if (time_step_seconds_ <= 0.0f || time_step_seconds_ == NAN) {
+        if (time_step_seconds_ <= 0.0f || std::isnan(time_step_seconds_)) {
             RCLCPP_ERROR(this->get_logger(), "Could not read controller time step correctly.");
             throw std::runtime_error("Time step invalid");
         }
@@ -72,7 +72,7 @@ public:
         j_ = this->get_parameter(MOMENT_OF_INERTIA).as_double();
 
         // Safety check
-        if (m_ <= 0.0f || l_ <= 0.0f || g_ <= 0.0f || j_ <= 0.0f || m_ == NAN || l_ == NAN || g_ == NAN || j_ == NAN) {
+        if (m_ <= 0.0f || l_ <= 0.0f || g_ <= 0.0f || j_ <= 0.0f || std::isnan(m_) || std::isnan(l_) || std::isnan(g_) || std::isnan(j_)) {
             RCLCPP_ERROR(this->get_logger(), "Could not read simulator parameters correctly.");
             throw std::runtime_error("Simulator parameters invalid");
         }

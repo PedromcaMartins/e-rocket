@@ -1,5 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 
+#include <one_degree_freedom/msg/trajectory_setpoint.hpp>
 #include <one_degree_freedom/msg/flight_mode.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <one_degree_freedom/constants.hpp>
@@ -47,7 +48,10 @@ public:
         )},
         translation_position_setpoint_publisher_{this->create_publisher<Vector3Stamped>(
             CONTROLLER_INPUT_TRANSLATION_POSITION_SETPOINT_TOPIC, qos_
-        )}
+        )},
+		trajectory_setpoint_publisher_{this->create_publisher<TrajectorySetpoint>(
+			CONTROLLER_INPUT_TRAJECTORY_SETPOINT_TOPIC, qos_
+		)}
     {
         flight_mode_timer_ = this->create_wall_timer(
 			1s,
@@ -103,6 +107,17 @@ public:
 			sine_wave_trajectory_active_position_y_ ? "active" : "off",
 			sine_wave_trajectory_active_position_z_ ? "active" : "off"
 		);
+
+		this->declare_parameter<bool>(MISSION_TRAJECTORY_SETPOINT_ACTIVE_PARAM);
+		mission_trajectory_setpoint_active_ = this->get_parameter(MISSION_TRAJECTORY_SETPOINT_ACTIVE_PARAM).as_bool();
+		RCLCPP_INFO(this->get_logger(), "Mission trajectory setpoint active: %s", mission_trajectory_setpoint_active_ ? "true" : "false");
+
+		if (mission_trajectory_setpoint_active_ && (
+			sine_wave_trajectory_active_pitch_ || sine_wave_trajectory_active_roll_ || sine_wave_trajectory_active_yaw_ || 
+			sine_wave_trajectory_active_position_x_ || sine_wave_trajectory_active_position_y_ || sine_wave_trajectory_active_position_z_
+		)) {
+			throw std::runtime_error("Mission trajectory setpoint and sine wave trajectory can't be active at the same time :'(");
+		}
     }
 
 private:
@@ -140,6 +155,9 @@ private:
 	bool sine_wave_trajectory_active_position_z_;
 	rclcpp::Publisher<Vector3Stamped>::SharedPtr translation_position_setpoint_publisher_;
 	void publish_translation_position_setpoint_radians(Eigen::Vector3d translation_setpoint_meters);
+
+	bool mission_trajectory_setpoint_active_;
+	rclcpp::Publisher<TrajectorySetpoint>::SharedPtr trajectory_setpoint_publisher_;
 
     OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
     rcl_interfaces::msg::SetParametersResult parameter_callback(
@@ -244,6 +262,39 @@ void Mission::mission() {
         //     RCLCPP_INFO(this->get_logger(), "Mission complete, switching to MISSION_COMPLETE mode");
         //     request_flight_mode(FlightMode::MISSION_COMPLETE);
         // }
+
+		if (mission_trajectory_setpoint_active_) {
+			#include "setpoints.h"
+			static uint32_t index = 0;
+			if (index >= sizeof(Setpoints) / sizeof(Setpoints[0])) {
+				RCLCPP_INFO(this->get_logger(), "Mission Trajectory Tracking Complete! No more setpoints");
+				// request_flight_mode(FlightMode::MISSION_COMPLETE);
+				return;
+			}
+
+			auto new_setpoint = Setpoints[index];
+
+			TrajectorySetpoint setpoint {};
+			// (void) new_setpoint[0]; // time
+			setpoint.position[0]     = new_setpoint[1];
+			setpoint.position[1]     = new_setpoint[2];
+			setpoint.position[2]     = new_setpoint[3];
+			setpoint.velocity[0]     = new_setpoint[4];
+			setpoint.velocity[1]     = new_setpoint[5];
+			setpoint.velocity[2]     = new_setpoint[6];
+			setpoint.acceleration[0] = new_setpoint[7];
+			setpoint.acceleration[1] = new_setpoint[8];
+			setpoint.acceleration[2] = new_setpoint[9];
+			setpoint.jerk[0]         = 0.0f;
+			setpoint.jerk[1]         = 0.0f;
+			setpoint.jerk[2]         = 0.0f;
+			setpoint.snap[0]         = 0.0f;
+			setpoint.snap[1]         = 0.0f;
+			setpoint.snap[2]         = 0.0f;
+
+			trajectory_setpoint_publisher_->publish(setpoint);
+			index++;
+		}
     }
 }
 

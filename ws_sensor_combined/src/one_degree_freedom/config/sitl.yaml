@@ -42,6 +42,8 @@
           m: 2696.6
           b: -38.95
       mission:
+        trajectory_setpoint:
+          active: true
         sine_wave_trajectory: 
           period: 5.
 
@@ -51,6 +53,6 @@
           activate_attitude_yaw:   false
 
           amplitude_position_meters: 1.
-          activate_position_x: true
-          activate_position_y: true
+          activate_position_x: false
+          activate_position_y: false
           activate_position_z: false

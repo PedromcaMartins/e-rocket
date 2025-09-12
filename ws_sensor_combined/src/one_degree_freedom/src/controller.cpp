@@ -4,6 +4,7 @@
 #include <px4_msgs/msg/vehicle_local_position.hpp>
 #include <px4_msgs/msg/actuator_servos.hpp>
 #include <px4_msgs/msg/actuator_motors.hpp>
+#include <one_degree_freedom/msg/trajectory_setpoint.hpp>
 #include <one_degree_freedom/msg/attitude_controller_debug.hpp>
 #include <one_degree_freedom/msg/position_controller_debug.hpp>
 #include <one_degree_freedom/msg/allocator_debug.hpp>
@@ -42,9 +43,9 @@ public:
     )   : thrust_curve_m_(thrust_curve_m), thrust_curve_b_(thrust_curve_b), g_(g), 
             servo_max_tilt_angle_degrees_(servo_max_tilt_angle_degrees), motor_max_pwm_(motor_max_pwm)
             {
-                if (thrust_curve_m == NAN || thrust_curve_b == NAN || g <= 0.0f || g == NAN ||
+                if (std::isnan(thrust_curve_m) || std::isnan(thrust_curve_b) || g <= 0.0f || std::isnan(g) ||
                     servo_max_tilt_angle_degrees <= 0.0f || servo_max_tilt_angle_degrees > 90.0f ||
-                    servo_max_tilt_angle_degrees == NAN || motor_max_pwm < 0.0f || motor_max_pwm > 1.0 || motor_max_pwm == NAN
+                    std::isnan(servo_max_tilt_angle_degrees) || motor_max_pwm < 0.0f || motor_max_pwm > 1.0 || std::isnan(motor_max_pwm)
                 ) {
                     RCLCPP_ERROR(rclcpp::get_logger("allocator"), "Invalid parameters for allocator.");
                     throw std::runtime_error("Allocator parameters invalid");
@@ -138,13 +139,13 @@ public:
             k_p_(k_p), k_d_(k_d), k_i_(k_i), integrated_error_(0.0f), dt_(dt)
             {
                 // Safety check
-                if (k_p == NAN || k_d == NAN || k_i == NAN) {
+                if (std::isnan(k_p) || std::isnan(k_d) || std::isnan(k_i)) {
                     RCLCPP_ERROR(rclcpp::get_logger("attitude_pid_controller"), "Invalid PID gains provided.");
                     throw std::runtime_error("Gains vector invalid");
                 }
 
                 // Safety check
-                if (dt <= 0.0f || dt == NAN) {
+                if (dt <= 0.0f || std::isnan(dt)) {
                     RCLCPP_ERROR(rclcpp::get_logger("attitude_pid_controller"), "Invalid time step provided.");
                     throw std::runtime_error("Time step invalid");
                 }
@@ -205,27 +206,28 @@ public:
         const Eigen::Vector3d & max_output,
         double dt
     )   : mass_(mass), g_(g), k_p_(k_p), k_d_(k_d), k_i_(k_i), kff_(kff),
-            min_output_(min_output), max_output_(max_output), dt_(dt)
+            min_output_(min_output), max_output_(max_output),
+            origin_position_{Eigen::Vector3d(0.0f, 0.0f, 0.0f)}, origin_yaw_{0.0f}, dt_(dt)
             {
-                if (mass <= 0.0f || mass == NAN) {
+                if (mass <= 0.0f || std::isnan(mass)) {
                     RCLCPP_ERROR(rclcpp::get_logger("position_pid_controller"), "Invalid mass provided.");
                     throw std::runtime_error("Mass invalid");
                 }
 
                 if (k_p.size() != 3 || k_d.size() != 3 || k_i.size() != 3 || kff.size() != 3 || 
                     min_output.size() != 3 || max_output.size() != 3 || 
-                    k_p[0] == NAN || k_p[1] == NAN || k_p[2] == NAN ||
-                    k_d[0] == NAN || k_d[1] == NAN || k_d[2] == NAN ||
-                    k_i[0] == NAN || k_i[1] == NAN || k_i[2] == NAN ||
-                    kff[0] == NAN || kff[1] == NAN || kff[2] == NAN ||
-                    min_output[0] == NAN || min_output[1] == NAN || min_output[2] == NAN ||
-                    max_output[0] == NAN || max_output[1] == NAN || max_output[2] == NAN
+                    std::isnan(k_p[0]) || std::isnan(k_p[1]) || std::isnan(k_p[2]) ||
+                    std::isnan(k_d[0]) || std::isnan(k_d[1]) || std::isnan(k_d[2]) ||
+                    std::isnan(k_i[0]) || std::isnan(k_i[1]) || std::isnan(k_i[2]) ||
+                    std::isnan(kff[0]) || std::isnan(kff[1]) || std::isnan(kff[2]) ||
+                    std::isnan(min_output[0]) || std::isnan(min_output[1]) || std::isnan(min_output[2]) ||
+                    std::isnan(max_output[0]) || std::isnan(max_output[1]) || std::isnan(max_output[2])
                 ) {
                     RCLCPP_ERROR(rclcpp::get_logger("position_pid_controller"), "Invalid PID gains provided.");
                     throw std::runtime_error("Gains vector invalid");
                 }
 
-                if (dt <= 0.0f || dt == NAN) {
+                if (dt <= 0.0f || std::isnan(dt)) {
                     RCLCPP_ERROR(rclcpp::get_logger("position_pid_controller"), "Invalid time step provided.");
                     throw std::runtime_error("Time step invalid");
                 }
@@ -241,12 +243,12 @@ public:
                 RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "min output: [%f, %f, %f]", min_output[0], min_output[1], min_output[2]);
                 RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "max output: [%f, %f, %f]", max_output[0], max_output[1], max_output[2]);
 
-                for (auto& val : position_) val.store(0.0f);
-                for (auto& val : position_setpoint_) val.store(0.0f);
-                for (auto& val : velocity_) val.store(0.0f);
-                for (auto& val : velocity_setpoint_) val.store(0.0f);
-                for (auto& val : acceleration_) val.store(0.0f);
-                for (auto& val : acceleration_setpoint_) val.store(0.0f);
+                for (auto& val : position_) val = 0.0f;
+                for (auto& val : position_setpoint_) val = 0.0f;
+                for (auto& val : velocity_) val = 0.0f;
+                for (auto& val : velocity_setpoint_) val = 0.0f;
+                for (auto& val : acceleration_) val = 0.0f;
+                for (auto& val : acceleration_setpoint_) val = 0.0f;
 
                 yaw_angle_setpoint_ = 0.0f;
                 desired_acceleration_.fill(0.0f);
@@ -259,7 +261,7 @@ public:
     void compute() {
         Eigen::Vector3d position, position_setpoint, velocity, velocity_setpoint, feed_forward_ref;
         for (size_t i = 0; i < 3; ++i) {
-            position[i]          = position_[i];
+            position[i]          = position_[i] - origin_position_[i];
             position_setpoint[i] = position_setpoint_[i];
             velocity[i]          = velocity_[i];
             velocity_setpoint[i] = velocity_setpoint_[i];
@@ -311,6 +313,16 @@ public:
         }
     }
 
+    void set_position_as_origin(Eigen::Vector3d position, double yaw) {
+        for (size_t i = 0; i < 3; ++i) {
+            position_setpoint_[i] = position[i];
+        }
+        yaw_angle_setpoint_ = yaw;
+
+        origin_position_ = position;
+        origin_yaw_ = yaw;
+    }
+
 private: 
     double mass_;
     double g_;
@@ -321,6 +333,10 @@ private:
     Eigen::Vector3d min_output_;
     Eigen::Vector3d max_output_;
     Eigen::Vector3d error_i_;
+
+    Eigen::Vector3d origin_position_;
+    double origin_yaw_;
+
     const double dt_;
 };
 
@@ -340,41 +356,41 @@ public:
             auto q = Eigen::Quaterniond(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
             EulerAngle euler = quaternion_to_euler_radians(q);
         
-            if (roll_controller_) roll_controller_->angle_.store(euler.roll);
-            if (pitch_controller_) pitch_controller_->angle_.store(euler.pitch);
-            if (yaw_controller_) yaw_controller_->angle_.store(euler.yaw);
+            if (roll_controller_) roll_controller_->angle_ = euler.roll;
+            if (pitch_controller_) pitch_controller_->angle_ = euler.pitch;
+            if (yaw_controller_) yaw_controller_->angle_ = euler.yaw;
         }
     )},
     angular_rate_subscriber_{this->create_subscription<VehicleAngularVelocity>(
         CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_,
         [this](const VehicleAngularVelocity::SharedPtr msg) {
-            if (roll_controller_) roll_controller_->angular_rate.store(msg->xyz[0]);
-            if (pitch_controller_) pitch_controller_->angular_rate.store(msg->xyz[1]);
-            if (yaw_controller_) yaw_controller_->angular_rate.store(msg->xyz[2]);
+            if (roll_controller_) roll_controller_->angular_rate = msg->xyz[0];
+            if (pitch_controller_) pitch_controller_->angular_rate = msg->xyz[1];
+            if (yaw_controller_) yaw_controller_->angular_rate = msg->xyz[2];
         }
     )},
     local_position_subscriber_{this->create_subscription<VehicleLocalPosition>(
         CONTROLLER_INPUT_LOCAL_POSITION_TOPIC, qos_,
         [this](const VehicleLocalPosition::SharedPtr msg) {
             if (position_controller_) {
-                position_controller_->position_[0].store(msg->x);
-                position_controller_->position_[1].store(msg->y);
-                position_controller_->position_[2].store(msg->z);
+                position_controller_->position_[0] = msg->x;
+                position_controller_->position_[1] = msg->y;
+                position_controller_->position_[2] = msg->z;
 
-                position_controller_->velocity_[0].store(msg->vx);
-                position_controller_->velocity_[1].store(msg->vy);
-                position_controller_->velocity_[2].store(msg->vz);
+                position_controller_->velocity_[0] = msg->vx;
+                position_controller_->velocity_[1] = msg->vy;
+                position_controller_->velocity_[2] = msg->vz;
 
-                position_controller_->acceleration_[0].store(msg->ax);
-                position_controller_->acceleration_[1].store(msg->ay);
-                position_controller_->acceleration_[2].store(msg->az);
+                position_controller_->acceleration_[0] = msg->ax;
+                position_controller_->acceleration_[1] = msg->ay;
+                position_controller_->acceleration_[2] = msg->az;
             }
         }
     )},
     attitude_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
         CONTROLLER_INPUT_ATTITUDE_SETPOINT_TOPIC, qos_,
         [this](const Vector3Stamped::SharedPtr msg) {
-            if (msg->vector.x == NAN || msg->vector.y == NAN || msg->vector.z == NAN) {
+            if (std::isnan(msg->vector.x) || std::isnan(msg->vector.y) || std::isnan(msg->vector.z)) {
                 RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
                 return;
             }
@@ -385,30 +401,49 @@ public:
                 return;
             }
 
-            if (roll_controller_) roll_controller_->desired_setpoint_.store(msg->vector.x);
-            if (pitch_controller_) pitch_controller_->desired_setpoint_.store(msg->vector.y);
-            if (yaw_controller_) yaw_controller_->desired_setpoint_.store(msg->vector.z);
-            if (position_controller_) position_controller_->yaw_angle_setpoint_.store(msg->vector.z);
+            if (roll_controller_) roll_controller_->desired_setpoint_ = msg->vector.x;
+            if (pitch_controller_) pitch_controller_->desired_setpoint_ = msg->vector.y;
+            if (yaw_controller_) yaw_controller_->desired_setpoint_ = msg->vector.z;
+            if (position_controller_) position_controller_->yaw_angle_setpoint_ = msg->vector.z;
         }
     )},
     translation_position_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
         CONTROLLER_INPUT_TRANSLATION_POSITION_SETPOINT_TOPIC, qos_,
         [this](const Vector3Stamped::SharedPtr msg) {
-            if (msg->vector.x == NAN || msg->vector.y == NAN || msg->vector.z == NAN) {
+            if (std::isnan(msg->vector.x) || std::isnan(msg->vector.y) || std::isnan(msg->vector.z)) {
                 RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
                 return;
             }
 
             if (position_controller_) {
-                position_controller_->position_setpoint_[0].store(
-                    position_controller_->position_setpoint_[0].load() + msg->vector.x
-                );
-                position_controller_->position_setpoint_[1].store(
-                    position_controller_->position_setpoint_[1].load() + msg->vector.y
-                );
-                position_controller_->position_setpoint_[2].store(
-                    position_controller_->position_setpoint_[2].load() + msg->vector.z
-                );
+                position_controller_->position_setpoint_[0] = position_controller_->position_setpoint_[0] + msg->vector.x;
+                position_controller_->position_setpoint_[1] = position_controller_->position_setpoint_[1] + msg->vector.y;
+                position_controller_->position_setpoint_[2] = position_controller_->position_setpoint_[2] + msg->vector.z;
+            }
+        }
+    )},
+    trajectory_setpoint_subscriber_{this->create_subscription<TrajectorySetpoint>(
+        CONTROLLER_INPUT_TRAJECTORY_SETPOINT_TOPIC, qos_,
+        [this](const TrajectorySetpoint::SharedPtr msg) {
+            if (std::isnan(msg->position[0]) || std::isnan(msg->position[1]) || std::isnan(msg->position[2]) ||
+                std::isnan(msg->velocity[0]) || std::isnan(msg->velocity[1]) || std::isnan(msg->velocity[2]) ||
+                std::isnan(msg->acceleration[0]) || std::isnan(msg->acceleration[1]) || std::isnan(msg->acceleration[2])) {
+                RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
+                return;
+            }
+
+            if (position_controller_) {
+                position_controller_->position_setpoint_[0] = msg->position[0];
+                position_controller_->position_setpoint_[1] = msg->position[1];
+                position_controller_->position_setpoint_[2] = msg->position[2];
+
+                position_controller_->velocity_setpoint_[0] = msg->velocity[0];
+                position_controller_->velocity_setpoint_[1] = msg->velocity[1];
+                position_controller_->velocity_setpoint_[2] = msg->velocity[2];
+
+                position_controller_->acceleration_setpoint_[0] = msg->acceleration[0];
+                position_controller_->acceleration_setpoint_[1] = msg->acceleration[1];
+                position_controller_->acceleration_setpoint_[2] = msg->acceleration[2];
             }
         }
     )},
@@ -432,7 +467,7 @@ public:
     flight_mode_get_subscriber_{this->create_subscription<FlightMode>(
         FLIGHT_MODE_GET_TOPIC, qos_, 
         [this](const FlightMode::SharedPtr msg) {
-            flight_mode_.store(msg->flight_mode);
+            flight_mode_ = msg->flight_mode;
         }
     )}
     {
@@ -453,7 +488,7 @@ public:
 
         this->declare_parameter<double>(CONTROLLER_FREQUENCY_HERTZ_PARAM);
         double controllers_freq = this->get_parameter(CONTROLLER_FREQUENCY_HERTZ_PARAM).as_double();
-        if (controllers_freq <= 0.0f || controllers_freq == NAN) {
+        if (controllers_freq <= 0.0f || std::isnan(controllers_freq)) {
             RCLCPP_ERROR(this->get_logger(), "Could not read controller frequency correctly.");
             throw std::runtime_error("Controller frequency invalid");
         }
@@ -462,7 +497,7 @@ public:
 
         this->declare_parameter<double>(CONTROLLER_DEFAULT_MOTOR_PWM);
         default_motor_pwm_ = this->get_parameter(CONTROLLER_DEFAULT_MOTOR_PWM).as_double();
-        if (default_motor_pwm_ < 0.0f || default_motor_pwm_ > 1.0f || default_motor_pwm_ == NAN) {
+        if (default_motor_pwm_ < 0.0f || default_motor_pwm_ > 1.0f || std::isnan(default_motor_pwm_)) {
             RCLCPP_ERROR(this->get_logger(), "Could not read motor thrust correctly.");
             throw std::runtime_error("Motor thrust invalid");
         }
@@ -602,6 +637,7 @@ private:
     rclcpp::Subscription<VehicleLocalPosition>::SharedPtr   local_position_subscriber_;
 	rclcpp::Subscription<Vector3Stamped>::SharedPtr         attitude_setpoint_subscriber_;
 	rclcpp::Subscription<Vector3Stamped>::SharedPtr         translation_position_setpoint_subscriber_;
+	rclcpp::Subscription<TrajectorySetpoint>::SharedPtr     trajectory_setpoint_subscriber_;
 	rclcpp::Publisher<ActuatorServos>::SharedPtr    servo_tilt_angle_publisher_;
     rclcpp::Publisher<ActuatorMotors>::SharedPtr    motor_thrust_publisher_;
 
@@ -651,7 +687,7 @@ private:
  */
 void BaselinePIDController::controller_callback()
 {
-    if (flight_mode_.load() == FlightMode::ARM) {
+    if (flight_mode_ == FlightMode::ARM) {
         static rclcpp::Time t0 = this->get_clock()->now();
         rclcpp::Time now = this->get_clock()->now();
 
@@ -679,7 +715,7 @@ void BaselinePIDController::controller_callback()
         if (now - t0 > 4.0s) {
             // Needed 
             double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(0.4f);
-            yaw_controller_->desired_setpoint_.store(0.0f);
+            yaw_controller_->desired_setpoint_ = 0.0f;
             double delta_motor_pwm = yaw_controller_->compute();
 
             // Allocate motor thrust based on the computed torque
@@ -698,24 +734,34 @@ void BaselinePIDController::controller_callback()
     }
 
     // only run controller when in mission
-    else if (flight_mode_.load() == FlightMode::IN_MISSION) {
+    else if (flight_mode_ == FlightMode::IN_MISSION) {
         double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(default_motor_pwm_);
 
         if (position_controller_) {
             static bool mission_start = false;
             if (!mission_start) {
                 mission_start = true;
-                for (size_t i = 0; i < 3; ++i) {
-                    position_controller_->position_setpoint_[i].store(position_controller_->position_[i]);
-                    position_controller_->yaw_angle_setpoint_.store(yaw_controller_->angle_);
-                    yaw_controller_->desired_setpoint_.store(yaw_controller_->angle_);
-                }
+                position_controller_->set_position_as_origin(
+                    Eigen::Vector3d(
+                        position_controller_->position_[0],
+                        position_controller_->position_[1],
+                        position_controller_->position_[2]
+                    ),
+                    yaw_controller_->angle_
+                );
+                RCLCPP_INFO(this->get_logger(), "Position controller origin set to current position.");
+                RCLCPP_INFO(this->get_logger(), "Position: [%f, %f, %f], yaw: %f", 
+                    position_controller_->position_[0].load(),
+                    position_controller_->position_[1].load(),
+                    position_controller_->position_[2].load(),
+                    yaw_controller_->angle_.load()
+                );
             }
 
             position_controller_->compute();
-            roll_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[0]);
-            pitch_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[1]);
-            yaw_controller_->desired_setpoint_.store(position_controller_->desired_attitude_[2]);
+            roll_controller_->desired_setpoint_ = position_controller_->desired_attitude_[0];
+            pitch_controller_->desired_setpoint_ = position_controller_->desired_attitude_[1];
+            yaw_controller_->desired_setpoint_ = position_controller_->desired_attitude_[2];
 
             average_motor_thrust_newtons = position_controller_->desired_thrust_;
 
@@ -762,6 +808,8 @@ void BaselinePIDController::controller_callback()
             motor_output.downwards_motor_pwm
         );
     }
+
+    // TODO: if FlightMode::MISSION_COMPLETE => slow descent - keep algorithms running, thrust -> hover thrust * 0.9 for 1s => hover thrust
 }
 
 void BaselinePIDController::publish_attitude_controller_debug() {

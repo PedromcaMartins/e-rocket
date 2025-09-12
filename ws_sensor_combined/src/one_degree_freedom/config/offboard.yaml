@@ -42,6 +42,8 @@
           m: 2696.6
           b: -38.95
       mission:
+        trajectory_setpoint:
+          active: false
         sine_wave_trajectory: 
           period: 5.
 

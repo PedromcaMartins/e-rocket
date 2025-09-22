@@ -13,6 +13,7 @@
 #include <one_degree_freedom/frame_transforms.h>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 
+#include <one_degree_freedom/vehicle_constants.hpp>
 #include <one_degree_freedom/controller/allocator.hpp>
 #include <one_degree_freedom/controller/impls/attitude_pid.hpp>
 #include <one_degree_freedom/controller/impls/position_pid.hpp>
@@ -38,6 +39,8 @@ public:
 	explicit BaselinePIDController() : Node("baseline_pid_controller"),
     qos_profile_{rmw_qos_profile_sensor_data},
     qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
+
+    vehicle_constants_{std::make_shared<VehicleConstants>(this)},
 
     attitude_subscriber_{this->create_subscription<VehicleAttitude>(
         CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_,
@@ -160,21 +163,6 @@ public:
         }
     )}
     {
-        this->declare_parameter<bool>(CONTROLLER_OUTPUT_MOTOR_ACTIVE_PARAM);
-        this->declare_parameter<bool>(CONTROLLER_OUTPUT_SERVO_ACTIVE_PARAM);
-        motor_active_ = this->get_parameter(CONTROLLER_OUTPUT_MOTOR_ACTIVE_PARAM).as_bool();
-        servo_active_ = this->get_parameter(CONTROLLER_OUTPUT_SERVO_ACTIVE_PARAM).as_bool();
-
-        RCLCPP_INFO(this->get_logger(), "Motor %s; Servo %s", 
-            (motor_active_)? "active" : "off",
-            (servo_active_)? "active" : "off"
-        );
-
-        this->declare_parameter<double>(GRAVITATIONAL_ACCELERATION);
-        this->declare_parameter<double>(MASS_OF_SYSTEM);
-        double g = this->get_parameter(GRAVITATIONAL_ACCELERATION).as_double();
-        double mass = this->get_parameter(MASS_OF_SYSTEM).as_double();
-
         this->declare_parameter<double>(CONTROLLER_FREQUENCY_HERTZ_PARAM);
         double controllers_freq = this->get_parameter(CONTROLLER_FREQUENCY_HERTZ_PARAM).as_double();
         if (controllers_freq <= 0.0f || std::isnan(controllers_freq)) {
@@ -184,28 +172,7 @@ public:
         RCLCPP_INFO(this->get_logger(), "Controllers freq: %f", controllers_freq);
         double controllers_dt = 1.0 / controllers_freq;
 
-        this->declare_parameter<double>(CONTROLLER_DEFAULT_MOTOR_PWM);
-        default_motor_pwm_ = this->get_parameter(CONTROLLER_DEFAULT_MOTOR_PWM).as_double();
-        if (default_motor_pwm_ < 0.0f || default_motor_pwm_ > 1.0f || std::isnan(default_motor_pwm_)) {
-            RCLCPP_ERROR(this->get_logger(), "Could not read motor thrust correctly.");
-            throw std::runtime_error("Motor thrust invalid");
-        }
-        RCLCPP_INFO(this->get_logger(), "Default motor thrust pwm: %f", default_motor_pwm_);
-
-
-        this->declare_parameter<double>(CONTROLLER_THRUST_CURVE_M_PARAM);
-        this->declare_parameter<double>(CONTROLLER_THRUST_CURVE_B_PARAM);
-        this->declare_parameter<double>(CONTROLLER_SERVO_MAX_TILT_ANGLE_PARAM);
-        this->declare_parameter<double>(CONTROLLER_MOTOR_MAX_PWM_PARAM);
-        double thrust_curve_m = this->get_parameter(CONTROLLER_THRUST_CURVE_M_PARAM).as_double();
-        double thrust_curve_b = this->get_parameter(CONTROLLER_THRUST_CURVE_B_PARAM).as_double();
-        double servo_max_tilt_angle_degrees = this->get_parameter(CONTROLLER_SERVO_MAX_TILT_ANGLE_PARAM).as_double();
-        double motor_max_pwm   = this->get_parameter(CONTROLLER_MOTOR_MAX_PWM_PARAM).as_double();
-
-        allocator_ = std::make_unique<Allocator>(
-            thrust_curve_m, thrust_curve_b, g, 
-            servo_max_tilt_angle_degrees, motor_max_pwm
-        );
+        allocator_ = std::make_unique<Allocator>(vehicle_constants_);
 
         this->declare_parameter<bool>(CONTROLLER_ROLL_ACTIVE_PARAM);
         if (this->get_parameter(CONTROLLER_ROLL_ACTIVE_PARAM).as_bool()) {
@@ -277,8 +244,7 @@ public:
             std::vector<double> max_output = this->get_parameter(CONTROLLER_POSITION_MAX_OUTPUT_PARAM).as_double_array();
 
             position_controller_.emplace(
-                mass, 
-                g,
+                vehicle_constants_,
                 Eigen::Vector3d {k_p[0], k_p[1], k_p[2]}, 
                 Eigen::Vector3d {k_d[0], k_d[1], k_d[2]}, 
                 Eigen::Vector3d {k_i[0], k_i[1], k_i[2]},
@@ -317,6 +283,8 @@ private:
     rmw_qos_profile_t qos_profile_;
     rclcpp::QoS qos_;
 
+    std::shared_ptr<VehicleConstants> vehicle_constants_;
+
     //!< Time variables
     rclcpp::TimerBase::SharedPtr controller_timer_;
 
@@ -342,10 +310,6 @@ private:
     std::unique_ptr<Allocator> allocator_;
 
     std::optional<PositionPIDController> position_controller_;
-
-    double default_motor_pwm_;
-    bool motor_active_;
-    bool servo_active_;
 
 	//!< Auxiliary functions
     void controller_callback();
@@ -424,7 +388,7 @@ void BaselinePIDController::controller_callback()
 
     // only run controller when in mission
     else if (flight_mode_ == FlightMode::IN_MISSION) {
-        double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(default_motor_pwm_);
+        double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(vehicle_constants_->default_motor_pwm_);
 
         if (position_controller_) {
             static bool mission_start = false;
@@ -598,7 +562,7 @@ void BaselinePIDController::publish_servo_pwm(const double inner_servo_pwm, cons
 {
     ActuatorServos msg{};
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-    if (servo_active_) {
+    if (vehicle_constants_->servo_active_) {
         msg.control[1] = inner_servo_pwm;
         msg.control[0] = outer_servo_pwm;
     } else {
@@ -617,7 +581,7 @@ void BaselinePIDController::publish_motor_pwm(const double upwards_motor_pwm, co
 {
 	ActuatorMotors msg{};
 	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-    if (motor_active_) {
+    if (vehicle_constants_->motor_active_) {
         msg.control[0] = upwards_motor_pwm;
         msg.control[1] = downwards_motor_pwm;
     } else {

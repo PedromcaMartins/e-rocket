@@ -5,6 +5,15 @@
       length_of_pendulum: 0.2
       gravitational_acceleration: 9.81
       moment_of_inertia: 0.0375
+      vehicle: 
+        servo_active: true
+        motor_active: true
+        servo_max_tilt_angle_degrees: 30.
+        default_motor_pwm: 0.50 # active when position controllers are off
+        motor_max_pwm: 0.75
+        motor_thrust_curve: # newtons = (pwm * m + b) / 1000 * g;
+          m: 2696.6
+          b: -38.95
       controller:
         roll: 
           active: true
@@ -33,14 +42,6 @@
             min_output: [-20., -20., -20.] # Minimum output of each PID
             max_output: [ 20.,  20.,  20.]
         frequency_hertz: 50.
-        default_motor_pwm: 0.50
-        servo_max_tilt_angle_degrees: 30.
-        motor_max_pwm: 0.75
-        motor_active: true
-        servo_active: true
-        motor_thrust_curve: # newtons = (pwm * m + b) / 1000 * g;
-          m: 2696.6
-          b: -38.95
       mission:
         trajectory_setpoint:
           active: false

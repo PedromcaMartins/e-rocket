@@ -1,6 +1,7 @@
 #pragma once
 #include <rclcpp/rclcpp.hpp>
 #include <one_degree_freedom/frame_transforms.h>
+#include <one_degree_freedom/vehicle_constants.hpp>
 
 class PositionPIDController
 {
@@ -19,8 +20,7 @@ public:
     double desired_thrust_;
 
     PositionPIDController(
-        double mass, 
-        double g, 
+        std::shared_ptr<VehicleConstants> vehicle_constants,
         const Eigen::Vector3d & k_p, 
         const Eigen::Vector3d & k_d, 
         const Eigen::Vector3d & k_i,
@@ -28,15 +28,11 @@ public:
         const Eigen::Vector3d & min_output,
         const Eigen::Vector3d & max_output,
         double dt
-    )   : mass_(mass), g_(g), k_p_(k_p), k_d_(k_d), k_i_(k_i), kff_(kff),
+    )   : mass_(vehicle_constants->mass_of_system_), g_(vehicle_constants->gravitational_acceleration_), 
+            k_p_(k_p), k_d_(k_d), k_i_(k_i), kff_(kff),
             min_output_(min_output), max_output_(max_output),
             origin_position_{Eigen::Vector3d(0.0f, 0.0f, 0.0f)}, origin_yaw_{0.0f}, dt_(dt)
             {
-                if (mass <= 0.0f || std::isnan(mass)) {
-                    RCLCPP_ERROR(rclcpp::get_logger("position_pid_controller"), "Invalid mass provided.");
-                    throw std::runtime_error("Mass invalid");
-                }
-
                 if (k_p.size() != 3 || k_d.size() != 3 || k_i.size() != 3 || kff.size() != 3 || 
                     min_output.size() != 3 || max_output.size() != 3 || 
                     std::isnan(k_p[0]) || std::isnan(k_p[1]) || std::isnan(k_p[2]) ||

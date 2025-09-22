@@ -11,6 +11,19 @@ namespace constants
     constexpr char GRAVITATIONAL_ACCELERATION[] = "offboard.gravitational_acceleration";
     constexpr char MOMENT_OF_INERTIA[]          = "offboard.moment_of_inertia";
 
+namespace vehicle
+{
+    constexpr char SERVO_ACTIVE_PARAM[] = "offboard.vehicle.servo_active";
+    constexpr char MOTOR_ACTIVE_PARAM[] = "offboard.vehicle.motor_active";
+
+    constexpr char SERVO_MAX_TILT_ANGLE_DEGREES_PARAM[] = "offboard.vehicle.servo_max_tilt_angle_degrees";
+    constexpr char CONTROLLER_DEFAULT_MOTOR_PWM[] = "offboard.vehicle.default_motor_pwm";
+    constexpr char MAX_MOTOR_PWM_PARAM[] = "offboard.vehicle.motor_max_pwm";
+    constexpr char MOTOR_THRUST_CURVE_M_PARAM[] = "offboard.vehicle.motor_thrust_curve.m";
+    constexpr char MOTOR_THRUST_CURVE_B_PARAM[] = "offboard.vehicle.motor_thrust_curve.b";
+
+} // namespace vehicle
+
 namespace controller
 {
 
@@ -20,9 +33,6 @@ namespace controller
     constexpr char CONTROLLER_INPUT_LOCAL_POSITION_TOPIC[] =  "/fmu/out/vehicle_local_position";
     constexpr char CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC[] =    "/fmu/in/actuator_motors";
     constexpr char CONTROLLER_OUTPUT_SERVO_PWM_TOPIC[] =    "/fmu/in/actuator_servos";
-
-    constexpr char CONTROLLER_OUTPUT_MOTOR_ACTIVE_PARAM[] = "offboard.controller.motor_active";
-    constexpr char CONTROLLER_OUTPUT_SERVO_ACTIVE_PARAM[] = "offboard.controller.servo_active";
 
     constexpr char CONTROLLER_ATTITUDE_DEBUG_TOPIC[] = "/offboard/attitude_controller/debug";
     constexpr char CONTROLLER_POSITION_DEBUG_TOPIC[] = "/offboard/position_controller/debug";
@@ -51,13 +61,6 @@ namespace controller
     constexpr char CONTROLLER_POSITION_MAX_OUTPUT_PARAM[] = "offboard.controller.position.gains.max_output";
 
     constexpr char CONTROLLER_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.frequency_hertz";
-    constexpr char CONTROLLER_DEFAULT_MOTOR_PWM[]     = "offboard.controller.default_motor_pwm";
-
-    constexpr char CONTROLLER_THRUST_CURVE_M_PARAM[] = "offboard.controller.motor_thrust_curve.m";
-    constexpr char CONTROLLER_THRUST_CURVE_B_PARAM[] = "offboard.controller.motor_thrust_curve.b";
-    constexpr char CONTROLLER_SERVO_MAX_TILT_ANGLE_PARAM[] = "offboard.controller.servo_max_tilt_angle_degrees";
-    constexpr char CONTROLLER_MOTOR_MAX_PWM_PARAM[]  = "offboard.controller.motor_max_pwm";
-
 } // namespace controller
 
 namespace flight_mode

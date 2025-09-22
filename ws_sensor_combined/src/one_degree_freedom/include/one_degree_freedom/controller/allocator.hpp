@@ -1,6 +1,7 @@
 #pragma once
 #include <rclcpp/rclcpp.hpp>
 #include <one_degree_freedom/frame_transforms.h>
+#include <one_degree_freedom/vehicle_constants.hpp>
 
 namespace frame_transforms = one_degree_freedom::frame_transforms;
 
@@ -17,23 +18,13 @@ public:
         double downwards_motor_pwm;
     };
 
-    Allocator(double thrust_curve_m, double thrust_curve_b, double g, 
-        double servo_max_tilt_angle_degrees, double motor_max_pwm
-    )   : thrust_curve_m_(thrust_curve_m), thrust_curve_b_(thrust_curve_b), g_(g), 
-            servo_max_tilt_angle_degrees_(servo_max_tilt_angle_degrees), motor_max_pwm_(motor_max_pwm)
-            {
-                if (std::isnan(thrust_curve_m) || std::isnan(thrust_curve_b) || g <= 0.0f || std::isnan(g) ||
-                    servo_max_tilt_angle_degrees <= 0.0f || servo_max_tilt_angle_degrees > 90.0f ||
-                    std::isnan(servo_max_tilt_angle_degrees) || motor_max_pwm < 0.0f || motor_max_pwm > 1.0 || std::isnan(motor_max_pwm)
-                ) {
-                    RCLCPP_ERROR(rclcpp::get_logger("allocator"), "Invalid parameters for allocator.");
-                    throw std::runtime_error("Allocator parameters invalid");
-                }
-                RCLCPP_INFO(rclcpp::get_logger("allocator"), "Thrust curve: x * %f + %f", thrust_curve_m_, thrust_curve_b_);
-                RCLCPP_INFO(rclcpp::get_logger("allocator"), "Gravitational acceleration: %f", g_);
-                RCLCPP_INFO(rclcpp::get_logger("allocator"), "Servo max tilt angle degrees: %f", servo_max_tilt_angle_degrees_);
-                RCLCPP_INFO(rclcpp::get_logger("allocator"), "Motor max pwm: %f", motor_max_pwm_);
-            }
+    Allocator(std::shared_ptr<VehicleConstants> vehicle_constants) : 
+        thrust_curve_m_(vehicle_constants->motor_thrust_curve_m_), 
+        thrust_curve_b_(vehicle_constants->motor_thrust_curve_b_), 
+        g_(vehicle_constants->gravitational_acceleration_), 
+        servo_max_tilt_angle_degrees_(vehicle_constants->servo_max_tilt_angle_degrees_), 
+        motor_max_pwm_(vehicle_constants->max_motor_pwm_)
+        { }
 
     ServoAllocatorOutput compute_servo_allocation(
         double inner_servo_tilt_angle_radians, 

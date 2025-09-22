@@ -73,51 +73,9 @@ public:
             std::bind(&Mission::parameter_callback, this, std::placeholders::_1)
         );
 
-		this->declare_parameter<double>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_PERIOD_PARAM);
-		sine_wave_trajectory_period_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_PERIOD_PARAM).as_double();
-
-		this->declare_parameter<double>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_AMPLITUDE_ATTITUDE_DEGREES_PARAM);
-		this->declare_parameter<bool>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ATTITUDE_ROLL_PARAM);
-		this->declare_parameter<bool>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ATTITUDE_PITCH_PARAM);
-		this->declare_parameter<bool>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ATTITUDE_YAW_PARAM);
-		sine_wave_trajectory_amplitude_degrees_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_AMPLITUDE_ATTITUDE_DEGREES_PARAM).as_double();
-		sine_wave_trajectory_active_roll_  = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ATTITUDE_ROLL_PARAM).as_bool();
-		sine_wave_trajectory_active_pitch_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ATTITUDE_PITCH_PARAM).as_bool();
-		sine_wave_trajectory_active_yaw_   = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_ATTITUDE_YAW_PARAM).as_bool();
-
-		RCLCPP_INFO(this->get_logger(), "Sine wave attitude trajectory: %.2f * sin(2 * pi * t / %.2f) degrees; roll=%s, pitch=%s, yaw=%s",
-			sine_wave_trajectory_amplitude_degrees_, sine_wave_trajectory_period_,
-			sine_wave_trajectory_active_roll_  ? "active" : "off",
-			sine_wave_trajectory_active_pitch_ ? "active" : "off",
-			sine_wave_trajectory_active_yaw_   ? "active" : "off"
-		);
-
-		this->declare_parameter<double>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_AMPLITUDE_POSITION_METERS_PARAM);
-		this->declare_parameter<bool>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_POSITION_X_PARAM);
-		this->declare_parameter<bool>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_POSITION_Y_PARAM);
-		this->declare_parameter<bool>(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_POSITION_Z_PARAM);
-		sine_wave_trajectory_amplitude_position_meters_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_AMPLITUDE_POSITION_METERS_PARAM).as_double();
-		sine_wave_trajectory_active_position_x_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_POSITION_X_PARAM).as_bool();
-		sine_wave_trajectory_active_position_y_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_POSITION_Y_PARAM).as_bool();
-		sine_wave_trajectory_active_position_z_ = this->get_parameter(MISSION_SETPOINT_SINE_WAVE_TRAJECTORY_ACTIVE_POSITION_Z_PARAM).as_bool();
-
-		RCLCPP_INFO(this->get_logger(), "Sine wave position trajectory: %.2f * sin(2 * pi * t / %.2f) degrees; x=%s, y=%s, z=%s",
-			sine_wave_trajectory_amplitude_position_meters_, sine_wave_trajectory_period_,
-			sine_wave_trajectory_active_position_x_ ? "active" : "off",
-			sine_wave_trajectory_active_position_y_ ? "active" : "off",
-			sine_wave_trajectory_active_position_z_ ? "active" : "off"
-		);
-
 		this->declare_parameter<bool>(MISSION_TRAJECTORY_SETPOINT_ACTIVE_PARAM);
 		mission_trajectory_setpoint_active_ = this->get_parameter(MISSION_TRAJECTORY_SETPOINT_ACTIVE_PARAM).as_bool();
 		RCLCPP_INFO(this->get_logger(), "Mission trajectory setpoint active: %s", mission_trajectory_setpoint_active_ ? "true" : "false");
-
-		if (mission_trajectory_setpoint_active_ && (
-			sine_wave_trajectory_active_pitch_ || sine_wave_trajectory_active_roll_ || sine_wave_trajectory_active_yaw_ || 
-			sine_wave_trajectory_active_position_x_ || sine_wave_trajectory_active_position_y_ || sine_wave_trajectory_active_position_z_
-		)) {
-			throw std::runtime_error("Mission trajectory setpoint and sine wave trajectory can't be active at the same time :'(");
-		}
     }
 
 private:
@@ -139,20 +97,9 @@ private:
 	rclcpp::TimerBase::SharedPtr mission_timer_;
 	void mission();
 
-	//!< Setpoint Attitude
-	double sine_wave_trajectory_period_;
-
-	double sine_wave_trajectory_amplitude_degrees_;
-	bool sine_wave_trajectory_active_roll_;
-	bool sine_wave_trajectory_active_pitch_;
-	bool sine_wave_trajectory_active_yaw_;
 	rclcpp::Publisher<Vector3Stamped>::SharedPtr attitude_setpoint_publisher_;
 	void publish_attitude_setpoint_radians(Eigen::Vector3d setpoint_radians);
 
-	double sine_wave_trajectory_amplitude_position_meters_;
-	bool sine_wave_trajectory_active_position_x_;
-	bool sine_wave_trajectory_active_position_y_;
-	bool sine_wave_trajectory_active_position_z_;
 	rclcpp::Publisher<Vector3Stamped>::SharedPtr translation_position_setpoint_publisher_;
 	void publish_translation_position_setpoint_radians(Eigen::Vector3d translation_setpoint_meters);
 
@@ -212,46 +159,6 @@ void Mission::mission() {
                 elapsed_time.seconds()
             );
         }
-
-		{
-			// Example: Sine wave trajectory for setpoint attitude
-			double time_in_seconds = elapsed_time.seconds();
-			double frequency = 1.0 / sine_wave_trajectory_period_; // Frequency in Hz
-			double attitude_amplitude_radians = degrees_to_radians(sine_wave_trajectory_amplitude_degrees_); // Amplitude in radians
-
-			Eigen::Vector3d attitude_setpoint_radians(0.0f, 0.0f, 0.0f);
-			if (sine_wave_trajectory_active_roll_) {
-				attitude_setpoint_radians[0] = attitude_amplitude_radians * std::sin(2 * M_PI * frequency * time_in_seconds);
-			}
-			if (sine_wave_trajectory_active_pitch_) {
-				attitude_setpoint_radians[1] = attitude_amplitude_radians * std::sin(2 * M_PI * frequency * time_in_seconds);
-			}
-			if (sine_wave_trajectory_active_yaw_) {
-				attitude_setpoint_radians[2] = attitude_amplitude_radians * std::sin(2 * M_PI * frequency * time_in_seconds);
-			}
-			if (sine_wave_trajectory_active_roll_ || 
-				sine_wave_trajectory_active_pitch_ || 
-				sine_wave_trajectory_active_yaw_) {
-				publish_attitude_setpoint_radians(attitude_setpoint_radians);
-			}
-
-			// Eigen::Vector3d position_setpoint_meters(0.0f, 0.0f, 0.0f);
-			// double position_amplitude_meters = sine_wave_trajectory_amplitude_position_meters_;
-			// if (sine_wave_trajectory_active_position_x_) {
-			// 	position_setpoint_meters[0] = position_amplitude_meters * std::sin(2 * M_PI * frequency * time_in_seconds);
-			// }
-			// if (sine_wave_trajectory_active_position_y_) {
-			// 	position_setpoint_meters[1] = position_amplitude_meters * std::sin(2 * M_PI * frequency * time_in_seconds);
-			// }
-			// if (sine_wave_trajectory_active_position_z_) {
-			// 	position_setpoint_meters[2] = position_amplitude_meters * std::sin(2 * M_PI * frequency * time_in_seconds);
-			// }
-			// if (sine_wave_trajectory_active_position_x_ ||
-			// 	sine_wave_trajectory_active_position_y_ ||
-			// 	sine_wave_trajectory_active_position_z_) {
-			// 	publish_translation_position_setpoint_radians(position_setpoint_meters);
-			// }
-		}
 
 		// Remove mission time limit
 
@@ -335,16 +242,6 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
                 return result;
             }
 
-			if (sine_wave_trajectory_active_roll_ || 
-				sine_wave_trajectory_active_pitch_ || 
-				sine_wave_trajectory_active_yaw_) {
-				RCLCPP_ERROR(this->get_logger(), 
-					"Cannot set attitude setpoint while sine wave trajectory is active. Please disable it first.");
-				result.successful = false;
-				result.reason = "Sine wave trajectory active";
-				return result;
-			}
-
 			Eigen::Vector3d attitude_setpoint_radians = degrees_to_radians(Eigen::Vector3d(
 				attitude_setpoint_degrees[0],
 				attitude_setpoint_degrees[1],
@@ -369,16 +266,6 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
                 result.reason = "Invalid setpoint size";
                 return result;
             }
-
-			if (sine_wave_trajectory_active_position_x_ || 
-				sine_wave_trajectory_active_position_y_ || 
-				sine_wave_trajectory_active_position_z_) {
-				RCLCPP_ERROR(this->get_logger(), 
-					"Cannot set position setpoint while sine wave trajectory is active. Please disable it first.");
-				result.successful = false;
-				result.reason = "Sine wave trajectory active";
-				return result;
-			}
 
             publish_translation_position_setpoint_radians(Eigen::Vector3d(
 				translation_position_setpoint_meters[0],

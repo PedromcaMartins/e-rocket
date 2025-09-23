@@ -25,13 +25,12 @@ public:
         clock_(std::make_shared<rclcpp::Clock>(RCL_ROS_TIME))
     {
         node->declare_parameter<double>(CONTROLLER_ATTITUDE_FREQUENCY_HERTZ_PARAM);
-        double controllers_freq = node->get_parameter(CONTROLLER_ATTITUDE_FREQUENCY_HERTZ_PARAM).as_double();
-        if (controllers_freq <= 0.0f || std::isnan(controllers_freq)) {
+        double controller_freq = node->get_parameter(CONTROLLER_ATTITUDE_FREQUENCY_HERTZ_PARAM).as_double();
+        if (controller_freq <= 0.0f || std::isnan(controller_freq)) {
             RCLCPP_ERROR(logger_, "Could not read controller frequency correctly.");
             throw std::runtime_error("Controller frequency invalid");
         }
-        RCLCPP_INFO(logger_, "Controllers freq: %f", controllers_freq);
-        dt_ = 1.0 / controllers_freq;
+        dt_ = 1.0 / controller_freq;
 
         node->declare_parameter<std::vector<bool>>(CONTROLLER_ATTITUDE_ACTIVE_PARAM);
         controller_active_ = node->get_parameter(CONTROLLER_ATTITUDE_ACTIVE_PARAM).as_bool_array();

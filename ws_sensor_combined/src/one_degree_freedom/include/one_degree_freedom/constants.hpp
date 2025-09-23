@@ -49,6 +49,7 @@ namespace controller
     constexpr char CONTROLLER_POSITION_K_P_PARAM[] = "offboard.controller.position.gains.k_p";
     constexpr char CONTROLLER_POSITION_K_D_PARAM[] = "offboard.controller.position.gains.k_d";
     constexpr char CONTROLLER_POSITION_K_I_PARAM[] = "offboard.controller.position.gains.k_i";
+    constexpr char CONTROLLER_POSITION_K_FF_PARAM[] = "offboard.controller.position.gains.k_ff";
     constexpr char CONTROLLER_POSITION_MIN_OUTPUT_PARAM[] = "offboard.controller.position.gains.min_output";
     constexpr char CONTROLLER_POSITION_MAX_OUTPUT_PARAM[] = "offboard.controller.position.gains.max_output";
     constexpr char CONTROLLER_POSITION_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.position.frequency_hertz";

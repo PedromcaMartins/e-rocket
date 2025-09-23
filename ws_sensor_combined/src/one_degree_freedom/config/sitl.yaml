@@ -26,9 +26,10 @@
           active: true
           frequency_hertz: 50.
           gains:
-            k_p: [8.0, 8.0, 8.0]   # Proportional gain
-            k_d: [3.0, 3.0, 3.0]   # Derivative gain
-            k_i: [0.2, 0.2, 0.1]   # Integral gain
+            k_p:  [8.0, 8.0, 8.0]   # Proportional gain
+            k_d:  [3.0, 3.0, 3.0]   # Derivative gain
+            k_i:  [0.2, 0.2, 0.1]   # Integral gain
+            k_ff: [1.0, 1.0, 1.0]   # Feedforward gain
             min_output: [-20., -20., -20.] # Minimum output of each PID
             max_output: [ 20.,  20.,  20.]
       mission:

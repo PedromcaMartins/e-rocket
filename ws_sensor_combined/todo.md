@@ -96,7 +96,7 @@ Controller is generic, but Allocator is specific! receives forces and torques
         - servo test
         - 4s to switch
     - Arm
-        - Liga Motores (0% mby)
+        - Liga Motores (0% mby) / ramp-up
         - Save z (ground altitude)
         - Comando to switch?...
     - Take Off

@@ -78,6 +78,7 @@ public:
 
         rclcpp::sleep_for(std::chrono::seconds(1));
         publish_attitude();
+        publish_local_position();
 	}
 
 private:
@@ -89,16 +90,16 @@ private:
 	rclcpp::Subscription<PositionControllerDebug>::SharedPtr position_controller_debug_subscriber_;
 
     //!< State variables - to be updated by the simulator
-    double roll_angle_ = 0.0f;         // pitch angle
-    double roll_angular_rate_ = 0.0f;  // angular position
+    double roll_angle_ = 0.3f;         // roll angle
+    double roll_angular_rate_ = 0.0f;  // roll angular rate
 
-    double pitch_angle_ = 0.0f;        // pitch angle
-    double pitch_angular_rate_ = 0.0f; // angular position
+    double pitch_angle_ = -0.3f;       // pitch angle
+    double pitch_angular_rate_ = 0.0f; // pitch angular rate
 
-    double yaw_angle_ = 1.0f;          // pitch angle
-    double yaw_angular_rate_ = 0.0f;   // angular position
+    double yaw_angle_ = 1.0f;          // yaw angle
+    double yaw_angular_rate_ = 0.0f;   // yaw angular rate
 
-    Eigen::Vector3d position_     = Eigen::Vector3d::Zero(); // position in the world frame
+    Eigen::Vector3d position_     = Eigen::Vector3d(0.5, 0.6, -0.5); // position in the world frame
     Eigen::Vector3d velocity_     = Eigen::Vector3d::Zero(); // velocity in the world frame
     Eigen::Vector3d acceleration_ = Eigen::Vector3d::Zero(); // acceleration in the world frame
 

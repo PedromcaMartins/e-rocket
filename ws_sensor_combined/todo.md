@@ -35,7 +35,7 @@
 
 # Before testing Andre's Controller
 
-- [ ] Add matrix library
+- [X] Add matrix library
     - Can Eigen3 be used?
 
 ## Mission
@@ -46,7 +46,7 @@
 
 Controller is generic, but Allocator is specific! receives forces and torques
 
-- [ ] Controller input - State
+- [X] Controller input - State
 
     ```
     struct State {
@@ -60,7 +60,7 @@ Controller is generic, but Allocator is specific! receives forces and torques
 
     - Setpoints exists in c5, and uses position instead of translation
 
-- [ ] Controller output - torques + forces
+- [?] Controller output - torques + forces
 
     ```
     struct Pre-Allocated?... {
@@ -69,7 +69,7 @@ Controller is generic, but Allocator is specific! receives forces and torques
     }
     ```
 
-- [ ] Allocator receives torques + forces -> Servo + Motor PWM
+- [X] Allocator receives torques + forces -> Servo + Motor PWM
 
     ```
     struct Actuators?... {

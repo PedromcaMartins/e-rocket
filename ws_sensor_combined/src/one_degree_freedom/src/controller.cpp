@@ -1,9 +1,4 @@
 #include <rclcpp/rclcpp.hpp>
-#include <px4_msgs/msg/actuator_servos.hpp>
-#include <px4_msgs/msg/actuator_motors.hpp>
-#include <one_degree_freedom/msg/attitude_controller_debug.hpp>
-#include <one_degree_freedom/msg/position_controller_debug.hpp>
-#include <one_degree_freedom/msg/allocator_debug.hpp>
 #include <one_degree_freedom/msg/flight_mode.hpp>
 #include <one_degree_freedom/constants.hpp>
 #include <one_degree_freedom/frame_transforms.h>
@@ -42,17 +37,7 @@ public:
     setpoint_aggregator_{std::make_unique<SetpointAggregator>(this, qos_)},
     attitude_controller_{this, qos_, state_aggregator_, setpoint_aggregator_},
     position_controller_{this, qos_, vehicle_constants_, state_aggregator_, setpoint_aggregator_},
-    allocator_{std::make_unique<Allocator>(vehicle_constants_)},
-
-    servo_tilt_angle_publisher_{this->create_publisher<ActuatorServos>(
-        CONTROLLER_OUTPUT_SERVO_PWM_TOPIC, qos_
-    )},
-    motor_thrust_publisher_{this->create_publisher<ActuatorMotors>(
-        CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC, qos_
-    )},
-    allocator_debug_publisher_{this->create_publisher<AllocatorDebug>(
-        ALLOCATOR_DEBUG_TOPIC, qos_
-    )},
+    allocator_{std::make_unique<Allocator>(this, qos_, vehicle_constants_)},
 
     flight_mode_{FlightMode::INIT},
     flight_mode_get_subscriber_{this->create_subscription<FlightMode>(
@@ -71,16 +56,6 @@ public:
             std::chrono::duration<double>(0.02), 
             std::bind(&BaselinePIDController::controller_callback, this)
         );
-
-        publish_servo_pwm(
-            0.0f,
-            0.0f
-        );
-
-        publish_motor_pwm(
-            NAN,
-            NAN
-        );
 	}
 
 private:
@@ -97,28 +72,8 @@ private:
     //!< Time variables
     rclcpp::TimerBase::SharedPtr controller_timer_;
 
-	//!< Publishers and Subscribers
-	rclcpp::Publisher<ActuatorServos>::SharedPtr    servo_tilt_angle_publisher_;
-    rclcpp::Publisher<ActuatorMotors>::SharedPtr    motor_thrust_publisher_;
-
-    rclcpp::Publisher<AllocatorDebug>::SharedPtr  allocator_debug_publisher_;
-
 	//!< Auxiliary functions
     void controller_callback();
-    void publish_allocator_debug(
-        const double inner_servo_tilt_angle_radians,
-        const double outer_servo_tilt_angle_radians,
-        const double inner_servo_pwm,
-        const double outer_servo_pwm,
-
-        const double delta_motor_pwm,
-        const double average_motor_thrust_newtons,
-        const double upwards_motor_pwm,
-        const double downwards_motor_pwm
-    );
-
-    void publish_servo_pwm(const double inner_servo_pwm, const double outer_servo_pwm);
-    void publish_motor_pwm(const double upwards_motor_pwm, const double downwards_motor_pwm);
 
     std::atomic<uint8_t> flight_mode_;
     rclcpp::Subscription<FlightMode>::SharedPtr flight_mode_get_subscriber_;
@@ -144,15 +99,10 @@ void BaselinePIDController::controller_callback()
             outer_servo_tilt_angle_radians =  0. ;
         }
 
-        Allocator::ServoAllocatorOutput servo_output = allocator_->compute_servo_allocation(
+        allocator_->compute_servo_allocation({
             inner_servo_tilt_angle_radians,
             outer_servo_tilt_angle_radians
-        );
-
-        publish_servo_pwm(
-            servo_output.inner_servo_pwm,
-            servo_output.outer_servo_pwm
-        );
+        });
 
         if (now - t0 > 4.0s) {
             static bool first_time = false;
@@ -165,16 +115,10 @@ void BaselinePIDController::controller_callback()
             auto attitude_output = attitude_controller_.compute();
 
             // Allocate motor thrust based on the computed torque
-            Allocator::MotorAllocatorOutput motor_output = allocator_->compute_motor_allocation(
+            allocator_->compute_motor_allocation({
                 attitude_output.delta_motor_pwm, 
                 average_motor_thrust_newtons
-            );
-
-            // Publish the motor thrust
-            publish_motor_pwm(
-                motor_output.upwards_motor_pwm, 
-                motor_output.downwards_motor_pwm
-            );
+            });
         }
     }
 
@@ -197,104 +141,19 @@ void BaselinePIDController::controller_callback()
 
         auto attitude_output = attitude_controller_.compute();
 
-        Allocator::ServoAllocatorOutput servo_output = allocator_->compute_servo_allocation(
+        allocator_->compute_servo_allocation({
             attitude_output.inner_servo_tilt_angle,
             attitude_output.outer_servo_tilt_angle
-        );
-
-        publish_servo_pwm(
-            servo_output.inner_servo_pwm,
-            servo_output.outer_servo_pwm
-        );
+        });
 
         // Allocate motor thrust based on the computed torque
-        Allocator::MotorAllocatorOutput motor_output = allocator_->compute_motor_allocation(
+        allocator_->compute_motor_allocation({
             attitude_output.delta_motor_pwm, 
             average_motor_thrust_newtons
-        );
-
-        // Publish the motor thrust
-        publish_motor_pwm(
-            motor_output.upwards_motor_pwm, 
-            motor_output.downwards_motor_pwm
-        );
-
-        // Publish the controller debug information
-        publish_allocator_debug(
-            attitude_output.inner_servo_tilt_angle,
-            attitude_output.outer_servo_tilt_angle,
-            servo_output.inner_servo_pwm,
-            servo_output.outer_servo_pwm,
-
-            attitude_output.delta_motor_pwm,
-            average_motor_thrust_newtons,
-            motor_output.upwards_motor_pwm,
-            motor_output.downwards_motor_pwm
-        );
+        });
     }
 
     // TODO: if FlightMode::MISSION_COMPLETE => slow descent - keep algorithms running, thrust -> hover thrust * 0.9 for 1s => hover thrust
-}
-
-void BaselinePIDController::publish_allocator_debug(
-    const double inner_servo_tilt_angle_radians,
-    const double outer_servo_tilt_angle_radians,
-    const double inner_servo_pwm,
-    const double outer_servo_pwm,
-
-    const double delta_motor_pwm,
-    const double average_motor_thrust_newtons,
-    const double upwards_motor_pwm,
-    const double downwards_motor_pwm
-) {
-    AllocatorDebug msg{};
-    msg.stamp = this->get_clock()->now();
-
-    msg.servo_inner_tilt_angle_degrees = radians_to_degrees(inner_servo_tilt_angle_radians);
-    msg.servo_outer_tilt_angle_degrees = radians_to_degrees(outer_servo_tilt_angle_radians);
-    msg.servo_inner_pwm = inner_servo_pwm;
-    msg.servo_outer_pwm = outer_servo_pwm;
-
-    msg.motor_delta_pwm = delta_motor_pwm;
-    msg.motor_average_pwm = allocator_->motor_thrust_curve_newtons_to_pwm(average_motor_thrust_newtons);
-    msg.motor_upwards_pwm = upwards_motor_pwm;
-    msg.motor_downwards_pwm = downwards_motor_pwm;
-
-    allocator_debug_publisher_->publish(msg);
-}
-
-void BaselinePIDController::publish_servo_pwm(const double inner_servo_pwm, const double outer_servo_pwm)
-{
-    ActuatorServos msg{};
-	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-    if (vehicle_constants_->servo_active_) {
-        msg.control[1] = inner_servo_pwm;
-        msg.control[0] = outer_servo_pwm;
-    } else {
-        // If servos are not active, disable them
-        msg.control[0] = 0.;
-        msg.control[1] = 0.;
-    }
-    servo_tilt_angle_publisher_->publish(msg);
-}
-
-/**
- * @brief Publish the actuator motors.
- *        For this example, we are generating sinusoidal values for the actuator positions.
- */
-void BaselinePIDController::publish_motor_pwm(const double upwards_motor_pwm, const double downwards_motor_pwm)
-{
-	ActuatorMotors msg{};
-	msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-    if (vehicle_constants_->motor_active_) {
-        msg.control[0] = upwards_motor_pwm;
-        msg.control[1] = downwards_motor_pwm;
-    } else {
-        // If motors are not active, disable them
-        msg.control[0] = NAN;
-        msg.control[1] = NAN;
-    }
-	motor_thrust_publisher_->publish(msg);
 }
 
 int main(int argc, char *argv[])

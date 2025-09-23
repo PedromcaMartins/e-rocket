@@ -31,6 +31,7 @@ namespace controller
     constexpr char CONTROLLER_INPUT_ATTITUDE_TOPIC[] =      "/fmu/out/vehicle_attitude";
     constexpr char CONTROLLER_INPUT_ANGULAR_RATE_TOPIC[] =  "/fmu/out/vehicle_angular_velocity";
     constexpr char CONTROLLER_INPUT_LOCAL_POSITION_TOPIC[] =  "/fmu/out/vehicle_local_position";
+    constexpr char CONTROLLER_INPUT_ODOMETRY_TOPIC[] =      "/fmu/out/vehicle_odometry";
     constexpr char CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC[] =    "/fmu/in/actuator_motors";
     constexpr char CONTROLLER_OUTPUT_SERVO_PWM_TOPIC[] =    "/fmu/in/actuator_servos";
 

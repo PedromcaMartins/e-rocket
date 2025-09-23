@@ -117,6 +117,7 @@ Controller is generic, but Allocator is specific! receives forces and torques
 ## Review
 
 - [ ] Review of frame conversions / decoupled controllers
+- [ ] Removed all atomics from Ros2 nodes
 
 ---
 

@@ -15,6 +15,7 @@
 
 #include <one_degree_freedom/vehicle_constants.hpp>
 #include <one_degree_freedom/controller/allocator.hpp>
+#include <one_degree_freedom/controller/state.hpp>
 #include <one_degree_freedom/controller/impls/attitude_pid.hpp>
 #include <one_degree_freedom/controller/impls/position_pid.hpp>
 
@@ -41,44 +42,8 @@ public:
     qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 
     vehicle_constants_{std::make_shared<VehicleConstants>(this)},
+    state_aggregator_{std::make_unique<StateAggregator>(this)},
 
-    attitude_subscriber_{this->create_subscription<VehicleAttitude>(
-        CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_,
-        [this](const VehicleAttitude::SharedPtr msg) {
-            auto q = Eigen::Quaterniond(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
-            EulerAngle euler = quaternion_to_euler_radians(q);
-        
-            if (roll_controller_) roll_controller_->angle_ = euler.roll;
-            if (pitch_controller_) pitch_controller_->angle_ = euler.pitch;
-            if (yaw_controller_) yaw_controller_->angle_ = euler.yaw;
-        }
-    )},
-    angular_rate_subscriber_{this->create_subscription<VehicleAngularVelocity>(
-        CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_,
-        [this](const VehicleAngularVelocity::SharedPtr msg) {
-            if (roll_controller_) roll_controller_->angular_rate = msg->xyz[0];
-            if (pitch_controller_) pitch_controller_->angular_rate = msg->xyz[1];
-            if (yaw_controller_) yaw_controller_->angular_rate = msg->xyz[2];
-        }
-    )},
-    local_position_subscriber_{this->create_subscription<VehicleLocalPosition>(
-        CONTROLLER_INPUT_LOCAL_POSITION_TOPIC, qos_,
-        [this](const VehicleLocalPosition::SharedPtr msg) {
-            if (position_controller_) {
-                position_controller_->position_[0] = msg->x;
-                position_controller_->position_[1] = msg->y;
-                position_controller_->position_[2] = msg->z;
-
-                position_controller_->velocity_[0] = msg->vx;
-                position_controller_->velocity_[1] = msg->vy;
-                position_controller_->velocity_[2] = msg->vz;
-
-                position_controller_->acceleration_[0] = msg->ax;
-                position_controller_->acceleration_[1] = msg->ay;
-                position_controller_->acceleration_[2] = msg->az;
-            }
-        }
-    )},
     attitude_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
         CONTROLLER_INPUT_ATTITUDE_SETPOINT_TOPIC, qos_,
         [this](const Vector3Stamped::SharedPtr msg) {
@@ -251,7 +216,8 @@ public:
                 Eigen::Vector3d { 1.0f,   1.0f,   1.0f}, // No feedforward for position controller
                 Eigen::Vector3d {min_output[0], min_output[1], min_output[2]},
                 Eigen::Vector3d {max_output[0], max_output[1], max_output[2]},
-                controllers_dt
+                controllers_dt,
+                state_aggregator_
             );
         } else {
             RCLCPP_INFO(this->get_logger(), "Position Controller is not active");
@@ -284,14 +250,12 @@ private:
     rclcpp::QoS qos_;
 
     std::shared_ptr<VehicleConstants> vehicle_constants_;
+    std::shared_ptr<StateAggregator> state_aggregator_;
 
     //!< Time variables
     rclcpp::TimerBase::SharedPtr controller_timer_;
 
 	//!< Publishers and Subscribers
-	rclcpp::Subscription<VehicleAttitude>::SharedPtr        attitude_subscriber_;
-	rclcpp::Subscription<VehicleAngularVelocity>::SharedPtr angular_rate_subscriber_;
-    rclcpp::Subscription<VehicleLocalPosition>::SharedPtr   local_position_subscriber_;
 	rclcpp::Subscription<Vector3Stamped>::SharedPtr         attitude_setpoint_subscriber_;
 	rclcpp::Subscription<Vector3Stamped>::SharedPtr         translation_position_setpoint_subscriber_;
 	rclcpp::Subscription<TrajectorySetpoint>::SharedPtr     trajectory_setpoint_subscriber_;
@@ -394,21 +358,7 @@ void BaselinePIDController::controller_callback()
             static bool mission_start = false;
             if (!mission_start) {
                 mission_start = true;
-                position_controller_->set_position_as_origin(
-                    Eigen::Vector3d(
-                        position_controller_->position_[0],
-                        position_controller_->position_[1],
-                        position_controller_->position_[2]
-                    ),
-                    yaw_controller_->angle_
-                );
-                RCLCPP_INFO(this->get_logger(), "Position controller origin set to current position.");
-                RCLCPP_INFO(this->get_logger(), "Position: [%f, %f, %f], yaw: %f", 
-                    position_controller_->position_[0].load(),
-                    position_controller_->position_[1].load(),
-                    position_controller_->position_[2].load(),
-                    yaw_controller_->angle_.load()
-                );
+                position_controller_->set_current_position_as_origin();
             }
 
             position_controller_->compute();
@@ -523,23 +473,25 @@ void BaselinePIDController::publish_allocator_debug(
 void BaselinePIDController::publish_position_controller_debug() {
     PositionControllerDebug msg{};
 
-    msg.position[0] = position_controller_->position_[0];
-    msg.position[1] = position_controller_->position_[1];
-    msg.position[2] = position_controller_->position_[2];
+    auto state = state_aggregator_->get_state();
+
+    msg.position[0] = state.position[0];
+    msg.position[1] = state.position[1];
+    msg.position[2] = state.position[2];
     msg.position_setpoint[0] = position_controller_->position_setpoint_[0];
     msg.position_setpoint[1] = position_controller_->position_setpoint_[1];
     msg.position_setpoint[2] = position_controller_->position_setpoint_[2];
 
-    msg.velocity[0] = position_controller_->velocity_[0];
-    msg.velocity[1] = position_controller_->velocity_[1];
-    msg.velocity[2] = position_controller_->velocity_[2];
+    msg.velocity[0] = state.velocity[0];
+    msg.velocity[1] = state.velocity[1];
+    msg.velocity[2] = state.velocity[2];
     msg.velocity_setpoint[0] = position_controller_->velocity_setpoint_[0];
     msg.velocity_setpoint[1] = position_controller_->velocity_setpoint_[1];
     msg.velocity_setpoint[2] = position_controller_->velocity_setpoint_[2];
 
-    msg.acceleration[0] = position_controller_->acceleration_[0];
-    msg.acceleration[1] = position_controller_->acceleration_[1];
-    msg.acceleration[2] = position_controller_->acceleration_[2];
+    msg.acceleration[0] = state.acceleration[0];
+    msg.acceleration[1] = state.acceleration[1];
+    msg.acceleration[2] = state.acceleration[2];
     msg.acceleration_setpoint[0] = position_controller_->acceleration_setpoint_[0];
     msg.acceleration_setpoint[1] = position_controller_->acceleration_setpoint_[1];
     msg.acceleration_setpoint[2] = position_controller_->acceleration_setpoint_[2];

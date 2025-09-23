@@ -38,8 +38,8 @@ public:
     qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
 
     vehicle_constants_{std::make_shared<VehicleConstants>(this)},
-    state_aggregator_{std::make_unique<StateAggregator>(this)},
-    setpoint_aggregator_{std::make_unique<SetpointAggregator>(this)},
+    state_aggregator_{std::make_unique<StateAggregator>(this, qos_)},
+    setpoint_aggregator_{std::make_unique<SetpointAggregator>(this, qos_)},
 
     servo_tilt_angle_publisher_{this->create_publisher<ActuatorServos>(
         CONTROLLER_OUTPUT_SERVO_PWM_TOPIC, qos_

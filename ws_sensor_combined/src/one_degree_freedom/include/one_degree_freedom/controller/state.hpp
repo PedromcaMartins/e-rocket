@@ -22,7 +22,7 @@ struct State {
     // attitude
     Eigen::Quaterniond quaternion;
     Eigen::Matrix3d rotation_matrix;
-    frame_transforms::EulerAngle euler_angles;
+    Eigen::Vector3d euler_angles;
 
     // angular rates
 
@@ -34,29 +34,30 @@ struct State {
 
 class StateAggregator {
 public:
-    StateAggregator(rclcpp::Node* node) :
-    qos_profile_{rmw_qos_profile_sensor_data},
-    qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
-
+    StateAggregator(rclcpp::Node* node, rclcpp::QoS qos) :
     attitude_sub_{node->create_subscription<VehicleAttitude>(
-        CONTROLLER_INPUT_ATTITUDE_TOPIC, qos_,
+        CONTROLLER_INPUT_ATTITUDE_TOPIC, qos,
         [this](const VehicleAttitude::SharedPtr msg) {
             auto q = Eigen::Quaterniond(msg->q[0], msg->q[1], msg->q[2], msg->q[3]);
             this->state_.quaternion = q;
-            this->state_.euler_angles = frame_transforms::quaternion_to_euler_radians(q);
             this->state_.rotation_matrix = q.toRotationMatrix();
+
+            auto euler_angles = frame_transforms::quaternion_to_euler_radians(q);
+            this->state_.euler_angles = Eigen::Vector3d(
+                euler_angles.roll, euler_angles.pitch, euler_angles.yaw
+            );
 
             this->state_.attitude = *msg;
         }
     )},
     angular_rate_sub_{node->create_subscription<VehicleAngularVelocity>(
-        CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos_,
+        CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos,
         [this](const VehicleAngularVelocity::SharedPtr msg) {
             this->state_.angular_velocity = *msg;
         }
     )},
     local_position_sub_{node->create_subscription<VehicleLocalPosition>(
-        CONTROLLER_INPUT_LOCAL_POSITION_TOPIC, qos_,
+        CONTROLLER_INPUT_LOCAL_POSITION_TOPIC, qos,
         [this](const VehicleLocalPosition::SharedPtr msg) {
             this->state_.position = Eigen::Vector3d(msg->x, msg->y, msg->z);
             this->state_.velocity = Eigen::Vector3d(msg->vx, msg->vy, msg->vz);
@@ -66,7 +67,7 @@ public:
         }
     )},
     odometry_sub_{node->create_subscription<VehicleOdometry>(
-        CONTROLLER_INPUT_ODOMETRY_TOPIC, qos_,
+        CONTROLLER_INPUT_ODOMETRY_TOPIC, qos,
         [this](const VehicleOdometry::SharedPtr msg) {
             this->state_.odometry = *msg;
         }
@@ -77,8 +78,6 @@ public:
 private:
     State state_;
 
-    rmw_qos_profile_t qos_profile_;
-    rclcpp::QoS qos_;
 	rclcpp::Subscription<VehicleAttitude>::SharedPtr        attitude_sub_;
 	rclcpp::Subscription<VehicleAngularVelocity>::SharedPtr angular_rate_sub_;
     rclcpp::Subscription<VehicleLocalPosition>::SharedPtr   local_position_sub_;

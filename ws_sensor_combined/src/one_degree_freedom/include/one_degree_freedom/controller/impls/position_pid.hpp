@@ -68,7 +68,7 @@ public:
         Eigen::Vector3d position = state.position;
         Eigen::Vector3d velocity = state.velocity;
 
-        auto setpoint = setpoint_aggregator_->getPositionSetpoint();
+        auto setpoint = setpoint_aggregator_->get_position_setpoint();
         auto feed_forward_ref  = setpoint.acceleration;
 
         // Compute the position error and velocity error using the path desired position and velocity

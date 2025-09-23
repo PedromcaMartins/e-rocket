@@ -1,6 +1,5 @@
 #pragma once
 #include <rclcpp/rclcpp.hpp>
-#include <one_degree_freedom/frame_transforms.h>
 #include <one_degree_freedom/msg/setpoint_c5.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <one_degree_freedom/constants.hpp>
@@ -8,7 +7,6 @@
 using namespace geometry_msgs::msg;
 using namespace one_degree_freedom::msg;
 using namespace one_degree_freedom::constants::setpoint;
-namespace frame_transforms = one_degree_freedom::frame_transforms;
 
 struct PositionSetpoint {
     // derived states
@@ -24,18 +22,15 @@ struct PositionSetpoint {
 
 struct AttitudeSetpoint {
     // derived states
-    frame_transforms::EulerAngle attitude; // roll, pitch, yaw in radians
+    Eigen::Vector3d attitude; // roll, pitch, yaw in radians
 };
 
 class SetpointAggregator
 {
 public:
-    SetpointAggregator(rclcpp::Node* node) :
-    qos_profile_{rmw_qos_profile_sensor_data},
-    qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
-
+    SetpointAggregator(rclcpp::Node* node, rclcpp::QoS qos) :
     position_setpoint_sub_{node->create_subscription<SetpointC5>(
-        CONTROLLER_INPUT_SETPOINT_C5_TOPIC, qos_,
+        CONTROLLER_INPUT_SETPOINT_C5_TOPIC, qos,
         [this](const SetpointC5::SharedPtr msg) {
             this->pos_setpoint_.position = Eigen::Map<Eigen::Vector3d>(msg->position.data());
             this->pos_setpoint_.velocity = Eigen::Map<Eigen::Vector3d>(msg->velocity.data());
@@ -52,7 +47,7 @@ public:
         }
     )},
     attitude_setpoint_sub_{node->create_subscription<Vector3Stamped>(
-        CONTROLLER_INPUT_ATTITUDE_SETPOINT_TOPIC, qos_,
+        CONTROLLER_INPUT_ATTITUDE_SETPOINT_TOPIC, qos,
         [this](const Vector3Stamped::SharedPtr msg) {
             if (std::isnan(msg->vector.x) || std::isnan(msg->vector.y) || std::isnan(msg->vector.z)) {
                 RCLCPP_ERROR(logger_, "Received NaN in setpoint message.");
@@ -65,13 +60,13 @@ public:
                 return;
             }
 
-            this->att_setpoint_.attitude.roll = msg->vector.x;
-            this->att_setpoint_.attitude.pitch = msg->vector.y;
-            this->att_setpoint_.attitude.yaw = msg->vector.z;
+            this->att_setpoint_.attitude[0] = msg->vector.x;
+            this->att_setpoint_.attitude[1] = msg->vector.y;
+            this->att_setpoint_.attitude[2] = msg->vector.z;
         }
     )},
     translation_position_setpoint_sub_{node->create_subscription<Vector3Stamped>(
-        CONTROLLER_INPUT_TRANSLATION_POSITION_SETPOINT_TOPIC, qos_,
+        CONTROLLER_INPUT_TRANSLATION_POSITION_SETPOINT_TOPIC, qos,
         [this](const Vector3Stamped::SharedPtr msg) {
             if (std::isnan(msg->vector.x) || std::isnan(msg->vector.y) || std::isnan(msg->vector.z)) {
                 RCLCPP_ERROR(logger_, "Received NaN in setpoint message.");
@@ -90,13 +85,10 @@ public:
     )}
     {}
 
-    PositionSetpoint getPositionSetpoint() const { return pos_setpoint_; }
-    AttitudeSetpoint getAttitudeSetpoint() const { return att_setpoint_; }
+    PositionSetpoint get_position_setpoint() const { return pos_setpoint_; }
+    AttitudeSetpoint get_attitude_setpoint() const { return att_setpoint_; }
 
 private:
-    rmw_qos_profile_t qos_profile_;
-    rclcpp::QoS qos_;
-
     PositionSetpoint pos_setpoint_;
     AttitudeSetpoint att_setpoint_;
 

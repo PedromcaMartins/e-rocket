@@ -1,7 +1,10 @@
 #pragma once
 #include <rclcpp/rclcpp.hpp>
+#include <one_degree_freedom/msg/position_controller_debug.hpp>
 #include <one_degree_freedom/frame_transforms.h>
 #include <one_degree_freedom/vehicle_constants.hpp>
+
+using namespace one_degree_freedom::msg;
 
 namespace frame_transforms = one_degree_freedom::frame_transforms;
 
@@ -153,31 +156,6 @@ public:
         );
     }
 
-    void publish_position_controller_debug() {
-        PositionControllerDebug msg{};
-        msg.stamp = clock_->now();
-
-        auto state = state_aggregator_->get_state();
-        auto setpoint = setpoint_aggregator_->get_position_setpoint();
-
-        Eigen::Map<Eigen::Vector3d>(msg.position.data()) = state.position;
-        Eigen::Map<Eigen::Vector3d>(msg.position_setpoint.data()) = setpoint.position + origin_position_;
-        Eigen::Map<Eigen::Vector3d>(msg.velocity.data()) = state.velocity;
-        Eigen::Map<Eigen::Vector3d>(msg.velocity_setpoint.data()) = setpoint.velocity;
-        Eigen::Map<Eigen::Vector3d>(msg.acceleration.data()) = state.acceleration;
-        Eigen::Map<Eigen::Vector3d>(msg.acceleration_setpoint.data()) = setpoint.acceleration;
-
-        msg.yaw_angle_setpoint = frame_transforms::radians_to_degrees(setpoint.yaw);
-
-        Eigen::Map<Eigen::Vector3d>(msg.desired_acceleration.data()) = output_.desired_acceleration;
-        msg.desired_attitude[0] = frame_transforms::radians_to_degrees(output_.desired_attitude[0]);
-        msg.desired_attitude[1] = frame_transforms::radians_to_degrees(output_.desired_attitude[1]);
-        msg.desired_attitude[2] = frame_transforms::radians_to_degrees(output_.desired_attitude[2]);
-        msg.desired_thrust = output_.desired_thrust;
-
-        debug_publisher_->publish(msg);
-    }
-
 private: 
     bool controller_active_;
 
@@ -202,4 +180,29 @@ private:
 
     rclcpp::Clock::SharedPtr clock_;
     rclcpp::Logger logger_ = rclcpp::get_logger("PositionPIDController");
+
+    void publish_position_controller_debug() {
+        PositionControllerDebug msg{};
+        msg.stamp = clock_->now();
+
+        auto state = state_aggregator_->get_state();
+        auto setpoint = setpoint_aggregator_->get_position_setpoint();
+
+        Eigen::Map<Eigen::Vector3d>(msg.position.data()) = state.position;
+        Eigen::Map<Eigen::Vector3d>(msg.position_setpoint.data()) = setpoint.position + origin_position_;
+        Eigen::Map<Eigen::Vector3d>(msg.velocity.data()) = state.velocity;
+        Eigen::Map<Eigen::Vector3d>(msg.velocity_setpoint.data()) = setpoint.velocity;
+        Eigen::Map<Eigen::Vector3d>(msg.acceleration.data()) = state.acceleration;
+        Eigen::Map<Eigen::Vector3d>(msg.acceleration_setpoint.data()) = setpoint.acceleration;
+
+        msg.yaw_angle_setpoint = frame_transforms::radians_to_degrees(setpoint.yaw);
+
+        Eigen::Map<Eigen::Vector3d>(msg.desired_acceleration.data()) = output_.desired_acceleration;
+        msg.desired_attitude[0] = frame_transforms::radians_to_degrees(output_.desired_attitude[0]);
+        msg.desired_attitude[1] = frame_transforms::radians_to_degrees(output_.desired_attitude[1]);
+        msg.desired_attitude[2] = frame_transforms::radians_to_degrees(output_.desired_attitude[2]);
+        msg.desired_thrust = output_.desired_thrust;
+
+        debug_publisher_->publish(msg);
+    }
 };

@@ -107,31 +107,6 @@ public:
         return controller_active_[0] && controller_active_[1] && controller_active_[2];
     }
 
-    void publish_debug() {
-        auto state = state_aggregator_->get_state();
-        auto setpoint = setpoint_aggregator_->get_attitude_setpoint();
-
-        AttitudeControllerDebug msg;
-        msg.stamp = clock_->now();
-
-        msg.roll_angle = radians_to_degrees(state.euler_angles[0]);
-        msg.roll_angular_velocity = radians_to_degrees(state.angular_rate[0]);
-        msg.roll_angle_setpoint = radians_to_degrees(setpoint.attitude[0]);
-        msg.roll_inner_servo_tilt_angle = radians_to_degrees(output_.inner_servo_tilt_angle);
-
-        msg.pitch_angle = radians_to_degrees(state.euler_angles[1]);
-        msg.pitch_angular_velocity = radians_to_degrees(state.angular_rate[1]);
-        msg.pitch_angle_setpoint = radians_to_degrees(setpoint.attitude[1]);
-        msg.pitch_outer_servo_tilt_angle = radians_to_degrees(output_.outer_servo_tilt_angle);
-
-        msg.yaw_angle = radians_to_degrees(state.euler_angles[2]);
-        msg.yaw_angular_velocity = radians_to_degrees(state.angular_rate[2]);
-        msg.yaw_angle_setpoint = radians_to_degrees(setpoint.attitude[2] + origin_yaw_);
-        msg.yaw_delta_motor_pwm = radians_to_degrees(output_.delta_motor_pwm);
-        
-        attitude_controller_debug_publisher_->publish(msg);
-    }
-
     void set_current_yaw_as_origin() {
         auto state = state_aggregator_->get_state();
         origin_yaw_ = state.euler_angles[2];
@@ -158,4 +133,29 @@ private:
 
     rclcpp::Clock::SharedPtr clock_;
     rclcpp::Logger logger_ = rclcpp::get_logger("attitude_pid_controller");
+
+    void publish_debug() {
+        auto state = state_aggregator_->get_state();
+        auto setpoint = setpoint_aggregator_->get_attitude_setpoint();
+
+        AttitudeControllerDebug msg;
+        msg.stamp = clock_->now();
+
+        msg.roll_angle = radians_to_degrees(state.euler_angles[0]);
+        msg.roll_angular_velocity = radians_to_degrees(state.angular_rate[0]);
+        msg.roll_angle_setpoint = radians_to_degrees(setpoint.attitude[0]);
+        msg.roll_inner_servo_tilt_angle = radians_to_degrees(output_.inner_servo_tilt_angle);
+
+        msg.pitch_angle = radians_to_degrees(state.euler_angles[1]);
+        msg.pitch_angular_velocity = radians_to_degrees(state.angular_rate[1]);
+        msg.pitch_angle_setpoint = radians_to_degrees(setpoint.attitude[1]);
+        msg.pitch_outer_servo_tilt_angle = radians_to_degrees(output_.outer_servo_tilt_angle);
+
+        msg.yaw_angle = radians_to_degrees(state.euler_angles[2]);
+        msg.yaw_angular_velocity = radians_to_degrees(state.angular_rate[2]);
+        msg.yaw_angle_setpoint = radians_to_degrees(setpoint.attitude[2] + origin_yaw_);
+        msg.yaw_delta_motor_pwm = radians_to_degrees(output_.delta_motor_pwm);
+        
+        attitude_controller_debug_publisher_->publish(msg);
+    }
 };

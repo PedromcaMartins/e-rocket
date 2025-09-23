@@ -93,10 +93,7 @@ void BaselinePIDController::controller_callback()
 
         if (now - t0 < 3.0s) {
             inner_servo_tilt_angle_radians = sin(2.0 * M_PI * (now - t0).seconds()) * degrees_to_radians(30.0);
-            outer_servo_tilt_angle_radians = sin(2.0 * M_PI * (now - t0).seconds() + M_PI / 2.0) * degrees_to_radians(30.0);
-        } else {
-            inner_servo_tilt_angle_radians =  0. ;
-            outer_servo_tilt_angle_radians =  0. ;
+            outer_servo_tilt_angle_radians = sin(2.0 * M_PI * (now - t0).seconds() + M_PI_2) * degrees_to_radians(30.0);
         }
 
         allocator_->compute_servo_allocation({
@@ -124,7 +121,9 @@ void BaselinePIDController::controller_callback()
 
     // only run controller when in mission
     else if (flight_mode_ == FlightMode::IN_MISSION) {
-        double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(vehicle_constants_->default_motor_pwm_);
+        double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(
+            vehicle_constants_->default_motor_pwm_
+        );
 
         if (position_controller_.is_controller_active()) {
             static bool mission_start = false;

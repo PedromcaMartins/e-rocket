@@ -178,7 +178,20 @@
     </DockSplitter>
    </Container>
   </Tab>
-  <currentTabIndex index="0"/>
+  <Tab tab_name="2d position" containers="1">
+   <Container>
+    <DockSplitter orientation="-" sizes="1" count="1">
+     <DockArea name="...">
+      <plot flip_y="false" mode="XYPlot" flip_x="false" style="Lines">
+       <range right="5.701442" bottom="-2.774312" top="3.088140" left="-5.350364"/>
+       <limitY/>
+       <curve curve_y="/offboard/position_controller/debug/position[0]" name="/offboard/position_controller/debug/position[[1];0]]" curve_x="/offboard/position_controller/debug/position[1]" color="#1f77b4"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <currentTabIndex index="2"/>
  </tabbed_widget>
  <use_relative_time_offset enabled="1"/>
  <!-- - - - - - - - - - - - - - - -->

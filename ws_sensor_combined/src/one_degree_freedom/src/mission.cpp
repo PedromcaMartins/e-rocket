@@ -1,6 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
 
-#include <one_degree_freedom/msg/trajectory_setpoint.hpp>
+#include <one_degree_freedom/msg/setpoint_c5.hpp>
 #include <one_degree_freedom/msg/flight_mode.hpp>
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <one_degree_freedom/constants.hpp>
@@ -49,8 +49,8 @@ public:
         translation_position_setpoint_publisher_{this->create_publisher<Vector3Stamped>(
             CONTROLLER_INPUT_TRANSLATION_POSITION_SETPOINT_TOPIC, qos_
         )},
-		trajectory_setpoint_publisher_{this->create_publisher<TrajectorySetpoint>(
-			CONTROLLER_INPUT_TRAJECTORY_SETPOINT_TOPIC, qos_
+		trajectory_setpoint_publisher_{this->create_publisher<SetpointC5>(
+			CONTROLLER_INPUT_SETPOINT_C5_TOPIC, qos_
 		)}
     {
         flight_mode_timer_ = this->create_wall_timer(
@@ -74,8 +74,8 @@ public:
         );
 
 		this->declare_parameter<bool>(MISSION_TRAJECTORY_SETPOINT_ACTIVE_PARAM);
-		mission_trajectory_setpoint_active_ = this->get_parameter(MISSION_TRAJECTORY_SETPOINT_ACTIVE_PARAM).as_bool();
-		RCLCPP_INFO(this->get_logger(), "Mission trajectory setpoint active: %s", mission_trajectory_setpoint_active_ ? "true" : "false");
+		trajectory_setpoint_active_ = this->get_parameter(MISSION_TRAJECTORY_SETPOINT_ACTIVE_PARAM).as_bool();
+		RCLCPP_INFO(this->get_logger(), "Mission trajectory setpoint active: %s", trajectory_setpoint_active_ ? "true" : "false");
     }
 
 private:
@@ -101,10 +101,10 @@ private:
 	void publish_attitude_setpoint_radians(Eigen::Vector3d setpoint_radians);
 
 	rclcpp::Publisher<Vector3Stamped>::SharedPtr translation_position_setpoint_publisher_;
-	void publish_translation_position_setpoint_radians(Eigen::Vector3d translation_setpoint_meters);
+	void publish_translation_position_setpoint(Eigen::Vector3d translation_setpoint_meters);
 
-	bool mission_trajectory_setpoint_active_;
-	rclcpp::Publisher<TrajectorySetpoint>::SharedPtr trajectory_setpoint_publisher_;
+	bool trajectory_setpoint_active_;
+	rclcpp::Publisher<SetpointC5>::SharedPtr trajectory_setpoint_publisher_;
 
     OnSetParametersCallbackHandle::SharedPtr parameter_callback_handle_;
     rcl_interfaces::msg::SetParametersResult parameter_callback(
@@ -170,7 +170,7 @@ void Mission::mission() {
         //     request_flight_mode(FlightMode::MISSION_COMPLETE);
         // }
 
-		if (mission_trajectory_setpoint_active_) {
+		if (trajectory_setpoint_active_) {
 			#include "setpoints.h"
 			static uint32_t index = 0;
 			if (index >= sizeof(Setpoints) / sizeof(Setpoints[0])) {
@@ -181,7 +181,7 @@ void Mission::mission() {
 
 			auto new_setpoint = Setpoints[index];
 
-			TrajectorySetpoint setpoint {};
+			SetpointC5 setpoint {};
 			// (void) new_setpoint[0]; // time
 			setpoint.position[0]     = new_setpoint[1];
 			setpoint.position[1]     = new_setpoint[2];
@@ -192,12 +192,7 @@ void Mission::mission() {
 			setpoint.acceleration[0] = new_setpoint[7];
 			setpoint.acceleration[1] = new_setpoint[8];
 			setpoint.acceleration[2] = new_setpoint[9];
-			setpoint.jerk[0]         = 0.0f;
-			setpoint.jerk[1]         = 0.0f;
-			setpoint.jerk[2]         = 0.0f;
-			setpoint.snap[0]         = 0.0f;
-			setpoint.snap[1]         = 0.0f;
-			setpoint.snap[2]         = 0.0f;
+			setpoint.yaw             = std::nan("");
 
 			trajectory_setpoint_publisher_->publish(setpoint);
 			index++;
@@ -215,7 +210,7 @@ void Mission::publish_attitude_setpoint_radians(Eigen::Vector3d setpoint_radians
     attitude_setpoint_publisher_->publish(msg);
 }
 
-void Mission::publish_translation_position_setpoint_radians(Eigen::Vector3d translation_setpoint_meters)
+void Mission::publish_translation_position_setpoint(Eigen::Vector3d translation_setpoint_meters)
 {
     Vector3Stamped msg{};
     msg.header.stamp = this->get_clock()->now();
@@ -233,6 +228,19 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
 
     for (const auto &param : parameters) {
         if (param.get_name() == MISSION_ATTITUDE_SETPOINT_PARAM) {
+			if (trajectory_setpoint_active_) {
+				RCLCPP_ERROR(this->get_logger(), "Ignoring attitude setpoint change while trajectory setpoint is active.");
+                result.successful = false;
+				result.reason = "Trajectory setpoint active";
+                return result;
+			}
+			if (flight_mode_ != FlightMode::IN_MISSION) {
+				RCLCPP_ERROR(this->get_logger(), "Ignoring attitude setpoint change while not in mission.");
+                result.successful = false;
+				result.reason = "Not in mission";
+                return result;
+			}
+
             std::vector<double> attitude_setpoint_degrees = param.as_double_array();
 
             if (attitude_setpoint_degrees.size() != 3) {
@@ -258,6 +266,19 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
 			);
         } 
 		else if (param.get_name() == MISSION_TRANSLATION_POSITION_SETPOINT_PARAM) {
+			if (trajectory_setpoint_active_) {
+				RCLCPP_ERROR(this->get_logger(), "Ignoring translation position setpoint change while trajectory setpoint is active.");
+                result.successful = false;
+				result.reason = "Trajectory setpoint active";
+                return result;
+			}
+			if (flight_mode_ != FlightMode::IN_MISSION) {
+				RCLCPP_ERROR(this->get_logger(), "Ignoring attitude setpoint change while not in mission.");
+                result.successful = false;
+				result.reason = "Not in mission";
+                return result;
+			}
+
             std::vector<double> translation_position_setpoint_meters = param.as_double_array();
 
             if (translation_position_setpoint_meters.size() != 3) {
@@ -267,14 +288,12 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
                 return result;
             }
 
-            publish_translation_position_setpoint_radians(Eigen::Vector3d(
-				translation_position_setpoint_meters[0],
-				translation_position_setpoint_meters[1],
-				translation_position_setpoint_meters[2]
-			));
+            publish_translation_position_setpoint(
+				Eigen::Map<Eigen::Vector3d>(translation_position_setpoint_meters.data())
+			);
 
 			RCLCPP_INFO(this->get_logger(), 
-				"Updated position setpoint to: [%f, %f, %f]",
+				"Updated position setpoint by: [%f, %f, %f]",
 				translation_position_setpoint_meters[0],
 				translation_position_setpoint_meters[1],
 				translation_position_setpoint_meters[2]

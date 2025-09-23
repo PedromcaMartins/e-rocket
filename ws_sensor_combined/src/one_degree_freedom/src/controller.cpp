@@ -1,21 +1,17 @@
 #include <rclcpp/rclcpp.hpp>
-#include <px4_msgs/msg/vehicle_attitude.hpp>
-#include <px4_msgs/msg/vehicle_angular_velocity.hpp>
-#include <px4_msgs/msg/vehicle_local_position.hpp>
 #include <px4_msgs/msg/actuator_servos.hpp>
 #include <px4_msgs/msg/actuator_motors.hpp>
-#include <one_degree_freedom/msg/trajectory_setpoint.hpp>
 #include <one_degree_freedom/msg/attitude_controller_debug.hpp>
 #include <one_degree_freedom/msg/position_controller_debug.hpp>
 #include <one_degree_freedom/msg/allocator_debug.hpp>
 #include <one_degree_freedom/msg/flight_mode.hpp>
 #include <one_degree_freedom/constants.hpp>
 #include <one_degree_freedom/frame_transforms.h>
-#include <geometry_msgs/msg/vector3_stamped.hpp>
 
 #include <one_degree_freedom/vehicle_constants.hpp>
 #include <one_degree_freedom/controller/allocator.hpp>
 #include <one_degree_freedom/controller/state.hpp>
+#include <one_degree_freedom/controller/setpoint.hpp>
 #include <one_degree_freedom/controller/impls/attitude_pid.hpp>
 #include <one_degree_freedom/controller/impls/position_pid.hpp>
 
@@ -43,67 +39,8 @@ public:
 
     vehicle_constants_{std::make_shared<VehicleConstants>(this)},
     state_aggregator_{std::make_unique<StateAggregator>(this)},
+    setpoint_aggregator_{std::make_unique<SetpointAggregator>(this)},
 
-    attitude_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
-        CONTROLLER_INPUT_ATTITUDE_SETPOINT_TOPIC, qos_,
-        [this](const Vector3Stamped::SharedPtr msg) {
-            if (std::isnan(msg->vector.x) || std::isnan(msg->vector.y) || std::isnan(msg->vector.z)) {
-                RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
-                return;
-            }
-            if (msg->vector.x < -M_PI_2 || msg->vector.y < -M_PI_2 || msg->vector.z < -M_PI ||
-                msg->vector.x > M_PI_2  || msg->vector.y > M_PI_2  || msg->vector.z > M_PI
-            ) {
-                RCLCPP_ERROR(this->get_logger(), "Received out of range setpoint message.");
-                return;
-            }
-
-            if (roll_controller_) roll_controller_->desired_setpoint_ = msg->vector.x;
-            if (pitch_controller_) pitch_controller_->desired_setpoint_ = msg->vector.y;
-            if (yaw_controller_) yaw_controller_->desired_setpoint_ = msg->vector.z;
-            if (position_controller_) position_controller_->yaw_angle_setpoint_ = msg->vector.z;
-        }
-    )},
-    translation_position_setpoint_subscriber_{this->create_subscription<Vector3Stamped>(
-        CONTROLLER_INPUT_TRANSLATION_POSITION_SETPOINT_TOPIC, qos_,
-        [this](const Vector3Stamped::SharedPtr msg) {
-            if (std::isnan(msg->vector.x) || std::isnan(msg->vector.y) || std::isnan(msg->vector.z)) {
-                RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
-                return;
-            }
-
-            if (position_controller_) {
-                position_controller_->position_setpoint_[0] = position_controller_->position_setpoint_[0] + msg->vector.x;
-                position_controller_->position_setpoint_[1] = position_controller_->position_setpoint_[1] + msg->vector.y;
-                position_controller_->position_setpoint_[2] = position_controller_->position_setpoint_[2] + msg->vector.z;
-            }
-        }
-    )},
-    trajectory_setpoint_subscriber_{this->create_subscription<TrajectorySetpoint>(
-        CONTROLLER_INPUT_TRAJECTORY_SETPOINT_TOPIC, qos_,
-        [this](const TrajectorySetpoint::SharedPtr msg) {
-            if (std::isnan(msg->position[0]) || std::isnan(msg->position[1]) || std::isnan(msg->position[2]) ||
-                std::isnan(msg->velocity[0]) || std::isnan(msg->velocity[1]) || std::isnan(msg->velocity[2]) ||
-                std::isnan(msg->acceleration[0]) || std::isnan(msg->acceleration[1]) || std::isnan(msg->acceleration[2])) {
-                RCLCPP_ERROR(this->get_logger(), "Received NaN in setpoint message.");
-                return;
-            }
-
-            if (position_controller_) {
-                position_controller_->position_setpoint_[0] = msg->position[0];
-                position_controller_->position_setpoint_[1] = msg->position[1];
-                position_controller_->position_setpoint_[2] = msg->position[2];
-
-                position_controller_->velocity_setpoint_[0] = msg->velocity[0];
-                position_controller_->velocity_setpoint_[1] = msg->velocity[1];
-                position_controller_->velocity_setpoint_[2] = msg->velocity[2];
-
-                position_controller_->acceleration_setpoint_[0] = msg->acceleration[0];
-                position_controller_->acceleration_setpoint_[1] = msg->acceleration[1];
-                position_controller_->acceleration_setpoint_[2] = msg->acceleration[2];
-            }
-        }
-    )},
     servo_tilt_angle_publisher_{this->create_publisher<ActuatorServos>(
         CONTROLLER_OUTPUT_SERVO_PWM_TOPIC, qos_
     )},
@@ -217,7 +154,8 @@ public:
                 Eigen::Vector3d {min_output[0], min_output[1], min_output[2]},
                 Eigen::Vector3d {max_output[0], max_output[1], max_output[2]},
                 controllers_dt,
-                state_aggregator_
+                state_aggregator_,
+                setpoint_aggregator_
             );
         } else {
             RCLCPP_INFO(this->get_logger(), "Position Controller is not active");
@@ -251,14 +189,12 @@ private:
 
     std::shared_ptr<VehicleConstants> vehicle_constants_;
     std::shared_ptr<StateAggregator> state_aggregator_;
+    std::shared_ptr<SetpointAggregator> setpoint_aggregator_;
 
     //!< Time variables
     rclcpp::TimerBase::SharedPtr controller_timer_;
 
 	//!< Publishers and Subscribers
-	rclcpp::Subscription<Vector3Stamped>::SharedPtr         attitude_setpoint_subscriber_;
-	rclcpp::Subscription<Vector3Stamped>::SharedPtr         translation_position_setpoint_subscriber_;
-	rclcpp::Subscription<TrajectorySetpoint>::SharedPtr     trajectory_setpoint_subscriber_;
 	rclcpp::Publisher<ActuatorServos>::SharedPtr    servo_tilt_angle_publisher_;
     rclcpp::Publisher<ActuatorMotors>::SharedPtr    motor_thrust_publisher_;
 
@@ -474,29 +410,16 @@ void BaselinePIDController::publish_position_controller_debug() {
     PositionControllerDebug msg{};
 
     auto state = state_aggregator_->get_state();
+    auto setpoint = setpoint_aggregator_->getPositionSetpoint();
 
-    msg.position[0] = state.position[0];
-    msg.position[1] = state.position[1];
-    msg.position[2] = state.position[2];
-    msg.position_setpoint[0] = position_controller_->position_setpoint_[0];
-    msg.position_setpoint[1] = position_controller_->position_setpoint_[1];
-    msg.position_setpoint[2] = position_controller_->position_setpoint_[2];
+    Eigen::Map<Eigen::Vector3d>(msg.position.data()) = state.position;
+    Eigen::Map<Eigen::Vector3d>(msg.position_setpoint.data()) = setpoint.position;
+    Eigen::Map<Eigen::Vector3d>(msg.velocity.data()) = state.velocity;
+    Eigen::Map<Eigen::Vector3d>(msg.velocity_setpoint.data()) = setpoint.velocity;
+    Eigen::Map<Eigen::Vector3d>(msg.acceleration.data()) = state.acceleration;
+    Eigen::Map<Eigen::Vector3d>(msg.acceleration_setpoint.data()) = setpoint.acceleration;
 
-    msg.velocity[0] = state.velocity[0];
-    msg.velocity[1] = state.velocity[1];
-    msg.velocity[2] = state.velocity[2];
-    msg.velocity_setpoint[0] = position_controller_->velocity_setpoint_[0];
-    msg.velocity_setpoint[1] = position_controller_->velocity_setpoint_[1];
-    msg.velocity_setpoint[2] = position_controller_->velocity_setpoint_[2];
-
-    msg.acceleration[0] = state.acceleration[0];
-    msg.acceleration[1] = state.acceleration[1];
-    msg.acceleration[2] = state.acceleration[2];
-    msg.acceleration_setpoint[0] = position_controller_->acceleration_setpoint_[0];
-    msg.acceleration_setpoint[1] = position_controller_->acceleration_setpoint_[1];
-    msg.acceleration_setpoint[2] = position_controller_->acceleration_setpoint_[2];
-
-    msg.yaw_angle_setpoint = radians_to_degrees(position_controller_->yaw_angle_setpoint_);
+    msg.yaw_angle_setpoint = radians_to_degrees(setpoint.yaw);
 
     msg.desired_acceleration[0] = position_controller_->desired_acceleration_[0];
     msg.desired_acceleration[1] = position_controller_->desired_acceleration_[1];

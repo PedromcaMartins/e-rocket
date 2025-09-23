@@ -100,7 +100,7 @@ namespace setpoint
     constexpr char CONTROLLER_INPUT_TRANSLATION_POSITION_SETPOINT_TOPIC[] = "offboard/translation_position_setpoint_meters";
     constexpr char MISSION_TRANSLATION_POSITION_SETPOINT_PARAM[] = "offboard.mission.translation_position_setpoint.meters";
 
-    constexpr char CONTROLLER_INPUT_TRAJECTORY_SETPOINT_TOPIC[] = "offboard/trajectory_setpoint_meters";
+    constexpr char CONTROLLER_INPUT_SETPOINT_C5_TOPIC[] = "offboard/setpoint_c5_meters";
     constexpr char MISSION_TRAJECTORY_SETPOINT_ACTIVE_PARAM[] = "offboard.mission.trajectory_setpoint.active";
 
 } // namespace setpoint

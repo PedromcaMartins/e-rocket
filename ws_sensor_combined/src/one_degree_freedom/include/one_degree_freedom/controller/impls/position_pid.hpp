@@ -6,11 +6,6 @@
 class PositionPIDController
 {
 public:
-    // updated asyncronously by the caller
-    Eigen::Vector3d position_setpoint_;
-    Eigen::Vector3d velocity_setpoint_;
-    Eigen::Vector3d acceleration_setpoint_;
-    double yaw_angle_setpoint_;
     // computed by the controller
     Eigen::Vector3d desired_acceleration_;
     Eigen::Vector3d desired_attitude_;
@@ -25,12 +20,13 @@ public:
         const Eigen::Vector3d & min_output,
         const Eigen::Vector3d & max_output,
         const double dt,
-        std::shared_ptr<StateAggregator> state_aggregator
+        std::shared_ptr<StateAggregator> state_aggregator,
+        std::shared_ptr<SetpointAggregator> setpoint_aggregator
     )   : vehicle_constants_(vehicle_constants), 
             k_p_(k_p), k_d_(k_d), k_i_(k_i), kff_(kff),
             min_output_(min_output), max_output_(max_output), dt_(dt), 
             origin_position_{Eigen::Vector3d(0.0f, 0.0f, 0.0f)}, origin_yaw_{0.0f}, 
-            state_aggregator_{state_aggregator}
+            state_aggregator_{state_aggregator}, setpoint_aggregator_{setpoint_aggregator}
             {
                 if (k_p.size() != 3 || k_d.size() != 3 || k_i.size() != 3 || kff.size() != 3 || 
                     min_output.size() != 3 || max_output.size() != 3 || 
@@ -60,11 +56,6 @@ public:
                 RCLCPP_INFO(_logger, "min output: [%f, %f, %f]", min_output[0], min_output[1], min_output[2]);
                 RCLCPP_INFO(_logger, "max output: [%f, %f, %f]", max_output[0], max_output[1], max_output[2]);
 
-                for (auto& val : position_setpoint_) val = 0.0f;
-                for (auto& val : velocity_setpoint_) val = 0.0f;
-                for (auto& val : acceleration_setpoint_) val = 0.0f;
-
-                yaw_angle_setpoint_ = 0.0f;
                 desired_acceleration_.fill(0.0f);
                 desired_attitude_.fill(0.0f);
                 desired_thrust_ = 0.0f;
@@ -74,20 +65,15 @@ public:
 
     void compute() {
         auto state = state_aggregator_->get_state();
-
-        Eigen::Vector3d position_setpoint, velocity_setpoint, feed_forward_ref;
         Eigen::Vector3d position = state.position;
         Eigen::Vector3d velocity = state.velocity;
 
-        for (size_t i = 0; i < 3; ++i) {
-            position_setpoint[i] = position_setpoint_[i];
-            velocity_setpoint[i] = velocity_setpoint_[i];
-            feed_forward_ref[i]  = acceleration_setpoint_[i];
-        }
+        auto setpoint = setpoint_aggregator_->getPositionSetpoint();
+        auto feed_forward_ref  = setpoint.acceleration;
 
         // Compute the position error and velocity error using the path desired position and velocity
-        Eigen::Vector3d error_p = position_setpoint - position;
-        Eigen::Vector3d error_d = velocity_setpoint - velocity;
+        Eigen::Vector3d error_p = setpoint.position - position;
+        Eigen::Vector3d error_d = setpoint.velocity - velocity;
 
         // Compute the desired control output acceleration for each controller
         // Compute the integral term (using euler integration) - TODO: improve the integration part
@@ -106,7 +92,7 @@ public:
         }
         desired_acceleration_[2] -= vehicle_constants_->gravitational_acceleration_;
 
-        double yaw = yaw_angle_setpoint_;
+        double yaw = setpoint.yaw;
         Eigen::Matrix3d RzT;
         Eigen::Vector3d r3d;
 
@@ -136,7 +122,10 @@ public:
         origin_yaw_ = state.euler_angles.yaw;
 
         RCLCPP_INFO(_logger, "Position controller origin set to current position.");
-        RCLCPP_INFO_STREAM(_logger, "Position: " << origin_position_ << ", yaw: " << origin_yaw_);
+        RCLCPP_INFO(_logger, "Position: [%f, %f, %f], yaw: %f", 
+            origin_position_[0], origin_position_[1], origin_position_[2], 
+            origin_yaw_
+        );
     }
 
 private: 
@@ -154,6 +143,7 @@ private:
     double origin_yaw_;
 
     std::shared_ptr<StateAggregator> state_aggregator_;
+    std::shared_ptr<SetpointAggregator> setpoint_aggregator_;
 
     rclcpp::Logger _logger = rclcpp::get_logger("PositionPIDController");
 };

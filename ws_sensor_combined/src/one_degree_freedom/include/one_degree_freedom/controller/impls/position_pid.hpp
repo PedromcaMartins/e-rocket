@@ -28,7 +28,7 @@ public:
         const Eigen::Vector3d & min_output,
         const Eigen::Vector3d & max_output,
         double dt
-    )   : mass_(vehicle_constants->mass_of_system_), g_(vehicle_constants->gravitational_acceleration_), 
+    )   : vehicle_constants_(vehicle_constants), 
             k_p_(k_p), k_d_(k_d), k_i_(k_i), kff_(kff),
             min_output_(min_output), max_output_(max_output),
             origin_position_{Eigen::Vector3d(0.0f, 0.0f, 0.0f)}, origin_yaw_{0.0f}, dt_(dt)
@@ -51,7 +51,7 @@ public:
                     throw std::runtime_error("Time step invalid");
                 }
 
-                RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "mass: %f", mass_);
+                RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "mass: %f", vehicle_constants_->mass_of_system_);
                 RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "controller dt: %f", dt_);
 
                 RCLCPP_INFO(rclcpp::get_logger("position_pid_controller"), "gains k_p: [%f, %f, %f]", k_p[0], k_p[1], k_p[2]);
@@ -106,14 +106,14 @@ public:
         for (size_t i = 0; i < 3; ++i) {
             desired_acceleration_[i] = std::max(min_output_[i], std::min(output[i], max_output_[i]));
         }
-        desired_acceleration_[2] -= g_;
+        desired_acceleration_[2] -= vehicle_constants_->gravitational_acceleration_;
 
         double yaw = yaw_angle_setpoint_;
         Eigen::Matrix3d RzT;
         Eigen::Vector3d r3d;
 
         /* Compute the normalized thrust and r3d vector */
-        desired_thrust_ = mass_ * desired_acceleration_.norm();
+        desired_thrust_ = vehicle_constants_->mass_of_system_ * desired_acceleration_.norm();
 
         /* Compute the rotation matrix about the Z-axis */
         RzT << cos(yaw), sin(yaw), 0.0,
@@ -143,8 +143,7 @@ public:
     }
 
 private: 
-    double mass_;
-    double g_;
+    std::shared_ptr<VehicleConstants> vehicle_constants_;
     Eigen::Vector3d k_p_;
     Eigen::Vector3d k_d_;
     Eigen::Vector3d k_i_;

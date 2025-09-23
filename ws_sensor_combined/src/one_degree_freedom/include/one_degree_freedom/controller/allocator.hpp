@@ -19,11 +19,7 @@ public:
     };
 
     Allocator(std::shared_ptr<VehicleConstants> vehicle_constants) : 
-        thrust_curve_m_(vehicle_constants->motor_thrust_curve_m_), 
-        thrust_curve_b_(vehicle_constants->motor_thrust_curve_b_), 
-        g_(vehicle_constants->gravitational_acceleration_), 
-        servo_max_tilt_angle_degrees_(vehicle_constants->servo_max_tilt_angle_degrees_), 
-        motor_max_pwm_(vehicle_constants->max_motor_pwm_)
+        vehicle_constants_(vehicle_constants)
         { }
 
     ServoAllocatorOutput compute_servo_allocation(
@@ -58,20 +54,23 @@ public:
     }
 
     double motor_thrust_curve_pwm_to_newtons(double motor_pwm) {
-        return (motor_pwm * thrust_curve_m_ + thrust_curve_b_) / 1000.0f * g_;
+        auto g = vehicle_constants_->gravitational_acceleration_;
+        auto thrust_curve_m = vehicle_constants_->motor_thrust_curve_m_;
+        auto thrust_curve_b = vehicle_constants_->motor_thrust_curve_b_;
+
+        return (motor_pwm * thrust_curve_m + thrust_curve_b) / 1000.0f * g;
     }
 
     double motor_thrust_curve_newtons_to_pwm(double thrust_newtons) {
-        return ((thrust_newtons * 1000.0f) / g_ - thrust_curve_b_) / thrust_curve_m_;
+        auto g = vehicle_constants_->gravitational_acceleration_;
+        auto thrust_curve_m = vehicle_constants_->motor_thrust_curve_m_;
+        auto thrust_curve_b = vehicle_constants_->motor_thrust_curve_b_;
+
+        return ((thrust_newtons * 1000.0f) / g - thrust_curve_b) / thrust_curve_m;
     }
 
 private: 
-    double thrust_curve_m_;
-    double thrust_curve_b_;
-    double g_;
-
-    double servo_max_tilt_angle_degrees_;
-    double motor_max_pwm_;
+    std::shared_ptr<VehicleConstants> vehicle_constants_;
 
     double limit_range_servo_pwm(double servo_pwm) {
         servo_pwm = (servo_pwm > 1.0f)? 1.0f : servo_pwm;
@@ -81,15 +80,15 @@ private:
     }
 
     double limit_range_motor_pwm(double motor_pwm) {
-        motor_pwm = (motor_pwm > motor_max_pwm_)? motor_max_pwm_ : motor_pwm;
-        motor_pwm = (motor_pwm < 0.0f)? 0.0f : motor_pwm;
+        motor_pwm = (motor_pwm > vehicle_constants_->max_motor_pwm_) ? vehicle_constants_->max_motor_pwm_ : motor_pwm;
+        motor_pwm = (motor_pwm < 0.0f) ? 0.0f : motor_pwm;
 
         return motor_pwm;
     }
 
     double servo_curve_tilt_radians_to_pwm(double servo_tilt_angle_radians) {
         double servo_tilt_angle_degrees = frame_transforms::radians_to_degrees(servo_tilt_angle_radians);
-        return servo_tilt_angle_degrees / servo_max_tilt_angle_degrees_;
+        return servo_tilt_angle_degrees / vehicle_constants_->servo_max_tilt_angle_degrees_;
     }
 
 };

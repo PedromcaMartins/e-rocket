@@ -50,16 +50,13 @@ public:
             CONTROLLER_INPUT_LOCAL_POSITION_TOPIC, qos
         );
 
-        this->declare_parameter<double>(CONTROLLER_FREQUENCY_HERTZ_PARAM);
-        auto controllers_freq = this->get_parameter(CONTROLLER_FREQUENCY_HERTZ_PARAM).as_double();
-        time_step_seconds_ = 1.0 / controllers_freq;
+        this->declare_parameter<double>(CONTROLLER_ATTITUDE_FREQUENCY_HERTZ_PARAM);
+        auto controllers_freq = this->get_parameter(CONTROLLER_ATTITUDE_FREQUENCY_HERTZ_PARAM).as_double();
+        attitude_time_step_seconds_ = 1.0 / controllers_freq;
 
-        // Safety check
-        if (time_step_seconds_ <= 0.0f || std::isnan(time_step_seconds_)) {
-            RCLCPP_ERROR(this->get_logger(), "Could not read controller time step correctly.");
-            throw std::runtime_error("Time step invalid");
-        }
-        RCLCPP_INFO(this->get_logger(), "Controller period: %f seconds", time_step_seconds_);
+        this->declare_parameter<double>(CONTROLLER_POSITION_FREQUENCY_HERTZ_PARAM);
+        auto position_controllers_freq = this->get_parameter(CONTROLLER_POSITION_FREQUENCY_HERTZ_PARAM).as_double();
+        position_time_step_seconds_ = 1.0 / position_controllers_freq;
 
         this->declare_parameter<double>(MASS_OF_SYSTEM);
         this->declare_parameter<double>(LENGTH_OF_PENDULUM);
@@ -78,6 +75,9 @@ public:
         }
 
         RCLCPP_INFO(this->get_logger(), "Simulator parameters: m = %f, l = %f, g = %f, j = %f", m_, l_, g_, j_);
+
+        rclcpp::sleep_for(std::chrono::seconds(1));
+        publish_attitude();
 	}
 
 private:
@@ -95,7 +95,7 @@ private:
     double pitch_angle_ = 0.0f;        // pitch angle
     double pitch_angular_rate_ = 0.0f; // angular position
 
-    double yaw_angle_ = 0.0f;          // pitch angle
+    double yaw_angle_ = 1.0f;          // pitch angle
     double yaw_angular_rate_ = 0.0f;   // angular position
 
     Eigen::Vector3d position_     = Eigen::Vector3d::Zero(); // position in the world frame
@@ -107,7 +107,8 @@ private:
     double g_;
     double j_;
 
-    double time_step_seconds_;
+    double attitude_time_step_seconds_;
+    double position_time_step_seconds_;
 
 	//!< Auxiliary functions
     void publish_attitude();
@@ -167,7 +168,7 @@ void Simulator::attitude_controller_output_callback(const AttitudeControllerDebu
     double roll_inner_servo_tilt_angle = -msg->roll_inner_servo_tilt_angle;
     double pitch_outer_servo_tilt_angle = -msg->pitch_outer_servo_tilt_angle;
     double yaw_delta_motor_pwm = -msg->yaw_delta_motor_pwm;
-    double step = time_step_seconds_;
+    double step = attitude_time_step_seconds_;
 
     //*********//
     //* roll  *//
@@ -211,8 +212,8 @@ void Simulator::position_controller_output_callback(const PositionControllerDebu
     desired_acceleration_[2] += g_;
 
     acceleration_ = desired_acceleration_;
-    velocity_ += acceleration_ * time_step_seconds_;
-    position_ += velocity_ * time_step_seconds_;
+    velocity_ += acceleration_ * position_time_step_seconds_;
+    position_ += velocity_ * position_time_step_seconds_;
 
     // Publish the new state variables
     publish_local_position();

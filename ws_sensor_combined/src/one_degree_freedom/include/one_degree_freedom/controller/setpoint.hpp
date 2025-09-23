@@ -87,6 +87,7 @@ public:
 
     PositionSetpoint get_position_setpoint() const { return pos_setpoint_; }
     AttitudeSetpoint get_attitude_setpoint() const { return att_setpoint_; }
+    void set_attitude_setpoint(const AttitudeSetpoint& att_setpoint) { att_setpoint_ = att_setpoint; }
 
 private:
     PositionSetpoint pos_setpoint_;

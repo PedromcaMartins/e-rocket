@@ -15,24 +15,13 @@
           m: 2696.6
           b: -38.95
       controller:
-        roll: 
-          active: true
+        attitude: 
+          active: [true, true, true]
+          frequency_hertz: 50.
           gains:
-            k_p: 0.5
-            k_d: 0.3
-            k_i: .0
-        pitch: 
-          active: true
-          gains:
-            k_p: 0.7
-            k_d: 0.4
-            k_i: .0
-        yaw: 
-          active: true
-          gains:
-            k_p: 0.40
-            k_d: 0.2
-            k_i: 0.1
+            k_p: [0.50, 0.70, 0.40]
+            k_d: [0.30, 0.40, 0.20]
+            k_i: [0.00, 0.00, 0.10]
         position: 
           active: true
           gains:

@@ -25,6 +25,7 @@ struct State {
     Eigen::Vector3d euler_angles;
 
     // angular rates
+    Eigen::Vector3d angular_rate;
 
     // linear position
     Eigen::Vector3d position;
@@ -53,6 +54,9 @@ public:
     angular_rate_sub_{node->create_subscription<VehicleAngularVelocity>(
         CONTROLLER_INPUT_ANGULAR_RATE_TOPIC, qos,
         [this](const VehicleAngularVelocity::SharedPtr msg) {
+            this->state_.angular_rate = Eigen::Vector3d(
+                msg->xyz[0], msg->xyz[1], msg->xyz[2]
+            );
             this->state_.angular_velocity = *msg;
         }
     )},

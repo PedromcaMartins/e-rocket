@@ -119,7 +119,7 @@ public:
     void set_current_position_as_origin() {
         auto state = state_aggregator_->get_state();
         origin_position_ = state.position;
-        origin_yaw_ = state.euler_angles.yaw;
+        origin_yaw_ = state.euler_angles[2];
 
         RCLCPP_INFO(_logger, "Position controller origin set to current position.");
         RCLCPP_INFO(_logger, "Position: [%f, %f, %f], yaw: %f", 

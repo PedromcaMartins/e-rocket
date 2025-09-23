@@ -40,15 +40,13 @@ public:
     vehicle_constants_{std::make_shared<VehicleConstants>(this)},
     state_aggregator_{std::make_unique<StateAggregator>(this, qos_)},
     setpoint_aggregator_{std::make_unique<SetpointAggregator>(this, qos_)},
+    attitude_controller_{this, qos_, state_aggregator_, setpoint_aggregator_},
 
     servo_tilt_angle_publisher_{this->create_publisher<ActuatorServos>(
         CONTROLLER_OUTPUT_SERVO_PWM_TOPIC, qos_
     )},
     motor_thrust_publisher_{this->create_publisher<ActuatorMotors>(
         CONTROLLER_OUTPUT_MOTOR_PWM_TOPIC, qos_
-    )},
-    attitude_controller_debug_publisher_{this->create_publisher<AttitudeControllerDebug>(
-        CONTROLLER_ATTITUDE_DEBUG_TOPIC, qos_
     )},
     position_controller_debug_publisher_{this->create_publisher<PositionControllerDebug>(
         CONTROLLER_POSITION_DEBUG_TOPIC, qos_
@@ -65,8 +63,8 @@ public:
         }
     )}
     {
-        this->declare_parameter<double>(CONTROLLER_FREQUENCY_HERTZ_PARAM);
-        double controllers_freq = this->get_parameter(CONTROLLER_FREQUENCY_HERTZ_PARAM).as_double();
+        this->declare_parameter<double>(CONTROLLER_POSITION_FREQUENCY_HERTZ_PARAM);
+        double controllers_freq = this->get_parameter(CONTROLLER_POSITION_FREQUENCY_HERTZ_PARAM).as_double();
         if (controllers_freq <= 0.0f || std::isnan(controllers_freq)) {
             RCLCPP_ERROR(this->get_logger(), "Could not read controller frequency correctly.");
             throw std::runtime_error("Controller frequency invalid");
@@ -75,60 +73,6 @@ public:
         double controllers_dt = 1.0 / controllers_freq;
 
         allocator_ = std::make_unique<Allocator>(vehicle_constants_);
-
-        this->declare_parameter<bool>(CONTROLLER_ROLL_ACTIVE_PARAM);
-        if (this->get_parameter(CONTROLLER_ROLL_ACTIVE_PARAM).as_bool()) {
-            RCLCPP_INFO(this->get_logger(), "Roll Controller is active");
-            this->declare_parameter<double>(CONTROLLER_ROLL_K_P_PARAM);
-            this->declare_parameter<double>(CONTROLLER_ROLL_K_D_PARAM);
-            this->declare_parameter<double>(CONTROLLER_ROLL_K_I_PARAM);
-
-            double k_p = this->get_parameter(CONTROLLER_ROLL_K_P_PARAM).as_double();
-            double k_d = this->get_parameter(CONTROLLER_ROLL_K_D_PARAM).as_double();
-            double k_i = this->get_parameter(CONTROLLER_ROLL_K_I_PARAM).as_double();
-
-            roll_controller_.emplace(k_p, k_d, k_i, controllers_dt);
-        } else {
-            RCLCPP_INFO(this->get_logger(), "Roll Controller is not active");
-            roll_controller_ = std::nullopt;
-        }
-
-
-        this->declare_parameter<bool>(CONTROLLER_PITCH_ACTIVE_PARAM);
-        if (this->get_parameter(CONTROLLER_PITCH_ACTIVE_PARAM).as_bool()) {
-            RCLCPP_INFO(this->get_logger(), "Pitch Controller is active");
-            this->declare_parameter<double>(CONTROLLER_PITCH_K_P_PARAM);
-            this->declare_parameter<double>(CONTROLLER_PITCH_K_D_PARAM);
-            this->declare_parameter<double>(CONTROLLER_PITCH_K_I_PARAM);
-
-            double k_p = this->get_parameter(CONTROLLER_PITCH_K_P_PARAM).as_double();
-            double k_d = this->get_parameter(CONTROLLER_PITCH_K_D_PARAM).as_double();
-            double k_i = this->get_parameter(CONTROLLER_PITCH_K_I_PARAM).as_double();
-
-            pitch_controller_.emplace(k_p, k_d, k_i, controllers_dt);
-        } else {
-            RCLCPP_INFO(this->get_logger(), "Pitch Controller is not active");
-            pitch_controller_ = std::nullopt;
-        }
-
-
-        this->declare_parameter<bool>(CONTROLLER_YAW_ACTIVE_PARAM);
-        if (this->get_parameter(CONTROLLER_YAW_ACTIVE_PARAM).as_bool()) {
-            RCLCPP_INFO(this->get_logger(), "Yaw Controller is active");
-            this->declare_parameter<double>(CONTROLLER_YAW_K_P_PARAM);
-            this->declare_parameter<double>(CONTROLLER_YAW_K_D_PARAM);
-            this->declare_parameter<double>(CONTROLLER_YAW_K_I_PARAM);
-
-            double k_p = this->get_parameter(CONTROLLER_YAW_K_P_PARAM).as_double();
-            double k_d = this->get_parameter(CONTROLLER_YAW_K_D_PARAM).as_double();
-            double k_i = this->get_parameter(CONTROLLER_YAW_K_I_PARAM).as_double();
-
-            yaw_controller_.emplace(k_p, k_d, k_i, controllers_dt);
-        } else {
-            RCLCPP_INFO(this->get_logger(), "Yaw Controller is not active");
-            yaw_controller_ = std::nullopt;
-        }
-
 
         this->declare_parameter<bool>(CONTROLLER_POSITION_ACTIVE_PARAM);
         if (this->get_parameter(CONTROLLER_POSITION_ACTIVE_PARAM).as_bool()) {
@@ -162,7 +106,7 @@ public:
             position_controller_ = std::nullopt;
         }
 
-        if (position_controller_ && (!roll_controller_ || !pitch_controller_ || !yaw_controller_)) {
+        if (position_controller_ && !attitude_controller_.are_all_controllers_active()) {
             RCLCPP_ERROR(this->get_logger(), "Position controller requires all attitude controllers to be active.");
             throw std::runtime_error("Position controller requires all attitude controllers to be active.");
         }
@@ -190,6 +134,7 @@ private:
     std::shared_ptr<VehicleConstants> vehicle_constants_;
     std::shared_ptr<StateAggregator> state_aggregator_;
     std::shared_ptr<SetpointAggregator> setpoint_aggregator_;
+    AttitudePIDController attitude_controller_;
 
     //!< Time variables
     rclcpp::TimerBase::SharedPtr controller_timer_;
@@ -198,22 +143,16 @@ private:
 	rclcpp::Publisher<ActuatorServos>::SharedPtr    servo_tilt_angle_publisher_;
     rclcpp::Publisher<ActuatorMotors>::SharedPtr    motor_thrust_publisher_;
 
-    rclcpp::Publisher<AttitudeControllerDebug>::SharedPtr attitude_controller_debug_publisher_;
     rclcpp::Publisher<PositionControllerDebug>::SharedPtr position_controller_debug_publisher_;
     rclcpp::Publisher<AllocatorDebug>::SharedPtr  allocator_debug_publisher_;
 
     // radians, radians per second
-    std::optional<AttitudePIDController> roll_controller_;
-    std::optional<AttitudePIDController> pitch_controller_;
-    std::optional<AttitudePIDController> yaw_controller_;
-
     std::unique_ptr<Allocator> allocator_;
 
     std::optional<PositionPIDController> position_controller_;
 
 	//!< Auxiliary functions
     void controller_callback();
-    void publish_attitude_controller_debug();
     void publish_allocator_debug(
         const double inner_servo_tilt_angle_radians,
         const double outer_servo_tilt_angle_radians,
@@ -266,14 +205,18 @@ void BaselinePIDController::controller_callback()
         );
 
         if (now - t0 > 4.0s) {
-            // Needed 
+            static bool first_time = false;
+            if (!first_time) {
+                first_time = true;
+                attitude_controller_.set_current_yaw_as_origin();
+            }
+            // Needed to set upright
             double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(0.4f);
-            yaw_controller_->desired_setpoint_ = 0.0f;
-            double delta_motor_pwm = yaw_controller_->compute();
+            auto attitude_output = attitude_controller_.compute();
 
             // Allocate motor thrust based on the computed torque
             Allocator::MotorAllocatorOutput motor_output = allocator_->compute_motor_allocation(
-                delta_motor_pwm, 
+                attitude_output.delta_motor_pwm, 
                 average_motor_thrust_newtons
             );
 
@@ -282,7 +225,6 @@ void BaselinePIDController::controller_callback()
                 motor_output.upwards_motor_pwm, 
                 motor_output.downwards_motor_pwm
             );
-            publish_attitude_controller_debug();
         }
     }
 
@@ -294,26 +236,25 @@ void BaselinePIDController::controller_callback()
             static bool mission_start = false;
             if (!mission_start) {
                 mission_start = true;
+                attitude_controller_.set_current_yaw_as_origin();
                 position_controller_->set_current_position_as_origin();
             }
 
             position_controller_->compute();
-            roll_controller_->desired_setpoint_ = position_controller_->desired_attitude_[0];
-            pitch_controller_->desired_setpoint_ = position_controller_->desired_attitude_[1];
-            yaw_controller_->desired_setpoint_ = position_controller_->desired_attitude_[2];
+            setpoint_aggregator_->set_attitude_setpoint({
+                position_controller_->desired_attitude_
+            });
 
             average_motor_thrust_newtons = position_controller_->desired_thrust_;
 
             publish_position_controller_debug();
         }
 
-        double inner_servo_tilt_angle_radians = (roll_controller_)  ? roll_controller_->compute() : 0.0f;
-        double outer_servo_tilt_angle_radians = (pitch_controller_) ? pitch_controller_->compute() : 0.0f;
-        double delta_motor_pwm = (yaw_controller_) ? yaw_controller_->compute() : 0.0f;
+        auto attitude_output = attitude_controller_.compute();
 
         Allocator::ServoAllocatorOutput servo_output = allocator_->compute_servo_allocation(
-            inner_servo_tilt_angle_radians,
-            outer_servo_tilt_angle_radians
+            attitude_output.inner_servo_tilt_angle,
+            attitude_output.outer_servo_tilt_angle
         );
 
         publish_servo_pwm(
@@ -323,7 +264,7 @@ void BaselinePIDController::controller_callback()
 
         // Allocate motor thrust based on the computed torque
         Allocator::MotorAllocatorOutput motor_output = allocator_->compute_motor_allocation(
-            delta_motor_pwm, 
+            attitude_output.delta_motor_pwm, 
             average_motor_thrust_newtons
         );
 
@@ -334,14 +275,13 @@ void BaselinePIDController::controller_callback()
         );
 
         // Publish the controller debug information
-        publish_attitude_controller_debug();
         publish_allocator_debug(
-            inner_servo_tilt_angle_radians,
-            outer_servo_tilt_angle_radians,
+            attitude_output.inner_servo_tilt_angle,
+            attitude_output.outer_servo_tilt_angle,
             servo_output.inner_servo_pwm,
             servo_output.outer_servo_pwm,
 
-            delta_motor_pwm,
+            attitude_output.delta_motor_pwm,
             average_motor_thrust_newtons,
             motor_output.upwards_motor_pwm,
             motor_output.downwards_motor_pwm
@@ -349,34 +289,6 @@ void BaselinePIDController::controller_callback()
     }
 
     // TODO: if FlightMode::MISSION_COMPLETE => slow descent - keep algorithms running, thrust -> hover thrust * 0.9 for 1s => hover thrust
-}
-
-void BaselinePIDController::publish_attitude_controller_debug() {
-    AttitudeControllerDebug msg{};
-
-    if (roll_controller_) {
-        msg.roll_angle = radians_to_degrees(roll_controller_->angle_);
-        msg.roll_angular_velocity = radians_to_degrees(roll_controller_->angular_rate);
-        msg.roll_angle_setpoint = radians_to_degrees(roll_controller_->desired_setpoint_);
-        msg.roll_inner_servo_tilt_angle = radians_to_degrees(roll_controller_->tilt_angle_);
-    }
-
-    if (pitch_controller_) {
-        msg.pitch_angle = radians_to_degrees(pitch_controller_->angle_);
-        msg.pitch_angular_velocity = radians_to_degrees(pitch_controller_->angular_rate);
-        msg.pitch_angle_setpoint = radians_to_degrees(pitch_controller_->desired_setpoint_);
-        msg.pitch_outer_servo_tilt_angle = radians_to_degrees(pitch_controller_->tilt_angle_);
-    }
-
-    if (yaw_controller_) {
-        msg.yaw_angle = radians_to_degrees(yaw_controller_->angle_);
-        msg.yaw_angular_velocity = radians_to_degrees(yaw_controller_->angular_rate);
-        msg.yaw_angle_setpoint = radians_to_degrees(yaw_controller_->desired_setpoint_);
-        msg.yaw_delta_motor_pwm = radians_to_degrees(yaw_controller_->tilt_angle_);
-    }
-
-    msg.stamp = this->get_clock()->now();
-    attitude_controller_debug_publisher_->publish(msg);
 }
 
 void BaselinePIDController::publish_allocator_debug(
@@ -410,7 +322,7 @@ void BaselinePIDController::publish_position_controller_debug() {
     PositionControllerDebug msg{};
 
     auto state = state_aggregator_->get_state();
-    auto setpoint = setpoint_aggregator_->getPositionSetpoint();
+    auto setpoint = setpoint_aggregator_->get_position_setpoint();
 
     Eigen::Map<Eigen::Vector3d>(msg.position.data()) = state.position;
     Eigen::Map<Eigen::Vector3d>(msg.position_setpoint.data()) = setpoint.position;

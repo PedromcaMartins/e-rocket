@@ -39,20 +39,11 @@ namespace controller
     constexpr char CONTROLLER_POSITION_DEBUG_TOPIC[] = "/offboard/position_controller/debug";
     constexpr char ALLOCATOR_DEBUG_TOPIC[] = "/offboard/allocator/debug";
 
-    constexpr char CONTROLLER_ROLL_ACTIVE_PARAM[] = "offboard.controller.roll.active";
-    constexpr char CONTROLLER_ROLL_K_P_PARAM[] = "offboard.controller.roll.gains.k_p";
-    constexpr char CONTROLLER_ROLL_K_D_PARAM[] = "offboard.controller.roll.gains.k_d";
-    constexpr char CONTROLLER_ROLL_K_I_PARAM[] = "offboard.controller.roll.gains.k_i";
-
-    constexpr char CONTROLLER_PITCH_ACTIVE_PARAM[] = "offboard.controller.pitch.active";
-    constexpr char CONTROLLER_PITCH_K_P_PARAM[] = "offboard.controller.pitch.gains.k_p";
-    constexpr char CONTROLLER_PITCH_K_D_PARAM[] = "offboard.controller.pitch.gains.k_d";
-    constexpr char CONTROLLER_PITCH_K_I_PARAM[] = "offboard.controller.pitch.gains.k_i";
-
-    constexpr char CONTROLLER_YAW_ACTIVE_PARAM[] = "offboard.controller.yaw.active";
-    constexpr char CONTROLLER_YAW_K_P_PARAM[] = "offboard.controller.yaw.gains.k_p";
-    constexpr char CONTROLLER_YAW_K_D_PARAM[] = "offboard.controller.yaw.gains.k_d";
-    constexpr char CONTROLLER_YAW_K_I_PARAM[] = "offboard.controller.yaw.gains.k_i";
+    constexpr char CONTROLLER_ATTITUDE_ACTIVE_PARAM[] = "offboard.controller.attitude.active";
+    constexpr char CONTROLLER_ATTITUDE_K_P_PARAM[] = "offboard.controller.attitude.gains.k_p";
+    constexpr char CONTROLLER_ATTITUDE_K_D_PARAM[] = "offboard.controller.attitude.gains.k_d";
+    constexpr char CONTROLLER_ATTITUDE_K_I_PARAM[] = "offboard.controller.attitude.gains.k_i";
+    constexpr char CONTROLLER_ATTITUDE_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.attitude.frequency_hertz";
 
     constexpr char CONTROLLER_POSITION_ACTIVE_PARAM[] = "offboard.controller.position.active";
     constexpr char CONTROLLER_POSITION_K_P_PARAM[] = "offboard.controller.position.gains.k_p";
@@ -60,8 +51,8 @@ namespace controller
     constexpr char CONTROLLER_POSITION_K_I_PARAM[] = "offboard.controller.position.gains.k_i";
     constexpr char CONTROLLER_POSITION_MIN_OUTPUT_PARAM[] = "offboard.controller.position.gains.min_output";
     constexpr char CONTROLLER_POSITION_MAX_OUTPUT_PARAM[] = "offboard.controller.position.gains.max_output";
+    constexpr char CONTROLLER_POSITION_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.position.frequency_hertz";
 
-    constexpr char CONTROLLER_FREQUENCY_HERTZ_PARAM[] = "offboard.controller.frequency_hertz";
 } // namespace controller
 
 namespace flight_mode

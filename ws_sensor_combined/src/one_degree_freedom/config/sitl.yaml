@@ -15,33 +15,22 @@
           m: 2696.6
           b: -38.95
       controller:
-        roll: 
-          active: true
+        attitude:
+          active: [true, true, true]
+          frequency_hertz: 50.
           gains:
-            k_p: 0.3350
-            k_d: 0.1616
-            k_i: 0.3162
-        pitch: 
-          active: true
-          gains:
-            k_p: 0.3350
-            k_d: 0.1616
-            k_i: 0.3162
-        yaw: 
-          active: true
-          gains:
-            k_p: 0.3350
-            k_d: 0.1616
-            k_i: 0.3162
+            k_p: [0.3350, 0.3350, 0.3350]
+            k_d: [0.1616, 0.1616, 0.1616]
+            k_i: [0.3162, 0.3162, 0.3162]
         position: 
           active: true
+          frequency_hertz: 50.
           gains:
             k_p: [8.0, 8.0, 8.0]   # Proportional gain
             k_d: [3.0, 3.0, 3.0]   # Derivative gain
             k_i: [0.2, 0.2, 0.1]   # Integral gain
             min_output: [-20., -20., -20.] # Minimum output of each PID
             max_output: [ 20.,  20.,  20.]
-        frequency_hertz: 50.
       mission:
         trajectory_setpoint:
           active: true

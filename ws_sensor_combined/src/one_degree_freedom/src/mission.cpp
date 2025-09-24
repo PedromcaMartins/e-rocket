@@ -5,6 +5,9 @@
 #include <geometry_msgs/msg/vector3_stamped.hpp>
 #include <one_degree_freedom/constants.hpp>
 
+#include <one_degree_freedom/controller/state.hpp>
+#include <one_degree_freedom/mission/take_off_and_landing.hpp>
+
 #include <one_degree_freedom/frame_transforms.h>
 #include <stdint.h>
 #include <chrono>
@@ -19,7 +22,6 @@ using namespace one_degree_freedom::frame_transforms;
 using namespace one_degree_freedom::constants::setpoint;
 using namespace one_degree_freedom::constants::controller;
 using namespace one_degree_freedom::constants::flight_mode;
-using namespace one_degree_freedom::constants::flight_mode;
 
 /**
  * @brief PX4 ROS2 Communication Node is responsible for sending and receiving commands to and from the PX4. 
@@ -32,6 +34,8 @@ public:
 		flight_mode_{FlightMode::INIT},
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
+    	state_aggregator_{std::make_unique<StateAggregator>(this, qos_)},
+		take_off_sequence_{this, qos_, state_aggregator_},
 		flight_mode_set_publisher_{this->create_publisher<one_degree_freedom::msg::FlightMode>(
 			FLIGHT_MODE_SET_TOPIC, qos_
 		)},
@@ -84,6 +88,9 @@ private:
 	rmw_qos_profile_t qos_profile_;
 	rclcpp::QoS qos_;
 
+    std::shared_ptr<StateAggregator> state_aggregator_;
+	TakeOffSequence take_off_sequence_;
+
 	std::atomic<bool> flag_flight_mode_requested_;
     rclcpp::Publisher<one_degree_freedom::msg::FlightMode>::SharedPtr flight_mode_set_publisher_;
 	void request_flight_mode(uint8_t flight_mode);
@@ -134,8 +141,34 @@ void Mission::flight_mode() {
 				// 	RCLCPP_INFO(this->get_logger(), "Switching to IN_MISSION mode");
 				// 	request_flight_mode(FlightMode::IN_MISSION);
 				// }
+
+				// sets position setpoint to current position
+				static bool initialized_position_setpoint = false;
+				if (!initialized_position_setpoint) {
+					initialized_position_setpoint = true;
+					auto state = state_aggregator_->get_state();
+
+					SetpointC5 setpoint {};
+					Eigen::Map<Eigen::Vector3d>(setpoint.position.data()) = state.position;
+					setpoint.yaw = state.euler_angles[2]; // keep current yaw
+					trajectory_setpoint_publisher_->publish(setpoint);
+					RCLCPP_INFO(this->get_logger(), "Initialized position setpoint to current position: [%f, %f, %f], yaw: %f",
+						setpoint.position[0], setpoint.position[1], setpoint.position[2], radians_to_degrees(setpoint.yaw)
+					);
+				}
 			}
-			break;	
+			break;
+
+		case FlightMode::IN_MISSION:
+			{
+				static bool started_takeoff = false;
+				if (!started_takeoff && !trajectory_setpoint_active_) {
+					RCLCPP_INFO(this->get_logger(), "Takeoff sequence started");
+					take_off_sequence_.start_takeoff();
+					started_takeoff = true;
+				}
+			}
+			break;
 
 		case FlightMode::ABORT:
 			RCLCPP_ERROR(this->get_logger(), "Mission Aborted!");
@@ -159,16 +192,6 @@ void Mission::mission() {
                 elapsed_time.seconds()
             );
         }
-
-		// Remove mission time limit
-
-		// static bool first_run = true;
-        // if (elapsed_time > 120s && first_run) {
-		// 	first_run = false;
-        //     // Mission completion
-        //     RCLCPP_INFO(this->get_logger(), "Mission complete, switching to MISSION_COMPLETE mode");
-        //     request_flight_mode(FlightMode::MISSION_COMPLETE);
-        // }
 
 		if (trajectory_setpoint_active_) {
 			#include "setpoints.h"

@@ -146,16 +146,6 @@ public:
 
     bool is_controller_active() const { return controller_active_; }
 
-    void set_current_position_as_origin() {
-        auto state = state_aggregator_->get_state();
-        origin_position_ = state.position;
-
-        RCLCPP_INFO(logger_, "Position controller origin set to current position.");
-        RCLCPP_INFO(logger_, "Position: [%f, %f, %f]", 
-            origin_position_[0], origin_position_[1], origin_position_[2]
-        );
-    }
-
 private: 
     bool controller_active_;
 

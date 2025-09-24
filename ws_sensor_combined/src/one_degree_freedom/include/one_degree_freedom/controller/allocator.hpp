@@ -144,8 +144,8 @@ private:
         ActuatorServos msg{};
         msg.timestamp = clock_->now().nanoseconds() / 1000;
         if (vehicle_constants_->servo_active_) {
-            msg.control[1] = servo_output_.inner_servo_pwm;
             msg.control[0] = servo_output_.outer_servo_pwm;
+            msg.control[1] = servo_output_.inner_servo_pwm;
         } else {
             // If servos are not active, disable them
             msg.control[0] = 0.;

@@ -52,6 +52,7 @@ public:
             throw std::runtime_error("Position controller requires all attitude controllers to be active.");
         }
 
+        // TODO: change this for future
         controller_timer_ = this->create_wall_timer(
             std::chrono::duration<double>(0.02), 
             std::bind(&BaselinePIDController::controller_callback, this)
@@ -102,18 +103,12 @@ void BaselinePIDController::controller_callback()
         });
 
         if (now - t0 > 4.0s) {
-            static bool first_time = false;
-            if (!first_time) {
-                first_time = true;
-                attitude_controller_.set_current_yaw_as_origin();
-            }
-            // Needed to set upright
-            double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(0.4f);
-            auto attitude_output = attitude_controller_.compute();
+            double delta_motor_pwm = 0.0f;
+            double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(0.0f);
 
             // Allocate motor thrust based on the computed torque
             allocator_->compute_motor_allocation({
-                attitude_output.delta_motor_pwm, 
+                delta_motor_pwm, 
                 average_motor_thrust_newtons
             });
         }
@@ -126,13 +121,6 @@ void BaselinePIDController::controller_callback()
         );
 
         if (position_controller_.is_controller_active()) {
-            static bool mission_start = false;
-            if (!mission_start) {
-                mission_start = true;
-                attitude_controller_.set_current_yaw_as_origin();
-                position_controller_.set_current_position_as_origin();
-            }
-
             auto position_output = position_controller_.compute();
             setpoint_aggregator_->set_attitude_setpoint({position_output.desired_attitude});
             average_motor_thrust_newtons = position_output.desired_thrust;

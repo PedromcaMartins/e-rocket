@@ -107,14 +107,6 @@ public:
         return controller_active_[0] && controller_active_[1] && controller_active_[2];
     }
 
-    void set_current_yaw_as_origin() {
-        auto state = state_aggregator_->get_state();
-        origin_yaw_ = state.euler_angles[2];
-
-        RCLCPP_INFO(logger_, "Attitude controller origin yaw set to current yaw.");
-        RCLCPP_INFO(logger_, "Yaw: %f", radians_to_degrees(origin_yaw_));
-    }
-
 private:
     std::vector<bool> controller_active_;
 

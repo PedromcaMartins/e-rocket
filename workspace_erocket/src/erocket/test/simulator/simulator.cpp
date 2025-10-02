@@ -99,7 +99,7 @@ private:
     double yaw_angle_ = 1.0f;          // yaw angle
     double yaw_angular_rate_ = 0.0f;   // yaw angular rate
 
-    Eigen::Vector3d position_     = Eigen::Vector3d(0.5, 0.6, -0.5); // position in the world frame
+    Eigen::Vector3d position_     = Eigen::Vector3d(0.0, 0.0, -0.2); // position in the world frame
     Eigen::Vector3d velocity_     = Eigen::Vector3d::Zero(); // velocity in the world frame
     Eigen::Vector3d acceleration_ = Eigen::Vector3d::Zero(); // acceleration in the world frame
 

@@ -6,8 +6,11 @@
 #include <erocket/controller/state.hpp>
 #include <erocket/controller/setpoint.hpp>
 #include <erocket/controller/allocator.hpp>
+#include <erocket/vehicle_constants.hpp>
+#include <erocket/msg/generic_controller_debug.hpp>
 
 using namespace erocket::frame_transforms;
+using namespace erocket::msg;
 
 class GenericController
 {
@@ -17,11 +20,14 @@ public:
         rclcpp::QoS qos, 
         std::shared_ptr<StateAggregator> state_aggregator, 
         std::shared_ptr<SetpointAggregator> setpoint_aggregator,
-        double controller_freq
+        std::shared_ptr<VehicleConstants> vehicle_constants,
+        double controller_period
     ): 
         state_aggregator_(state_aggregator),
         setpoint_aggregator_(setpoint_aggregator),
-        dt_{1.0 / controller_freq}
+        vehicle_constants_(vehicle_constants),
+        dt_{controller_period},
+        debug_publisher_{node->create_publisher<GenericControllerDebug>("generic_controller/debug", qos)}
     { }
 
     /*
@@ -41,6 +47,9 @@ public:
 private:
     std::shared_ptr<StateAggregator> state_aggregator_;
     std::shared_ptr<SetpointAggregator> setpoint_aggregator_;
+    std::shared_ptr<VehicleConstants> vehicle_constants_;
+
+    rclcpp::Publisher<GenericControllerDebug>::SharedPtr debug_publisher_;
 
     double dt_;
     std::pair<ServoAllocatorInput, MotorAllocatorInput> output_;
@@ -49,6 +58,10 @@ private:
     rclcpp::Logger logger_ = rclcpp::get_logger("generic_controller");
 
     void publish_debug() {
-        RCLCPP_INFO(logger_, "Generic controller debug info");
+        auto message = GenericControllerDebug();
+
+        // debug me! :D
+
+        debug_publisher_->publish(message);
     }
 };

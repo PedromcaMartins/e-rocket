@@ -97,5 +97,13 @@ namespace setpoint
 
 } // namespace setpoint
 
+namespace takeoff_landing
+{
+
+    constexpr char MISSION_TAKEOFF_CLIMB_HEIGHT_PARAM[] = "offboard.mission.takeoff_climb_height_meters";
+    constexpr char MISSION_TAKEOFF_CLIMB_DURATION_PARAM[] = "offboard.mission.takeoff_climb_duration_seconds";
+    constexpr char MISSION_LANDING_DESCENT_DURATION_PARAM[] = "offboard.mission.landing_descent_duration_seconds";
+
+} // namespace takeoff_landing
 } // namespace constants
 } // namespace erocket

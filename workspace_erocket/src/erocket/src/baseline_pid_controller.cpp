@@ -115,7 +115,7 @@ void BaselinePIDController::controller_callback()
     }
 
     // only run controller when in mission
-    else if (flight_mode_ == FlightMode::IN_MISSION) {
+    else if (flight_mode_ == FlightMode::TAKE_OFF || flight_mode_ == FlightMode::IN_MISSION || flight_mode_ == FlightMode::LANDING) {
         double average_motor_thrust_newtons = allocator_->motor_thrust_curve_pwm_to_newtons(
             vehicle_constants_->default_motor_pwm_
         );

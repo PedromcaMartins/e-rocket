@@ -138,12 +138,28 @@ void FlightMode::handle_flight_mode_set(
 		arm();
 	}
 	else if (flight_mode_current == erocket::msg::FlightMode::ARM && 
+		flight_mode_requested == erocket::msg::FlightMode::TAKE_OFF) {
+		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to TAKE_OFF");
+
+		// no need to change PX4 internal state
+		publish_vehicle_control_mode();
+		flight_mode_current_.store(erocket::msg::FlightMode::TAKE_OFF);
+		publish_flight_mode();
+	}
+	else if (flight_mode_current == erocket::msg::FlightMode::TAKE_OFF && 
 		flight_mode_requested == erocket::msg::FlightMode::IN_MISSION) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to IN_MISSION");
 
 		// no need to change PX4 internal state
-		publish_vehicle_control_mode();
 		flight_mode_current_.store(erocket::msg::FlightMode::IN_MISSION);
+		publish_flight_mode();
+	}
+	else if ((flight_mode_current == erocket::msg::FlightMode::TAKE_OFF || flight_mode_current == erocket::msg::FlightMode::IN_MISSION) && 
+		flight_mode_requested == erocket::msg::FlightMode::LANDING) {
+		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to LANDING");
+
+		// no need to change PX4 internal state
+		flight_mode_current_.store(erocket::msg::FlightMode::LANDING);
 		publish_flight_mode();
 	}
 	else if (flight_mode_current == erocket::msg::FlightMode::IN_MISSION && 

@@ -86,12 +86,12 @@ Controller is generic, but Allocator is specific! receives forces and torques
 
 ## New Controller-specific
 
-- [ ] Create a private fork to implement Andre's controller
+- [X] Create a private fork to implement Andre's controller
 
 ## Flight Mode
 
-- [ ] Create a no-legs-only-rope-specific flight mode sequence... 
-- [ ] New leg-specific flight mode sequence
+- [X] Create a no-legs-only-rope-specific flight mode sequence... 
+- [X] New leg-specific flight mode sequence
     - Pre-Arm
         - servo test
         - 4s to switch

@@ -1,5 +1,5 @@
 """
-Example to launch a controller listener node.
+Launch a offboard computer with pid controller.
 """
 
 from launch import LaunchDescription
@@ -11,24 +11,32 @@ import os
 launch_file_dir = os.path.dirname(os.path.realpath(__file__))
 config_file = os.path.realpath(os.path.join(
     launch_file_dir,
-    '../../../../../src/erocket/config/sitl.yaml'
+    '../../../../../src/erocket/config/offboard.yaml'
 ))
 
 def generate_launch_description():
 
-    controller_node = Node(
+    micro_ros_agent = ExecuteProcess(
+        cmd=[[
+            'micro-ros-agent udp4 --port 8888 -v '
+        ]],
+        shell=True
+    )
+
+    controller_generic_node = Node(
         package='erocket',
-        executable='controller',
+        executable='controller_generic',
         output='screen',
         shell=True,
         parameters=[config_file],
     )
 
-    simulator_node = Node(
+    flight_mode_node = Node(
         package='erocket',
-        executable='simulator',
+        executable='flight_mode',
         output='screen',
         shell=True,
+        arguments=['--ros-args', '--log-level', 'warn'],
         parameters=[config_file],
     )
 
@@ -40,19 +48,9 @@ def generate_launch_description():
         parameters=[config_file],
     )
 
-    mock_flight_mode_node = Node(
-        package='erocket',
-        executable='mock_flight_mode',
-        output='screen',
-        shell=True,
-        arguments=['--ros-args', '--log-level', 'warn'],
-        parameters=[config_file],
-    )
-
-
     return LaunchDescription([
-        controller_node,
+        #micro_ros_agent,
+        controller_generic_node,
+        flight_mode_node,
         mission_node,
-        simulator_node,
-        mock_flight_mode_node,
     ])

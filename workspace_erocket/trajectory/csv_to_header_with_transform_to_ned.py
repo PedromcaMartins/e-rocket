@@ -21,9 +21,9 @@ def transform_row(row):
     # new_z = old_x (up)
     return [
         t,
-        y, dy, ddy,   # new X-axis
-        z, dz, ddz,   # new Y-axis
-        x, dx, ddx    # new Z-axis
+        x, dx, ddx,
+        y, dy, ddy,
+        z, dz, ddz,
     ]
 
 def csv_to_header(csv_file):

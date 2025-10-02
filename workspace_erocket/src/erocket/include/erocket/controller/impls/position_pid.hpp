@@ -80,7 +80,7 @@ public:
 
     PositionPIDControllerOutput compute() {
         auto state = state_aggregator_->get_state();
-        Eigen::Vector3d position = state.position - origin_position_;
+        Eigen::Vector3d position = state.position;
         Eigen::Vector3d velocity = state.velocity;
 
         auto setpoint = setpoint_aggregator_->get_position_setpoint();
@@ -159,9 +159,6 @@ private:
     double dt_;
     PositionPIDControllerOutput output_;
 
-    // origin position
-    Eigen::Vector3d origin_position_ = Eigen::Vector3d(0.0f, 0.0f, 0.0f);
-
     std::shared_ptr<VehicleConstants> vehicle_constants_;
     std::shared_ptr<StateAggregator> state_aggregator_;
     std::shared_ptr<SetpointAggregator> setpoint_aggregator_;
@@ -179,7 +176,7 @@ private:
         auto setpoint = setpoint_aggregator_->get_position_setpoint();
 
         Eigen::Map<Eigen::Vector3d>(msg.position.data()) = state.position;
-        Eigen::Map<Eigen::Vector3d>(msg.position_setpoint.data()) = setpoint.position + origin_position_;
+        Eigen::Map<Eigen::Vector3d>(msg.position_setpoint.data()) = setpoint.position;
         Eigen::Map<Eigen::Vector3d>(msg.velocity.data()) = state.velocity;
         Eigen::Map<Eigen::Vector3d>(msg.velocity_setpoint.data()) = setpoint.velocity;
         Eigen::Map<Eigen::Vector3d>(msg.acceleration.data()) = state.acceleration;

@@ -1,5 +1,5 @@
 """
-Example to launch a controller listener node.
+Launch a offboard computer with pid controller.
 """
 
 from launch import LaunchDescription
@@ -23,9 +23,9 @@ def generate_launch_description():
         shell=True
     )
 
-    controller_node = Node(
+    baseline_pid_controller_node = Node(
         package='erocket',
-        executable='controller',
+        executable='baseline_pid_controller',
         output='screen',
         shell=True,
         parameters=[config_file],
@@ -50,7 +50,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         #micro_ros_agent,
-        controller_node,
+        baseline_pid_controller_node,
         flight_mode_node,
         mission_node,
     ])

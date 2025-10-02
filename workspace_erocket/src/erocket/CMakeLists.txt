@@ -65,19 +65,33 @@ target_include_directories(frame_transforms PUBLIC
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
 
-# controller
-add_executable(controller 
-	src/controller.cpp
+# baseline_pid_controller
+add_executable(baseline_pid_controller 
+	src/baseline_pid_controller.cpp
 	src/lib/frame_transforms.cpp
 )
-ament_target_dependencies(controller rclcpp px4_msgs geometry_msgs)
+ament_target_dependencies(baseline_pid_controller rclcpp px4_msgs geometry_msgs)
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(controller frame_transforms ${cpp_typesupport_target})
-target_include_directories(controller PUBLIC
+target_link_libraries(baseline_pid_controller frame_transforms ${cpp_typesupport_target})
+target_include_directories(baseline_pid_controller PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
 	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
 )
-install(TARGETS controller DESTINATION lib/${PROJECT_NAME})
+install(TARGETS baseline_pid_controller DESTINATION lib/${PROJECT_NAME})
+
+# controller_generic
+add_executable(controller_generic 
+	src/controller_generic.cpp
+	src/lib/frame_transforms.cpp
+)
+ament_target_dependencies(controller_generic rclcpp px4_msgs geometry_msgs)
+rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+target_link_libraries(controller_generic frame_transforms ${cpp_typesupport_target})
+target_include_directories(controller_generic PUBLIC
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
+	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
+)
+install(TARGETS controller_generic DESTINATION lib/${PROJECT_NAME})
 
 # mission
 add_executable(mission 

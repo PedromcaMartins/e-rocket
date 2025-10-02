@@ -47,11 +47,21 @@ public:
 				break;
 
 				case FlightMode::ARM:
+					RCLCPP_INFO(this->get_logger(), "Switching to TAKE_OFF mode");
+					request_flight_mode(FlightMode::TAKE_OFF);
+				break;
+
+				case FlightMode::TAKE_OFF:
 					RCLCPP_INFO(this->get_logger(), "Switching to IN_MISSION mode");
 					request_flight_mode(FlightMode::IN_MISSION);
 				break;
 
 				case FlightMode::IN_MISSION:
+					RCLCPP_INFO(this->get_logger(), "Switching to LANDING mode");
+					request_flight_mode(FlightMode::LANDING);
+				break;
+
+				case FlightMode::LANDING:
 					RCLCPP_INFO(this->get_logger(), "Switching to MISSION_COMPLETE mode");
 					request_flight_mode(FlightMode::MISSION_COMPLETE);
 				break;

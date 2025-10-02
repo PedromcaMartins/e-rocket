@@ -22,6 +22,7 @@ using namespace erocket::frame_transforms;
 using namespace erocket::constants::setpoint;
 using namespace erocket::constants::controller;
 using namespace erocket::constants::flight_mode;
+using namespace erocket::constants::takeoff_landing;
 
 /**
  * @brief PX4 ROS2 Communication Node is responsible for sending and receiving commands to and from the PX4. 
@@ -35,7 +36,6 @@ public:
 		qos_profile_{rmw_qos_profile_sensor_data},
 		qos_{rclcpp::QoS(rclcpp::QoSInitialization(qos_profile_.history, 5), qos_profile_)},
     	state_aggregator_{std::make_unique<StateAggregator>(this, qos_)},
-		take_off_sequence_{this, qos_, state_aggregator_},
 		flight_mode_set_publisher_{this->create_publisher<erocket::msg::FlightMode>(
 			FLIGHT_MODE_SET_TOPIC, qos_
 		)},
@@ -80,6 +80,19 @@ public:
 		this->declare_parameter<bool>(MISSION_TRAJECTORY_SETPOINT_ACTIVE_PARAM);
 		trajectory_setpoint_active_ = this->get_parameter(MISSION_TRAJECTORY_SETPOINT_ACTIVE_PARAM).as_bool();
 		RCLCPP_INFO(this->get_logger(), "Mission trajectory setpoint active: %s", trajectory_setpoint_active_ ? "true" : "false");
+
+		this->declare_parameter<double>(MISSION_TAKEOFF_CLIMB_HEIGHT_PARAM);
+		desired_climb_height_ = this->get_parameter(MISSION_TAKEOFF_CLIMB_HEIGHT_PARAM).as_double();
+
+		this->declare_parameter<double>(MISSION_TAKEOFF_CLIMB_DURATION_PARAM);
+		takeoff_climb_duration_ = this->get_parameter(MISSION_TAKEOFF_CLIMB_DURATION_PARAM).as_double();
+
+		this->declare_parameter<double>(MISSION_LANDING_DESCENT_DURATION_PARAM);
+		landing_descent_duration_ = this->get_parameter(MISSION_LANDING_DESCENT_DURATION_PARAM).as_double();
+
+		RCLCPP_INFO(this->get_logger(), "Mission desired climb height: %f m, takeoff climb duration: %f s, landing descent duration: %f s",
+		desired_climb_height_, takeoff_climb_duration_, landing_descent_duration_
+		);
     }
 
 private:
@@ -88,8 +101,12 @@ private:
 	rmw_qos_profile_t qos_profile_;
 	rclcpp::QoS qos_;
 
+	double desired_climb_height_;
+	double takeoff_climb_duration_;
+	double landing_descent_duration_;
+	State ground_state_;
+
     std::shared_ptr<StateAggregator> state_aggregator_;
-	TakeOffSequence take_off_sequence_;
 
 	std::atomic<bool> flag_flight_mode_requested_;
     rclcpp::Publisher<erocket::msg::FlightMode>::SharedPtr flight_mode_set_publisher_;
@@ -156,16 +173,26 @@ void Mission::flight_mode() {
 						setpoint.position[0], setpoint.position[1], setpoint.position[2], radians_to_degrees(setpoint.yaw)
 					);
 				}
+
+				ground_state_ = state_aggregator_->get_state();
 			}
 			break;
-
+		
 		case FlightMode::IN_MISSION:
 			{
-				static bool started_takeoff = false;
-				if (!started_takeoff && !trajectory_setpoint_active_) {
-					RCLCPP_INFO(this->get_logger(), "Takeoff sequence started");
-					take_off_sequence_.start_takeoff();
-					started_takeoff = true;
+				static rclcpp::Time IN_MISSION_time = this->get_clock()->now();
+				auto current_time = this->get_clock()->now();
+				auto elapsed_time = current_time - IN_MISSION_time;
+
+				// Log mission progress periodically (every second)
+				static rclcpp::Time last_log_time = IN_MISSION_time;
+				if (current_time - last_log_time >= 10s) {
+					last_log_time = current_time;
+					RCLCPP_INFO(
+						this->get_logger(),
+						"Mission in progress - Elapsed time: %.2f seconds",
+						elapsed_time.seconds()
+					);
 				}
 			}
 			break;
@@ -173,32 +200,43 @@ void Mission::flight_mode() {
 		case FlightMode::ABORT:
 			RCLCPP_ERROR(this->get_logger(), "Mission Aborted!");
 			rclcpp::shutdown();
+			break;
 		}
 }
 
 void Mission::mission() {
+	if (flight_mode_.load() == FlightMode::TAKE_OFF) {
+		static rclcpp::Time takeoff_start_time = this->get_clock()->now();
+
+		auto current_time = this->get_clock()->now();
+		double t = (current_time - takeoff_start_time).seconds(); 
+		auto new_setpoint = compute_takeoff(
+			t,
+			ground_state_.position,
+			desired_climb_height_,
+			takeoff_climb_duration_
+		);
+
+		SetpointC5 setpoint {};
+		// (void) new_setpoint[0]; // time
+		Eigen::Map<Eigen::Vector3d>(setpoint.position.data())     = new_setpoint.pd;
+		Eigen::Map<Eigen::Vector3d>(setpoint.velocity.data())     = new_setpoint.pd_dot;
+		Eigen::Map<Eigen::Vector3d>(setpoint.acceleration.data()) = new_setpoint.pd_2dot;
+		Eigen::Map<Eigen::Vector3d>(setpoint.jerk.data()) = new_setpoint.pd_3dot;
+		Eigen::Map<Eigen::Vector3d>(setpoint.snap.data()) = new_setpoint.pd_4dot;
+		setpoint.yaw = std::nan("");
+
+		trajectory_setpoint_publisher_->publish(setpoint);
+	}
+
     if (flight_mode_.load() == FlightMode::IN_MISSION) {
-        static rclcpp::Time IN_MISSION_time = this->get_clock()->now();
-        auto current_time = this->get_clock()->now();
-        auto elapsed_time = current_time - IN_MISSION_time;
-
-        // Log mission progress periodically (every second)
-        static rclcpp::Time last_log_time = IN_MISSION_time;
-        if (current_time - last_log_time > 10s) {
-            last_log_time = current_time;
-            RCLCPP_INFO(
-                this->get_logger(),
-                "Mission in progress - Elapsed time: %.2f seconds",
-                elapsed_time.seconds()
-            );
-        }
-
 		if (trajectory_setpoint_active_) {
 			#include "setpoints.h"
 			static uint32_t index = 0;
 			if (index >= sizeof(Setpoints) / sizeof(Setpoints[0])) {
 				RCLCPP_INFO(this->get_logger(), "Mission Trajectory Tracking Complete! No more setpoints");
-				// request_flight_mode(FlightMode::MISSION_COMPLETE);
+				RCLCPP_INFO(this->get_logger(), "Switching to LANDING mode");
+				request_flight_mode(FlightMode::LANDING);
 				return;
 			}
 
@@ -207,13 +245,13 @@ void Mission::mission() {
 			SetpointC5 setpoint {};
 			// (void) new_setpoint[0]; // time
 			setpoint.position[0]     = new_setpoint[1];
-			setpoint.position[1]     = new_setpoint[2];
-			setpoint.position[2]     = new_setpoint[3];
-			setpoint.velocity[0]     = new_setpoint[4];
+			setpoint.velocity[0]     = new_setpoint[2];
+			setpoint.acceleration[0] = new_setpoint[3];
+			setpoint.position[1]     = new_setpoint[4];
 			setpoint.velocity[1]     = new_setpoint[5];
-			setpoint.velocity[2]     = new_setpoint[6];
-			setpoint.acceleration[0] = new_setpoint[7];
-			setpoint.acceleration[1] = new_setpoint[8];
+			setpoint.acceleration[1] = new_setpoint[6];
+			setpoint.position[2]     = new_setpoint[7];
+			setpoint.velocity[2]     = new_setpoint[8];
 			setpoint.acceleration[2] = new_setpoint[9];
 			setpoint.yaw             = std::nan("");
 
@@ -221,6 +259,37 @@ void Mission::mission() {
 			index++;
 		}
     }
+
+	if (flight_mode_.load() == FlightMode::LANDING) {
+		static State initial_landing_state = state_aggregator_->get_state();
+
+		auto current_time = this->get_clock()->now();
+		static rclcpp::Time landing_start_time = this->get_clock()->now();
+		double t = (current_time - landing_start_time).seconds(); 
+		auto new_setpoint = compute_landing(
+			t,
+			initial_landing_state.position,
+			ground_state_.position,
+			landing_descent_duration_
+		);
+
+		SetpointC5 setpoint {};
+		// (void) new_setpoint[0]; // time
+		Eigen::Map<Eigen::Vector3d>(setpoint.position.data())     = new_setpoint.pd;
+		Eigen::Map<Eigen::Vector3d>(setpoint.velocity.data())     = new_setpoint.pd_dot;
+		Eigen::Map<Eigen::Vector3d>(setpoint.acceleration.data()) = new_setpoint.pd_2dot;
+		Eigen::Map<Eigen::Vector3d>(setpoint.jerk.data()) = new_setpoint.pd_3dot;
+		Eigen::Map<Eigen::Vector3d>(setpoint.snap.data()) = new_setpoint.pd_4dot;
+		setpoint.yaw = std::nan("");
+
+		trajectory_setpoint_publisher_->publish(setpoint);
+
+		if (t >= landing_descent_duration_) { // landing duration
+			RCLCPP_INFO(this->get_logger(), "Landing sequence completed. Mission complete.");
+			RCLCPP_INFO(this->get_logger(), "Switching to MISSION_COMPLETE mode");
+			request_flight_mode(FlightMode::MISSION_COMPLETE);
+		}
+	}
 }
 
 void Mission::publish_attitude_setpoint_radians(Eigen::Vector3d setpoint_radians)
@@ -324,7 +393,7 @@ rcl_interfaces::msg::SetParametersResult Mission::parameter_callback(
         }
 		else if (param.get_name() == FLIGHT_MODE_PARAM) {
             uint8_t new_flight_mode = param.as_int();
-            RCLCPP_INFO(this->get_logger(), "Updated flight mode to: %d", new_flight_mode);
+            RCLCPP_INFO(this->get_logger(), "Requesting flight mode to: %d", new_flight_mode);
 			request_flight_mode(new_flight_mode);
 
 			while (new_flight_mode == FlightMode::ABORT) {

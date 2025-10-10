@@ -71,6 +71,11 @@ procs:
     autostart: true
     stop: SIGINT
 
-  ROS_Setup:
+  Terminal:
     shell: /bin/bash --rcfile "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash"
     autostart: true
+
+  ROS_Bag:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 bag record -a"
+    autostart: false
+    stop: SIGINT

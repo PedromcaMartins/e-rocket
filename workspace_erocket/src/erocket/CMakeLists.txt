@@ -26,6 +26,7 @@ find_package(px4_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(rclpy REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
 # ##############################################################################
 # Generate ROS messages, ROS2 interfaces and IDL files #

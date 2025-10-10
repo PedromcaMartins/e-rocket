@@ -48,6 +48,7 @@ public:
 		}
 
 		switch_to_manual_mode();
+		RCLCPP_INFO(this->get_logger(), "Switching to manual mode");
 	}
 
 private:

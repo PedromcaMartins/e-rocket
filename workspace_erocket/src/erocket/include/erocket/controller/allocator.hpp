@@ -7,6 +7,8 @@
 #include <erocket/vehicle_constants.hpp>
 #include <erocket/constants.hpp>
 
+using namespace std::chrono;
+using namespace std::chrono_literals;
 using namespace px4_msgs::msg;
 using namespace erocket::msg;
 using namespace erocket::constants::controller;
@@ -51,15 +53,17 @@ public:
         )},
         clock_(std::make_shared<rclcpp::Clock>(RCL_ROS_TIME))
     {
-        compute_motor_allocation({
-            NAN,
-            NAN
-        });
+        motor_output_.upwards_motor_pwm = NAN;
+        motor_output_.downwards_motor_pwm = NAN;
+        servo_output_.inner_servo_pwm = 0.0;
+        servo_output_.inner_servo_pwm = 0.0;
 
-        compute_servo_allocation({
-            0.0f,
-            0.0f
-        });
+        auto t0 = node->get_clock()->now();
+        while (node->get_clock()->now() - t0 < 1s) {
+            publish_servo_pwm();
+            publish_motor_pwm();
+            rclcpp::sleep_for(100ms);
+        }
     }
 
     void compute_servo_allocation(ServoAllocatorInput input) {

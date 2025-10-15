@@ -79,3 +79,8 @@ procs:
     shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 bag record -a"
     autostart: false
     stop: SIGINT
+
+  MAVLINK_Forwarder:
+    shell: /bin/bash -c "mavproxy.py --master=/dev/ttyAMA10 --baudrate=57600 --aircraft="e-rocket" --out=udpbcast:192.168.1.255:14550"
+    autostart: true
+    stop: SIGINT

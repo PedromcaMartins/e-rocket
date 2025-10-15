@@ -163,7 +163,7 @@ void FlightMode::handle_flight_mode_set(
 		flight_mode_current_.store(erocket::msg::FlightMode::LANDING);
 		publish_flight_mode();
 	}
-	else if (flight_mode_current == erocket::msg::FlightMode::IN_MISSION && 
+	else if (flight_mode_current == erocket::msg::FlightMode::LANDING && 
 		flight_mode_requested == erocket::msg::FlightMode::MISSION_COMPLETE) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to MISSION_COMPLETE");
 		disarm();

@@ -288,6 +288,7 @@ void Mission::mission() {
 			RCLCPP_INFO(this->get_logger(), "Landing sequence completed. Mission complete.");
 			RCLCPP_INFO(this->get_logger(), "Switching to MISSION_COMPLETE mode");
 			request_flight_mode(FlightMode::MISSION_COMPLETE);
+			rclcpp::sleep_for(100ms);
 		}
 	}
 }

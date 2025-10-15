@@ -43,6 +43,7 @@ public:
             // if yaw setpoint is a number, save it
             if (!std::isnan(msg->yaw)) {
                 this->pos_setpoint_.yaw = msg->yaw;
+                this->att_setpoint_.attitude[2] = msg->yaw;
             }
         }
     )},

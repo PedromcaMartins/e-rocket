@@ -1,0 +1,241 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<root>
+ <tabbed_widget parent="main_window" name="Main Window">
+  <Tab containers="1" tab_name="Attitude Controller">
+   <Container>
+    <DockSplitter count="1" orientation="-" sizes="1">
+     <DockSplitter count="2" orientation="|" sizes="0.584926;0.415074">
+      <DockSplitter count="3" orientation="-" sizes="0.333333;0.333333;0.333333">
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="-3.201069" top="1.557763" left="44.500334" right="54.500127"/>
+         <limitY/>
+         <curve color="#1f77b4" name="/offboard/attitude_controller/debug/roll_angle"/>
+         <curve color="#d62728" name="/offboard/attitude_controller/debug/roll_angle_setpoint"/>
+         <curve color="#1ac938" name="/offboard/attitude_controller/debug/roll_angular_velocity"/>
+         <curve color="#ff7f0e" name="/offboard/attitude_controller/debug/roll_inner_servo_tilt_angle"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="-2.032991" top="1.681017" left="44.500334" right="54.500127"/>
+         <limitY/>
+         <curve color="#d62728" name="/offboard/attitude_controller/debug/pitch_angle"/>
+         <curve color="#1ac938" name="/offboard/attitude_controller/debug/pitch_angle_setpoint"/>
+         <curve color="#ff7f0e" name="/offboard/attitude_controller/debug/pitch_angular_velocity"/>
+         <curve color="#f14cc1" name="/offboard/attitude_controller/debug/pitch_outer_servo_tilt_angle"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="57.295776" top="57.295794" left="44.500334" right="54.500127"/>
+         <limitY/>
+         <curve color="#d62728" name="/offboard/attitude_controller/debug/yaw_angle"/>
+         <curve color="#1ac938" name="/offboard/attitude_controller/debug/yaw_angle_setpoint"/>
+         <curve color="#ff7f0e" name="/offboard/attitude_controller/debug/yaw_angular_velocity"/>
+         <curve color="#f14cc1" name="/offboard/attitude_controller/debug/yaw_delta_motor_pwm"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+      <DockSplitter count="2" orientation="-" sizes="0.5;0.5">
+       <DockSplitter count="2" orientation="|" sizes="0.501976;0.498024">
+        <DockArea name="...">
+         <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+          <range bottom="-0.014409" top="0.010259" left="44.500334" right="54.500127"/>
+          <limitY/>
+          <curve color="#9467bd" name="/offboard/allocator/debug/servo_inner_pwm"/>
+          <curve color="#17becf" name="/offboard/allocator/debug/servo_inner_tilt_angle_degrees"/>
+         </plot>
+        </DockArea>
+        <DockArea name="...">
+         <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+          <range bottom="-0.004361" top="0.009064" left="44.500334" right="54.500127"/>
+          <limitY/>
+          <curve color="#bcbd22" name="/offboard/allocator/debug/servo_outer_pwm"/>
+          <curve color="#1f77b4" name="/offboard/allocator/debug/servo_outer_tilt_angle_degrees"/>
+         </plot>
+        </DockArea>
+       </DockSplitter>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="0.536246" top="0.586108" left="44.500334" right="54.500127"/>
+         <limitY/>
+         <curve color="#d62728" name="/offboard/allocator/debug/motor_average_pwm"/>
+         <curve color="#1ac938" name="/offboard/allocator/debug/motor_delta_pwm"/>
+         <curve color="#ff7f0e" name="/offboard/allocator/debug/motor_downwards_pwm"/>
+         <curve color="#f14cc1" name="/offboard/allocator/debug/motor_upwards_pwm"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+     </DockSplitter>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <Tab containers="1" tab_name="Position Controller">
+   <Container>
+    <DockSplitter count="2" orientation="-" sizes="0.75;0.25">
+     <DockSplitter count="3" orientation="|" sizes="0.333333;0.333333;0.333333">
+      <DockSplitter count="3" orientation="-" sizes="0.331963;0.336074;0.331963">
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="-1.935335" top="0.776733" left="44.500149" right="54.500044"/>
+         <limitY/>
+         <curve color="#1f77b4" name="/offboard/position_controller/debug/position[0]"/>
+         <curve color="#9467bd" name="/offboard/position_controller/debug/position_setpoint[0]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="-0.145183" top="0.573263" left="44.500149" right="54.500044"/>
+         <limitY/>
+         <curve color="#ff7f0e" name="/offboard/position_controller/debug/velocity[0]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="-0.196362" top="0.228481" left="44.500149" right="54.500044"/>
+         <limitY/>
+         <curve color="#17becf" name="/offboard/position_controller/debug/acceleration[0]"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+      <DockSplitter count="3" orientation="-" sizes="0.332991;0.334018;0.332991">
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="0.452610" top="1.263513" left="44.500149" right="54.500044"/>
+         <limitY/>
+         <curve color="#d62728" name="/offboard/position_controller/debug/position[1]"/>
+         <curve color="#17becf" name="/offboard/position_controller/debug/position_setpoint[1]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="-0.196245" top="0.223608" left="44.500149" right="54.500044"/>
+         <limitY/>
+         <curve color="#f14cc1" name="/offboard/position_controller/debug/velocity[1]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="-0.498709" top="0.215331" left="44.500149" right="54.500044"/>
+         <limitY/>
+         <curve color="#bcbd22" name="/offboard/position_controller/debug/acceleration[1]"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+      <DockSplitter count="3" orientation="-" sizes="0.332991;0.334018;0.332991">
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="-0.758470" top="-0.263507" left="44.500149" right="54.500044"/>
+         <limitY/>
+         <curve color="#1ac938" name="/offboard/position_controller/debug/position[2]"/>
+         <curve color="#1f77b4" name="/offboard/position_controller/debug/position_setpoint[2]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="-0.496618" top="0.214265" left="44.500149" right="54.500044"/>
+         <limitY/>
+         <curve color="#9467bd" name="/offboard/position_controller/debug/velocity[2]"/>
+        </plot>
+       </DockArea>
+       <DockArea name="...">
+        <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+         <range bottom="-0.271257" top="0.610299" left="44.500149" right="54.500044"/>
+         <limitY/>
+         <curve color="#1f77b4" name="/offboard/position_controller/debug/acceleration[2]"/>
+        </plot>
+       </DockArea>
+      </DockSplitter>
+     </DockSplitter>
+     <DockSplitter count="3" orientation="|" sizes="0.334426;0.331148;0.334426">
+      <DockArea name="...">
+       <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+        <range bottom="-2.917309" top="1.258025" left="44.500149" right="54.500044"/>
+        <limitY/>
+        <curve color="#9467bd" name="/offboard/position_controller/debug/desired_attitude[0]"/>
+        <curve color="#17becf" name="/offboard/position_controller/debug/desired_attitude[1]"/>
+        <curve color="#bcbd22" name="/offboard/position_controller/debug/desired_attitude[2]"/>
+       </plot>
+      </DockArea>
+      <DockArea name="...">
+       <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+        <range bottom="-10.316996" top="0.465570" left="44.500149" right="54.500044"/>
+        <limitY/>
+        <curve color="#1f77b4" name="/offboard/position_controller/debug/desired_acceleration[0]"/>
+        <curve color="#d62728" name="/offboard/position_controller/debug/desired_acceleration[1]"/>
+        <curve color="#1ac938" name="/offboard/position_controller/debug/desired_acceleration[2]"/>
+       </plot>
+      </DockArea>
+      <DockArea name="...">
+       <plot style="Lines" flip_y="false" mode="TimeSeries" flip_x="false">
+        <range bottom="13.803572" top="15.122598" left="44.500149" right="54.500044"/>
+        <limitY/>
+        <curve color="#ff7f0e" name="/offboard/position_controller/debug/desired_thrust"/>
+       </plot>
+      </DockArea>
+     </DockSplitter>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <Tab containers="1" tab_name="2d position">
+   <Container>
+    <DockSplitter count="1" orientation="-" sizes="1">
+     <DockArea name="...">
+      <plot style="Lines" flip_y="false" mode="XYPlot" flip_x="false">
+       <range bottom="-1.848299" top="0.774610" left="-1.118238" right="2.746299"/>
+       <limitY/>
+       <curve curve_y="/offboard/position_controller/debug/position[0]" curve_x="/offboard/position_controller/debug/position[1]" color="#1f77b4" name="/offboard/position_controller/debug/position[[1];0]]"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <currentTabIndex index="2"/>
+ </tabbed_widget>
+ <use_relative_time_offset enabled="1"/>
+ <!-- - - - - - - - - - - - - - - -->
+ <!-- - - - - - - - - - - - - - - -->
+ <Plugins>
+  <plugin ID="DataLoad CSV">
+   <parameters delimiter="0" time_axis=""/>
+  </plugin>
+  <plugin ID="DataLoad MCAP"/>
+  <plugin ID="DataLoad ROS2 bags">
+   <use_header_stamp value="false"/>
+   <discard_large_arrays value="true"/>
+   <max_array_size value="100"/>
+   <boolean_strings_to_number value="true"/>
+   <remove_suffix_from_strings value="true"/>
+   <selected_topics value="/offboard/controller/debug"/>
+  </plugin>
+  <plugin ID="DataLoad ULog"/>
+  <plugin ID="ROS2 Topic Subscriber">
+   <use_header_stamp value="false"/>
+   <discard_large_arrays value="false"/>
+   <max_array_size value="9999"/>
+   <boolean_strings_to_number value="true"/>
+   <remove_suffix_from_strings value="true"/>
+   <selected_topics value="/offboard/allocator/debug;/offboard/attitude_controller/debug;/offboard/position_controller/debug"/>
+  </plugin>
+  <plugin ID="UDP Server"/>
+  <plugin ID="WebSocket Server"/>
+  <plugin ID="ZMQ Subscriber"/>
+  <plugin ID="Fast Fourier Transform"/>
+  <plugin ID="Quaternion to RPY"/>
+  <plugin ID="Reactive Script Editor">
+   <library code="--[[ Helper function to create a series from arrays&#xa;&#xa; new_series: a series previously created with ScatterXY.new(name)&#xa; prefix:     prefix of the timeseries, before the index of the array&#xa; suffix_X:   suffix to complete the name of the series containing the X value. If [nil], use the index of the array.&#xa; suffix_Y:   suffix to complete the name of the series containing the Y value&#xa; timestamp:   usually the tracker_time variable&#xa;              &#xa; Example:&#xa; &#xa; Assuming we have multiple series in the form:&#xa; &#xa;   /trajectory/node.{X}/position/x&#xa;   /trajectory/node.{X}/position/y&#xa;   &#xa; where {N} is the index of the array (integer). We can create a reactive series from the array with:&#xa; &#xa;   new_series = ScatterXY.new(&quot;my_trajectory&quot;) &#xa;   CreateSeriesFromArray( new_series, &quot;/trajectory/node&quot;, &quot;position/x&quot;, &quot;position/y&quot;, tracker_time );&#xa;--]]&#xa;&#xa;function CreateSeriesFromArray( new_series, prefix, suffix_X, suffix_Y, timestamp )&#xa;  &#xa;  --- clear previous values&#xa;  new_series:clear()&#xa;  &#xa;  --- Append points to new_series&#xa;  index = 0&#xa;  while(true) do&#xa;&#xa;    x = index;&#xa;    -- if not nil, get the X coordinate from a series&#xa;    if suffix_X ~= nil then &#xa;      series_x = TimeseriesView.find( string.format( &quot;%s.%d/%s&quot;, prefix, index, suffix_X) )&#xa;      if series_x == nil then break end&#xa;      x = series_x:atTime(timestamp)&#x9; &#xa;    end&#xa;    &#xa;    series_y = TimeseriesView.find( string.format( &quot;%s.%d/%s&quot;, prefix, index, suffix_Y) )&#xa;    if series_y == nil then break end &#xa;    y = series_y:atTime(timestamp)&#xa;    &#xa;    new_series:push_back(x,y)&#xa;    index = index+1&#xa;  end&#xa;end&#xa;&#xa;--[[ Similar to the built-in function GetSeriesNames(), but select only the names with a give prefix. --]]&#xa;&#xa;function GetSeriesNamesByPrefix(prefix)&#xa;  -- GetSeriesNames(9 is a built-in function&#xa;  all_names = GetSeriesNames()&#xa;  filtered_names = {}&#xa;  for i, name in ipairs(all_names)  do&#xa;    -- check the prefix&#xa;    if name:find(prefix, 1, #prefix) then&#xa;      table.insert(filtered_names, name);&#xa;    end&#xa;  end&#xa;  return filtered_names&#xa;end&#xa;&#xa;--[[ Modify an existing series, applying offsets to all their X and Y values&#xa;&#xa; series: an existing timeseries, obtained with TimeseriesView.find(name)&#xa; delta_x: offset to apply to each x value&#xa; delta_y: offset to apply to each y value &#xa;  &#xa;--]]&#xa;&#xa;function ApplyOffsetInPlace(series, delta_x, delta_y)&#xa;  -- use C++ indeces, not Lua indeces&#xa;  for index=0, series:size()-1 do&#xa;    x,y = series:at(index)&#xa;    series:set(index, x + delta_x, y + delta_y)&#xa;  end&#xa;end&#xa;"/>
+   <scripts/>
+  </plugin>
+  <plugin ID="CSV Exporter"/>
+  <plugin ID="ROS2 Topic Re-Publisher"/>
+ </Plugins>
+ <!-- - - - - - - - - - - - - - - -->
+ <previouslyLoaded_Datafiles/>
+ <previouslyLoaded_Streamer name="ROS2 Topic Subscriber"/>
+ <!-- - - - - - - - - - - - - - - -->
+ <customMathEquations/>
+ <snippets/>
+ <!-- - - - - - - - - - - - - - - -->
+</root>
+

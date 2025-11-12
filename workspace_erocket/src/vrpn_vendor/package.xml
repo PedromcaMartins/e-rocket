@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>vrpn_vendor</name>
+  <version>1.0.0</version>
+  <description>Wrapper around VRPN to make it available to the ROS ecosystem.</description>
+  <maintainer email="marcelo.jacinto@tecnico.ulisboa.pt">Marcelo Jacinto</maintainer>
+  <license>BSD 3-Clause</license>
+
+  <url type="bugtracker">https://github.com/vrpn/vrpn/issues</url>
+  <url type="repository">https://github.com/vrpn/vrpn</url>
+  <url type="website">https://github.com/vrpn/vrpn/wiki</url>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -1,0 +1,86 @@
+# mprocs.yaml
+procs:
+  MicroXRCEAgent: 
+    shell: "sudo MicroXRCEAgent serial --dev /dev/ttyACM0 -b 921600"
+    autostart: false
+    stop: SIGINT
+
+  Colcon_Build:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && colcon build"
+    autostart: true
+
+  LIFT_OFF:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 param set /mission offboard.flight_mode 3"
+    autostart: false
+  
+  START_MISSION:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 param set /mission offboard.flight_mode 4"
+    autostart: false
+
+  LAND:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 param set /mission offboard.flight_mode 5"
+    autostart: false
+
+  MOCAP:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket mocap_forwarder.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  Offboard_Baseline:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket offboard_computer_baseline.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  SITL_ROS_Baseline:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket sitl_no_feedback_baseline.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  SITL_SIMULINK_Baseline:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket sitl_simulink_baseline.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  Offboard_Generic:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket offboard_computer_generic.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  SITL_ROS_Generic:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket sitl_no_feedback_generic.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  SITL_SIMULINK_Generic:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket sitl_simulink_generic.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  Flight_Mode_Test:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket flight_mode_test.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  Mocap_Forwarder_Test:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket mocap_forwarder_test.launch.py"
+    autostart: false
+    stop: SIGINT
+
+  Plot_Juggler:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 run plotjuggler plotjuggler"
+    autostart: true
+    stop: SIGINT
+
+  Terminal:
+    shell: /bin/bash --rcfile "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash"
+    autostart: true
+
+  ROS_Bag:
+    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 bag record -a"
+    autostart: false
+    stop: SIGINT
+
+  MAVLINK_Forwarder:
+    shell: /bin/bash -c "mavproxy.py --master=/dev/ttyAMA10 --baudrate=57600 --aircraft="e-rocket" --out=udpbcast:192.168.1.255:14550"
+    autostart: true
+    stop: SIGINT

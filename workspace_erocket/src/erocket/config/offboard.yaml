@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     offboard:
-      mass_of_system: 1.5
+      mass_of_system: 1.6
       length_of_pendulum: 0.2
       gravitational_acceleration: 9.81
       moment_of_inertia: 0.375
@@ -19,22 +19,22 @@
           active: [true, true, true]
           frequency_hertz: 50.
           gains:
-            k_p: [0.3350, 0.3350, 0.3350]
-            k_d: [0.1616, 0.1616, 0.1616]
-            k_i: [0.3162, 0.3162, 0.3162]
+            k_p: [0.7, 0.7, 0.4]
+            k_d: [0.4, 0.4, 0.2]
+            k_i: [.0, .0, 0.1]
         position: 
           active: true
           frequency_hertz: 50.
           gains:
-            k_p:  [8.0, 8.0, 8.0]   # Proportional gain
-            k_d:  [3.0, 3.0, 3.0]   # Derivative gain
-            k_i:  [0.2, 0.2, 0.1]   # Integral gain
+            k_p:  [3.0, 3.0, 8.5]   # Proportional gain
+            k_d:  [2.5, 2.5, 3.0]   # Derivative gain
+            k_i:  [0.2, 0.2, 1.0]   # Integral gain
             k_ff: [1.0, 1.0, 1.0]   # Feedforward gain
             min_output: [-20., -20., -20.] # Minimum output of each PID
             max_output: [ 20.,  20.,  20.]
       mission:
         trajectory_setpoint:
-          active: false
-        takeoff_climb_height_meters: 0.3
-        takeoff_climb_duration_seconds: 2.0
-        landing_descent_duration_seconds: 5.0
+          active: true
+        takeoff_climb_height_meters: 0.6
+        takeoff_climb_duration_seconds: 3.0
+        landing_descent_duration_seconds: 4.0

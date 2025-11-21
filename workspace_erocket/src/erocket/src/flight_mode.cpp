@@ -170,8 +170,9 @@ void FlightMode::handle_flight_mode_set(
 	}
 	else if (flight_mode_requested == erocket::msg::FlightMode::ABORT) {
 		RCLCPP_INFO(this->get_logger(), "Received request to change flight mode to ABORT");
-		terminate_flight();
-		switch_to_manual_mode();
+		flight_mode_current_.store(erocket::msg::FlightMode::ABORT);
+		publish_flight_mode();
+		disarm();
 	}
 	else if (flight_mode_current == erocket::msg::FlightMode::ABORT) {
 		rclcpp::shutdown();

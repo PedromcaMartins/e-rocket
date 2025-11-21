@@ -7,6 +7,7 @@
 
 #include <erocket/controller/state.hpp>
 #include <erocket/mission/take_off_and_landing.hpp>
+#include <erocket/emergency_switch.h>
 
 #include <erocket/frame_transforms.h>
 #include <stdint.h>
@@ -23,6 +24,7 @@ using namespace erocket::constants::setpoint;
 using namespace erocket::constants::controller;
 using namespace erocket::constants::flight_mode;
 using namespace erocket::constants::takeoff_landing;
+using namespace erocket::constants::emergency;
 
 /**
  * @brief PX4 ROS2 Communication Node is responsible for sending and receiving commands to and from the PX4. 
@@ -55,7 +57,8 @@ public:
         )},
 		trajectory_setpoint_publisher_{this->create_publisher<SetpointC5>(
 			CONTROLLER_INPUT_SETPOINT_C5_TOPIC, qos_
-		)}
+		)},
+		emergency_switch_{this, qos_}
     {
         flight_mode_timer_ = this->create_wall_timer(
 			1s,
@@ -134,6 +137,8 @@ private:
     rcl_interfaces::msg::SetParametersResult parameter_callback(
         const std::vector<rclcpp::Parameter> &parameters
 	);
+
+	EmergencySwitch emergency_switch_;
 };
 
 void Mission::flight_mode() {
@@ -205,6 +210,14 @@ void Mission::flight_mode() {
 }
 
 void Mission::mission() {
+	if (emergency_switch_.emergency_switch_on()) {
+		if (flight_mode_.load() != FlightMode::ABORT) {
+			RCLCPP_ERROR(this->get_logger(), "Emergency switch activated! Aborting mission...");
+			request_flight_mode(FlightMode::ABORT);
+		}
+		return;
+	}
+
 	if (flight_mode_.load() == FlightMode::TAKE_OFF) {
 		static rclcpp::Time takeoff_start_time = this->get_clock()->now();
 

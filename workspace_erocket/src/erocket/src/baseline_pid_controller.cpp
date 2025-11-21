@@ -85,7 +85,21 @@ private:
  */
 void BaselinePIDController::controller_callback()
 {
-    if (flight_mode_ == FlightMode::ARM) {
+    if (flight_mode_ < FlightMode::ARM) {
+        allocator_->compute_servo_allocation({
+            0.0,
+            0.0
+        });
+
+        allocator_->compute_motor_allocation({
+            0.0, 
+            NAN
+        });
+
+        return;
+    }
+
+    else if (flight_mode_ == FlightMode::ARM) {
         static rclcpp::Time t0 = this->get_clock()->now();
         rclcpp::Time now = this->get_clock()->now();
 
@@ -112,6 +126,7 @@ void BaselinePIDController::controller_callback()
                 average_motor_thrust_newtons
             });
         }
+        return;
     }
 
     // only run controller when in mission
@@ -138,9 +153,23 @@ void BaselinePIDController::controller_callback()
             attitude_output.delta_motor_pwm, 
             average_motor_thrust_newtons
         });
+        return;
     }
 
-    // TODO: if FlightMode::MISSION_COMPLETE => slow descent - keep algorithms running, thrust -> hover thrust * 0.9 for 1s => hover thrust
+    else if (flight_mode_ == FlightMode::ABORT) {
+        allocator_->compute_servo_allocation({
+            0.0,
+            0.0
+        });
+
+        allocator_->compute_motor_allocation({
+            0.0, 
+            NAN
+        });
+
+        rclcpp::shutdown();
+        return;
+    }
 }
 
 int main(int argc, char *argv[])

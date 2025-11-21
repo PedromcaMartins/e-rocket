@@ -105,5 +105,12 @@ namespace takeoff_landing
     constexpr char MISSION_LANDING_DESCENT_DURATION_PARAM[] = "offboard.mission.landing_descent_duration_seconds";
 
 } // namespace takeoff_landing
+
+namespace emergency
+{
+
+    constexpr char EMERGENCY_ACTUATOR_ARMED[] = "fmu/out/actuator_armed";
+
+} // namespace emergency
 } // namespace constants
 } // namespace erocket

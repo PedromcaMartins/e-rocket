@@ -22,6 +22,10 @@ namespace vehicle
     constexpr char MOTOR_THRUST_CURVE_M_PARAM[] = "offboard.vehicle.motor_thrust_curve.m";
     constexpr char MOTOR_THRUST_CURVE_B_PARAM[] = "offboard.vehicle.motor_thrust_curve.b";
 
+    constexpr char DELTA_TORQUE_A_PARAM[] = "offboard.vehicle.delta_torque.a";
+    constexpr char DELTA_TORQUE_B_PARAM[] = "offboard.vehicle.delta_torque.b";
+    constexpr char DELTA_TORQUE_C_PARAM[] = "offboard.vehicle.delta_torque.c";
+
 } // namespace vehicle
 
 namespace controller

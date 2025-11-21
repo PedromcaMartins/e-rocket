@@ -13,4 +13,4 @@ float64 yaw_angle_setpoint
 
 float64[3] desired_acceleration
 float64[3] desired_attitude
-float64 desired_thrust
+float64 u3

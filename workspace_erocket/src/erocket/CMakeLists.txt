@@ -137,20 +137,6 @@ install(TARGETS mocap_forwarder DESTINATION lib/${PROJECT_NAME})
 # Test and Development nodes #
 ##############################
 
-# controller simulator (for testing / development)
-add_executable(simulator 
-	test/simulator/simulator.cpp
-	src/lib/frame_transforms.cpp
-)
-ament_target_dependencies(simulator rclcpp px4_msgs geometry_msgs Eigen3)
-rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-target_link_libraries(simulator frame_transforms ${cpp_typesupport_target})
-target_include_directories(simulator PUBLIC
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/${PROJECT_NAME}>
-	$<INSTALL_INTERFACE:include/${PROJECT_NAME}>
-)
-install(TARGETS simulator DESTINATION lib/${PROJECT_NAME})
-
 # mock flight mode node (for testing / development)
 add_executable(mock_flight_mode test/sitl/mock_flight_mode.cpp)
 ament_target_dependencies(mock_flight_mode rclcpp px4_msgs)

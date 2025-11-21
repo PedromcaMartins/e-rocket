@@ -19,6 +19,9 @@ public:
     double max_motor_pwm_;
     double motor_thrust_curve_m_;
     double motor_thrust_curve_b_;
+    double delta_torque_a_;
+    double delta_torque_b_;
+    double delta_torque_c_;
 
     VehicleConstants(rclcpp::Node* node) {
         node->declare_parameter<double>(MASS_OF_SYSTEM);
@@ -100,6 +103,28 @@ public:
             throw std::runtime_error("Motor thrust curve b invalid");
         }
         RCLCPP_INFO(this->logger_, "Motor thrust curve: f(x) = %fx + %f", motor_thrust_curve_m_, motor_thrust_curve_b_);
+
+        node->declare_parameter<double>(DELTA_TORQUE_A_PARAM);
+        delta_torque_a_ = node->get_parameter(DELTA_TORQUE_A_PARAM).as_double();
+        if (std::isnan(delta_torque_a_)) {
+            RCLCPP_ERROR(this->logger_, "Could not read delta torque a correctly.");
+            throw std::runtime_error("Delta torque a invalid");
+        }
+
+        node->declare_parameter<double>(DELTA_TORQUE_B_PARAM);
+        delta_torque_b_ = node->get_parameter(DELTA_TORQUE_B_PARAM).as_double();
+        if (std::isnan(delta_torque_b_)) {
+            RCLCPP_ERROR(this->logger_, "Could not read delta torque b correctly.");
+            throw std::runtime_error("Delta torque b invalid");
+        }
+
+        node->declare_parameter<double>(DELTA_TORQUE_C_PARAM);
+        delta_torque_c_ = node->get_parameter(DELTA_TORQUE_C_PARAM).as_double();
+        if (std::isnan(delta_torque_c_)) {
+            RCLCPP_ERROR(this->logger_, "Could not read delta torque c correctly.");
+            throw std::runtime_error("Delta torque c invalid");
+        }
+        RCLCPP_INFO(this->logger_, "Delta torque curve: tau_delta_bar =  %f * delta_M + %f * M_bar + %f", delta_torque_a_, delta_torque_b_, delta_torque_c_);
     }
 
 private:

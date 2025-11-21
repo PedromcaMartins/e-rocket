@@ -31,11 +31,6 @@ procs:
     autostart: false
     stop: SIGINT
 
-  SITL_ROS_Baseline:
-    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket sitl_no_feedback_baseline.launch.py"
-    autostart: false
-    stop: SIGINT
-
   SITL_SIMULINK_Baseline:
     shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket sitl_simulink_baseline.launch.py"
     autostart: false
@@ -43,11 +38,6 @@ procs:
 
   Offboard_Generic:
     shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket offboard_computer_generic.launch.py"
-    autostart: false
-    stop: SIGINT
-
-  SITL_ROS_Generic:
-    shell: /bin/bash -c "source /opt/ros/jazzy/setup.bash && source install/local_setup.bash && ros2 launch erocket sitl_no_feedback_generic.launch.py"
     autostart: false
     stop: SIGINT
 

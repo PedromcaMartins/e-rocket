@@ -11,7 +11,7 @@ namespace frame_transforms = erocket::frame_transforms;
 struct PositionPIDControllerOutput {
     Eigen::Vector3d desired_acceleration;
     Eigen::Vector3d desired_attitude;
-    double desired_thrust;
+    double u3;
 };
 
 class PositionPIDController
@@ -87,7 +87,7 @@ public:
         auto feed_forward_ref  = setpoint.acceleration;
 
         Eigen::Vector3d desired_acceleration, desired_attitude;
-        double desired_thrust;
+        double u3;
 
         // Compute the position error and velocity error using the path desired position and velocity
         Eigen::Vector3d error_p = setpoint.position - position;
@@ -115,7 +115,7 @@ public:
         Eigen::Vector3d r3d;
 
         /* Compute the normalized thrust and r3d vector */
-        desired_thrust = vehicle_constants_->mass_of_system_ * desired_acceleration.norm();
+        u3 = vehicle_constants_->mass_of_system_ * desired_acceleration.norm();
 
         /* Compute the rotation matrix about the Z-axis */
         RzT << cos(yaw), sin(yaw), 0.0,
@@ -136,7 +136,7 @@ public:
         output_ = PositionPIDControllerOutput{
             desired_acceleration,
             desired_attitude,
-            desired_thrust
+            u3
         };
 
         publish_position_controller_debug();
@@ -188,7 +188,7 @@ private:
         msg.desired_attitude[0] = frame_transforms::radians_to_degrees(output_.desired_attitude[0]);
         msg.desired_attitude[1] = frame_transforms::radians_to_degrees(output_.desired_attitude[1]);
         msg.desired_attitude[2] = frame_transforms::radians_to_degrees(output_.desired_attitude[2]);
-        msg.desired_thrust = output_.desired_thrust;
+        msg.u3 = output_.u3;
 
         debug_publisher_->publish(msg);
     }

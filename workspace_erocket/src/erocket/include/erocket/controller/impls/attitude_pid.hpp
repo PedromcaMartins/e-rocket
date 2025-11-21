@@ -6,23 +6,21 @@
 
 #include <erocket/controller/state.hpp>
 #include <erocket/controller/setpoint.hpp>
+#include <erocket/controller/impls/position_pid.hpp>
+#include <erocket/vehicle_constants.hpp>
+#include <erocket/controller/allocator.hpp>
 
 using erocket::frame_transforms::radians_to_degrees;
-
-struct AttitudePIDControllerOutput {
-    double inner_servo_tilt_angle;
-    double outer_servo_tilt_angle;
-    double delta_motor_pwm;
-};
 
 class AttitudePIDController
 {
 public:
-    AttitudePIDController(rclcpp::Node* node, rclcpp::QoS qos, std::shared_ptr<StateAggregator> state_aggregator, std::shared_ptr<SetpointAggregator> setpoint_aggregator): 
+    AttitudePIDController(rclcpp::Node* node, rclcpp::QoS qos, std::shared_ptr<StateAggregator> state_aggregator, std::shared_ptr<SetpointAggregator> setpoint_aggregator, std::shared_ptr<VehicleConstants> vehicle_constants): 
         state_aggregator_(state_aggregator),
         setpoint_aggregator_(setpoint_aggregator),
         attitude_controller_debug_publisher_(node->create_publisher<AttitudeControllerDebug>(CONTROLLER_ATTITUDE_DEBUG_TOPIC, qos)),
-        clock_(std::make_shared<rclcpp::Clock>(RCL_ROS_TIME))
+        clock_(std::make_shared<rclcpp::Clock>(RCL_ROS_TIME)),
+        vehicle_constants_{vehicle_constants}
     {
         node->declare_parameter<double>(CONTROLLER_ATTITUDE_FREQUENCY_HERTZ_PARAM);
         double controller_freq = node->get_parameter(CONTROLLER_ATTITUDE_FREQUENCY_HERTZ_PARAM).as_double();
@@ -71,7 +69,7 @@ public:
         * @brief Compute the control input based on the PID controller formula
         * @return The computed control input
     */
-    AttitudePIDControllerOutput compute() {
+    AllocatorInput compute(double u3) {
         auto state = state_aggregator_->get_state();
         auto setpoint = setpoint_aggregator_->get_attitude_setpoint();
 
@@ -87,17 +85,20 @@ public:
         Eigen::Vector3d p_term = k_p_.cwiseProduct(error_p);
         Eigen::Vector3d d_term = k_d_.cwiseProduct(state.angular_rate);
         Eigen::Vector3d i_term = k_i_.cwiseProduct(integrated_error_);
-        Eigen::Vector3d tilt_angle = p_term + d_term + i_term;
+        tau_bar_ = p_term + d_term + i_term;
 
         // Apply controller active flags
         for (int i = 0; i < 3; ++i) {
             if (!controller_active_[i]) {
-                tilt_angle[i] = 0.0;
+                tau_bar_[i] = 0.0;
             }
         }
-        output_.inner_servo_tilt_angle = tilt_angle[0];
-        output_.outer_servo_tilt_angle = tilt_angle[1];
-        output_.delta_motor_pwm = tilt_angle[2];
+
+        output_.thrust_vector[0] =   (vehicle_constants_->moment_of_inertia_ / vehicle_constants_->length_of_pendulum_) * tau_bar_[1];
+        output_.thrust_vector[1] = - (vehicle_constants_->moment_of_inertia_ / vehicle_constants_->length_of_pendulum_) * tau_bar_[0];
+        output_.thrust_vector[2] = u3;
+
+        output_.tau_delta_bar = tau_bar_[2];
 
         publish_debug();
         return output_;
@@ -117,7 +118,8 @@ private:
     Eigen::Vector3d k_i_;
     Eigen::Vector3d integrated_error_ = Eigen::Vector3d::Zero();
     double dt_;
-    AttitudePIDControllerOutput output_;
+    AllocatorInput output_;
+    Eigen::Vector3d tau_bar_;
 
     double origin_yaw_ = 0.0;
 
@@ -125,6 +127,7 @@ private:
 
     rclcpp::Clock::SharedPtr clock_;
     rclcpp::Logger logger_ = rclcpp::get_logger("attitude_pid_controller");
+    std::shared_ptr<VehicleConstants> vehicle_constants_;
 
     void publish_debug() {
         auto state = state_aggregator_->get_state();
@@ -136,17 +139,15 @@ private:
         msg.roll_angle = radians_to_degrees(state.euler_angles[0]);
         msg.roll_angular_velocity = radians_to_degrees(state.angular_rate[0]);
         msg.roll_angle_setpoint = radians_to_degrees(setpoint.attitude[0]);
-        msg.roll_inner_servo_tilt_angle = radians_to_degrees(output_.inner_servo_tilt_angle);
 
         msg.pitch_angle = radians_to_degrees(state.euler_angles[1]);
         msg.pitch_angular_velocity = radians_to_degrees(state.angular_rate[1]);
         msg.pitch_angle_setpoint = radians_to_degrees(setpoint.attitude[1]);
-        msg.pitch_outer_servo_tilt_angle = radians_to_degrees(output_.outer_servo_tilt_angle);
 
         msg.yaw_angle = radians_to_degrees(state.euler_angles[2]);
         msg.yaw_angular_velocity = radians_to_degrees(state.angular_rate[2]);
         msg.yaw_angle_setpoint = radians_to_degrees(setpoint.attitude[2] + origin_yaw_);
-        msg.yaw_delta_motor_pwm = radians_to_degrees(output_.delta_motor_pwm);
+        Eigen::Map<Eigen::Vector3d>(msg.tau_bar.data()) = tau_bar_;
         
         attitude_controller_debug_publisher_->publish(msg);
     }

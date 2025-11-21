@@ -35,7 +35,7 @@ public:
     vehicle_constants_{std::make_shared<VehicleConstants>(this)},
     state_aggregator_{std::make_unique<StateAggregator>(this, qos_)},
     setpoint_aggregator_{std::make_unique<SetpointAggregator>(this, qos_)},
-    attitude_controller_{this, qos_, state_aggregator_, setpoint_aggregator_},
+    attitude_controller_{this, qos_, state_aggregator_, setpoint_aggregator_, vehicle_constants_},
     position_controller_{this, qos_, vehicle_constants_, state_aggregator_, setpoint_aggregator_},
     allocator_{std::make_unique<Allocator>(this, qos_, vehicle_constants_)},
 
@@ -86,16 +86,7 @@ private:
 void BaselinePIDController::controller_callback()
 {
     if (flight_mode_ < FlightMode::ARM) {
-        allocator_->compute_servo_allocation({
-            0.0,
-            0.0
-        });
-
-        allocator_->compute_motor_allocation({
-            0.0, 
-            NAN
-        });
-
+        allocator_->compute_allocation_neutral();
         return;
     }
 
@@ -138,21 +129,12 @@ void BaselinePIDController::controller_callback()
         if (position_controller_.is_controller_active()) {
             auto position_output = position_controller_.compute();
             setpoint_aggregator_->set_attitude_setpoint({position_output.desired_attitude});
-            average_motor_thrust_newtons = position_output.desired_thrust;
+            average_motor_thrust_newtons = position_output.u3;
         }
 
-        auto attitude_output = attitude_controller_.compute();
+        auto allocator_input = attitude_controller_.compute(average_motor_thrust_newtons);
 
-        allocator_->compute_servo_allocation({
-            attitude_output.inner_servo_tilt_angle,
-            attitude_output.outer_servo_tilt_angle
-        });
-
-        // Allocate motor thrust based on the computed torque
-        allocator_->compute_motor_allocation({
-            attitude_output.delta_motor_pwm, 
-            average_motor_thrust_newtons
-        });
+        allocator_->compute_allocation(allocator_input);
         return;
     }
 

@@ -1,0 +1,66 @@
+rosbag2_bagfile_information:
+  version: 9
+  storage_identifier: mcap
+  duration:
+    nanoseconds: 15539715245
+  starting_time:
+    nanoseconds_since_epoch: 1763566883975306931
+  message_count: 1556
+  topics_with_message_count:
+    - topic_metadata:
+        name: /offboard/attitude_controller/debug
+        type: erocket/msg/AttitudeControllerDebug
+        serialization_format: cdr
+        offered_qos_profiles:
+          - history: unknown
+            depth: 0
+            reliability: best_effort
+            durability: volatile
+            deadline:
+              sec: 9223372036
+              nsec: 854775807
+            lifespan:
+              sec: 9223372036
+              nsec: 854775807
+            liveliness: automatic
+            liveliness_lease_duration:
+              sec: 9223372036
+              nsec: 854775807
+            avoid_ros_namespace_conventions: false
+        type_description_hash: RIHS01_9e234846a787bd782a6e94c56afb6b3346c9609bddf4a03d959f4d17d13acf71
+      message_count: 778
+    - topic_metadata:
+        name: /offboard/position_controller/debug
+        type: erocket/msg/PositionControllerDebug
+        serialization_format: cdr
+        offered_qos_profiles:
+          - history: unknown
+            depth: 0
+            reliability: best_effort
+            durability: volatile
+            deadline:
+              sec: 9223372036
+              nsec: 854775807
+            lifespan:
+              sec: 9223372036
+              nsec: 854775807
+            liveliness: automatic
+            liveliness_lease_duration:
+              sec: 9223372036
+              nsec: 854775807
+            avoid_ros_namespace_conventions: false
+        type_description_hash: RIHS01_e1aba820c513f6b795e854da51fd131bc656d21e4d95734dc5fdc0cf4618d40b
+      message_count: 778
+  compression_format: ""
+  compression_mode: ""
+  relative_file_paths:
+    - rosbag2_2025_11_19-15_39_41_0.mcap
+  files:
+    - path: rosbag2_2025_11_19-15_39_41_0.mcap
+      starting_time:
+        nanoseconds_since_epoch: 1763566883975306931
+      duration:
+        nanoseconds: 15539715245
+      message_count: 1556
+  custom_data: ~
+  ros_distro: jazzy
